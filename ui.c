@@ -212,7 +212,7 @@ gboolean daemon_pipe_input (GIOChannel *source,
             s = SONG(ll);
             if (s->marked && !s->no_data) {
                 /* Change the tree view icon and selection view, if 
-                 * necessary */
+                 * necessary. Note that song paths are latin-1 */
                 explore_update_file_pm(s->path, PM_FILE_SONG);
                 if (!update && g_list_find(selected_songs, s)) {
                     update_selection_area();
@@ -223,6 +223,7 @@ gboolean daemon_pipe_input (GIOChannel *source,
         }
         break;
     case ANIMATE_START:
+        /* Animate the filename with the given path (latin-1) */
         buffer[len] = '\0';
         if (!destroy_window_flag)
             explore_animate_pending(buffer + sizeof(ipc_type));

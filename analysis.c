@@ -340,6 +340,7 @@ gboolean ui_pipe_input (GIOChannel *source,
 
 void analyze(char * fname) {
     FILE * f;
+    gchar * utf8;
     wav_file wsfile;
     int result, i;
     char buffer[BUFFER_SIZE];
@@ -362,8 +363,12 @@ void analyze(char * fname) {
     }
 
     analyze_song = create_song();
-    song_set_path(analyze_song, fname);
-    file_info(fname, 
+
+    utf8 = strdup_to_utf8(fname);
+    song_set_path(analyze_song, utf8);
+    g_free(utf8);
+
+    file_info(analyze_song->path, 
               &is_song, 
               &analyze_song->checksum,
               &analyze_song->length,
@@ -832,7 +837,7 @@ void send_ui_percent (int percent) {
 
 void send_analyze_song_name ( void ) {
     char buffer[BUFFER_SIZE];
-    
+    char * utf8;
     if (!analyze_song)
         return;
     if (analyze_song->title && analyze_song->artist) {

@@ -119,6 +119,10 @@ int main( int argc, char *argv[] )
     }
 
 
+    /* Both daemon and UI app open an end of a pipe */
+    daemon_pipe_fd = open_pipe(DAEMON_PIPE);
+    ui_pipe_fd = open_pipe(UI_PIPE);
+
     if(mode == UI) {
         /* Make sure a daemon is running. If not, fork. */
         gboolean fork_daemon = FALSE;
@@ -146,10 +150,6 @@ int main( int argc, char *argv[] )
             }
         }
     }
-
-    /* Both daemon and UI app open an end of a pipe */
-    daemon_pipe_fd = open_pipe(DAEMON_PIPE);
-    ui_pipe_fd = open_pipe(UI_PIPE);
 
     if(mode == UI) {
         if (!app_exists("xmms")) {
@@ -180,8 +180,6 @@ int main( int argc, char *argv[] )
         set_selected_file(NULL, NULL, FALSE);
         gtk_main();
 
-        assert(g_hash_table_lookup(song_name_hash, "/home/cgroom/gjay/gjay/test/the_best_of_bob_dylan_volume_1/18_shelter_from_the_storm.ogg"));
-       
         save_prefs();
         write_data_file();
 
@@ -192,6 +190,9 @@ int main( int argc, char *argv[] )
             send_ipc(ui_pipe_fd, UNLINK_DAEMON_FILE);
             send_ipc(ui_pipe_fd, QUIT_IF_ATTACHED);
         }
+  
+        close(daemon_pipe_fd);
+        close(ui_pipe_fd);
     } else {
         /* Daemon process */
         /* Write pid to ~/.gjay/gjay.pid */
@@ -217,13 +218,13 @@ int main( int argc, char *argv[] )
             } 
         } 
         analysis_daemon();
-    }
 
-    if (daemon_pipe_fd > 0)
+        /* Daemon cleans up pipes on quit */
         close(daemon_pipe_fd);
-    if (ui_pipe_fd > 0)
         close(ui_pipe_fd);
-
+        unlink(DAEMON_PIPE);
+        unlink(UI_PIPE);
+    }
     return(0);
 }
 

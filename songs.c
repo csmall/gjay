@@ -415,8 +415,11 @@ static void write_song_data (FILE * f, song * s) {
     int k;
     assert(s);
     
-    fprintf(f, "<file path=\"%s\" repeats=\"%s\" not_song=\"f\">\n",
-            s->path, s->repeat_prev ? s->repeat_prev->path : "");
+    fprintf(f, "<file path=\"%s\" ", s->path);
+    if (s->repeat_prev)
+        fprintf(f, "repeats=\"%s\"", s->repeat_prev->path);
+    fprintf(f, ">\n");
+
     if (!s->repeat_prev) {
         if(s->artist)
             fprintf(f, "\t<artist>%s</artist>\n", s->artist);
@@ -446,7 +449,7 @@ static void write_song_data (FILE * f, song * s) {
 
 
 static void write_not_song_data (FILE * f, gchar * path) {
-    fprintf(f, "<file path=\"%s\" repeats=\"\" not_song=\"t\"></file>\n", path);
+    fprintf(f, "<file path=\"%s\" not_song=\"t\"></file>\n", path);
 }
 
 
@@ -545,8 +548,7 @@ void data_start_element  (GMarkupParseContext *context,
     switch(element) {
     case E_FILE:
         memset(state, 0x00, sizeof(song_parse_state));
-        
-        for (k = 0; k < 3; k++) {
+        for (k = 0; attribute_names[k]; k++) {
             switch(get_element((char *) attribute_names[k])) {
             case E_PATH:
                 path = (gchar *) attribute_values[k];
@@ -594,8 +596,10 @@ void data_start_element  (GMarkupParseContext *context,
         state->s->no_color = FALSE;
         break;
     case E_FREQ:
-        if (get_element((gchar *) attribute_names[0]) == E_VOL_DIFF) 
-            state->s->volume_diff = strtod(attribute_values[0], NULL);
+        for (k = 0; attribute_names[k]; k++) {
+            if (get_element((gchar *) attribute_names[k]) == E_VOL_DIFF) 
+                state->s->volume_diff = strtod(attribute_values[0], NULL);
+        }
         /* Fall into next case */
     case E_BPM:
         state->s->no_data = FALSE;

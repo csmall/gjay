@@ -33,7 +33,7 @@ typedef enum {
 } pref_daemon_action;
 
 typedef struct {
-    /* Root directory */
+    /* Root directory (latin1) */
     gchar   * song_root_dir;
     gboolean  extension_filter; /* Do we only get *.{mp3,ogg,wav} files */
 
@@ -60,7 +60,6 @@ typedef struct {
     float brightness;
     float bpm;
     float freq;
-    float depth;
     float rating; 
     float path_weight;
 

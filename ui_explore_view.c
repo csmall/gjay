@@ -126,6 +126,13 @@ NULL);
 }
 
 
+/** 
+ * Change the root of the user-visible directory tree. We will not destroy
+ * old song information, but only mark those songs which are visible in the
+ * tree.
+ * 
+ * Note that root_dir is UTF8 encoded
+ */
 void explore_view_set_root ( char * root_dir ) {
     GList * llist;
     char buffer[BUFFER_SIZE];
@@ -183,7 +190,7 @@ void explore_view_set_root ( char * root_dir ) {
      * a stack. In spare cycles, we'll process these files properly for
      * list display and requesting daemon processing */
     ftw(root_dir, tree_walk, 10);
-
+    
     gtk_idle_add(tree_add_idle, NULL);
  
     /* Run idle loop once to force display of root dir */

@@ -1,12 +1,11 @@
 0.2.3 - December 1, 2002
 - Song data, prefs stored in XML
-- Allow user to double-click on a single song to play it
 - Bug: analysis updates weren't showing up for the selected song
 - Check for duplicate songs such that analysis won't be duplicated. Both
   show up in file view.
 - Assume Latin1 encoding for song names such that we can convert them to 
   UTF8 for user-visible display (prevents Pango from freaking out)
-- Nice the analysis daemon 
+- Nice the analysis daemon to 19
 
 0.2.2 - November 24, 2002
 - Minor fixes

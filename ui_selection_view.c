@@ -353,7 +353,7 @@ static void set_selected_files (GList * files) {
 static gboolean play_selected (GtkWidget *widget,
                                GdkEventButton *event,
                                gpointer user_data) {
-    play_files(selected_files);
+    play_songs(selected_songs);
     return TRUE;
 }
 

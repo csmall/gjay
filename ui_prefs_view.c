@@ -243,9 +243,9 @@ static void set_base_dir ( GtkButton *button,
         send_ipc(ui_pipe_fd, CLEAR_ANALYSIS_QUEUE);
     }
 
-    prefs.song_root_dir = g_strdup(base_dir);
+    prefs.song_root_dir = g_strdup(base_dir); 
     
-    explore_view_set_root(prefs.song_root_dir);
+    explore_view_set_root(base_dir);
     if (gtk_notebook_get_current_page(GTK_NOTEBOOK(notebook)) !=
         TAB_EXPLORE) {
         gtk_notebook_set_current_page(GTK_NOTEBOOK(notebook), TAB_EXPLORE);

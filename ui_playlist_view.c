@@ -524,9 +524,11 @@ static void playlist_window_play ( GtkButton *button,
                                    gpointer user_data ) {
     GList * fnames = NULL, * list;
     for (list = (GList *) user_data; list; list = g_list_next(list)) {
-        fnames = g_list_append(fnames, ((song *) list->data)->path);
+        fnames = g_list_append(fnames, strdup_to_latin1(SONG(list)->path));
     }
     play_files(fnames);
+    for (list = g_list_first(fnames); list; list = g_list_next(list)) 
+        g_free(list->data);
     g_list_free(fnames);
 }
 
