@@ -1,3 +1,7 @@
+0.2.4 - December ?, 2002
+- Bug fix: Command line options are more forgiving
+- Bug fix: Still had problems with internationalized decimal format
+
 0.2.3 - December 3, 2002
 - Song data, prefs stored in XML
 - Periodically write song data to disk, if it has changed

@@ -44,8 +44,8 @@ $(TARGET): $(OBJECTS)
 
 install: $(TARGET)
 	$(INSTALL) 755    gjay $(PREFIX)/bin/gjay 
-	$(INSTALL) 644    icons $(PREFIX)/share/gjay/icons
-	$(INSTALL) 755 -d icons/*.png $(PREFIX)/share/gjay/icons/
+	$(INSTALL) 644    icons/* $(PREFIX)/share/gjay/icons/
+	gzip -9 < doc/gjay.1 > $(PREFIX)/share/man/man1/gjay.1.gz
 
 clean:
 	-rm -f *.a *.o *~ data/*~ core $(TARGET) 

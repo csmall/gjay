@@ -81,11 +81,19 @@ int main( int argc, char *argv[] )
     GtkWidget * widget;
     struct stat stat_buf;
     FILE * f;
-    gint i;
+    gint i, k;
+    struct lconv * env;
     
-    /* Use '.' as decimal separator */
+    /* Insist that '.' be the decimal separator */
     setlocale(LC_NUMERIC, "C");
-
+    env = localeconv();
+    if (*env->decimal_point != '.') {
+        setlocale(LC_ALL, "en_US");
+        if (*env->decimal_point != '.') {
+            fprintf(stderr, "Sorry, unable to set environment for proper decimal handling.\nPlease email a report to cgroom@users.sourceforge.net\n");
+        }
+    }
+    
     mode = UI;
     verbosity = 0;
     
@@ -95,17 +103,19 @@ int main( int argc, char *argv[] )
             printf("USAGE: gjay [--help] [-h] [-d] [-v [-v]]\n" \
                    "\t--help, -h  :  Display this help message\n" \
                    "\t-d          :  Run as daemon\n" \
-                   "\t-v -v       :  Verbose mode. Repeat for way too much text\n");
+                   "\t-v          :  Verbose mode. Repeat for way too much text\n");
             return 0;
         }
-        if (strncmp(argv[i], "-d", 2) == 0) {
-            mode = DAEMON_DETACHED;
-        }
-        if (strncmp(argv[i], "-v", 2) == 0) {
-            verbosity++;
+        if (argv[i][0] == '-') {
+            for (k = 1; argv[i][k]; k++) {
+                if (argv[i][k] == 'd')
+                    mode = DAEMON_DETACHED;
+                if (argv[i][k] == 'v')
+                    verbosity++;
+            }
         }
     }
-
+    
     /* Make sure there is a "~/.gjay" directory */
     snprintf(buffer, BUFFER_SIZE, "%s/%s", getenv("HOME"), GJAY_DIR);
     if (stat(buffer, &stat_buf) < 0) {

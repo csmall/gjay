@@ -417,9 +417,16 @@ static void write_song_data (FILE * f, song * s) {
 
     assert(s);
 
-    fprintf(f, "<file path=\"%s\" ", s->path);
-    if (s->repeat_prev)
-        fprintf(f, "repeats=\"%s\"", s->repeat_prev->path);
+    escape = g_markup_escape_text(s->path, strlen(s->path));
+    fprintf(f, "<file path=\"%s\" ", escape);
+    g_free(escape);
+
+    if (s->repeat_prev) {
+        escape = g_markup_escape_text(s->repeat_prev->path, 
+                                      strlen(s->repeat_prev->path));
+        fprintf(f, "repeats=\"%s\"", escape);
+        g_free(escape);
+    }
     fprintf(f, ">\n");
 
     if (!s->repeat_prev) {
