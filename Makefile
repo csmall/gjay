@@ -57,7 +57,7 @@ doc/gjay.1.gz: doc/gjay.1
 
 install: $(TARGET) doc
 	$(INSTALL) 755    gjay $(PREFIX)/bin/gjay 
-	$(INSTALL) 755 -d $(PREFIX)/share/gjay/icons/
+	$(INSTALL) 755 -d $(PREFIX)/share/gjay/icons
 	$(INSTALL) 644    icons/*.png $(PREFIX)/share/gjay/icons/
 	$(INSTALL) 755 -d $(PREFIX)/share/man/man1
 	$(INSTALL) 644    doc/gjay.1.gz $(PREFIX)/share/man/man1/gjay.1.gz
