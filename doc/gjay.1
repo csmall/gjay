@@ -1,0 +1,51 @@
+.\" GJay (C) 2002 Chuck Groom <cgroom@users.sourceforge.net>
+.\" This manpage written by Chuck Groom 
+.\"
+.TH GJay 
+.SH NAME
+gjay \- organizes music collections 
+.SH SYNOPSIS
+.B gjay 
+.B [ \-d\ ]
+.B [ \-v\ ]
+.B [ \-h\ ]
+.B [ \--help\ ]
+
+.PP
+.SH DESCRIPTION
+.I gjay
+(Gtk+ DJ) analyzes and categorizes collections of MP3, OGG, and WAV music
+files so that interesting playlists can be generated. Each song is assigned
+characteristics (BPM and spectrum) and user-assigned attributes
+(rating and color). "Color" is just a handy way for a user to describe
+a song.
+
+GJay has both a
+user-visible interface and a background processing component. The user-visible
+component is used to select the base music directory, set song
+attributes, and generate playlists. The background component (a daemon)
+analyzes songs. 
+
+Song analysis can take a while. After the base music directory has been
+set and the daemon has started its analysis, it is possible to quit
+the user interface portion of the program and allow the daemon to
+continue in the background. GJay can be started in daemon mode by 
+passing -d, in which case it runs until song analysis is complete.
+
+.LP
+.SH OPTIONS
+.IP -d
+Run just analysis daemon
+.IP "-v"
+Increase output verbosity. -v -v will increase it even more.
+.IP "-h, --help"
+Display help, which is like this only less so 
+  
+  
+.SH AUTHOR
+Written by Chuck Groom <cgroom@users.sourceforge.net>
+
+.SH COPYRIGHT
+Copyright (c) 2002 by Chuck Groom. Released under the terms of the
+GPL.
+.\" end of file
