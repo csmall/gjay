@@ -1,5 +1,5 @@
 /**
- * GJay, copyright (c) 2002 Chuck Groom
+ * GJay, copyright (c) 2002-2003 Chuck Groom
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -101,14 +101,25 @@ void        song_set_color_pixbuf  ( song * s);
 void        song_set_repeats       ( song * s, 
                                      song * original );
 void        song_set_repeat_attrs  ( song * s);
-void        file_info              ( gchar    * path,
-                                     gboolean * is_song,
-                                     guint32  * inode,
-                                     gint     * length,
-                                     gchar   ** title,
-                                     gchar   ** artist,
-                                     gchar   ** album,
+void        file_info              ( gchar          * path,
+                                     gboolean       * is_song,
+                                     guint32        * inode,
+                                     gint           * length,
+                                     gchar         ** title,
+                                     gchar         ** artist,
+                                     gchar         ** album,
                                      song_file_type * type );
+/* There are two factors for the related-ness of two songs;
+ * how similiar their parameters are, and how important these
+ * similarities are we. We model this like particle
+ * attraction/repulsion (f = m1 * m2 * d^2), where "mass" means the 
+ * importance of each song's attributes and "d" is the attraction
+ * or repulsion (note that the attraction of a -> b = b-> a)
+ */
+gdouble     song_force             ( song * a, song  * b );
+gdouble     song_attraction        ( song * a, song  * b );
+gdouble     song_mass              ( song * s );
+
 
 void        write_data_file        ( void );
 int         write_dirty_song_timeout ( gpointer data );

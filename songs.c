@@ -879,3 +879,126 @@ int write_dirty_song_timeout ( gpointer data ) {
 }
 
 
+gdouble song_force ( song * a, song  * b ) {
+    gdouble ma, mb, attr, sign = 1;
+    ma = song_mass(a);
+    mb = song_mass(b);
+    attr = song_attraction(a, b) * 10;
+    if (attr < 0)
+        sign = -1;
+    return (ma * mb * attr * attr * sign);
+}
+
+
+/* Attraction is a value -1...1 for the affinity between A and B,
+   with criteria weighed by prefs */
+gdouble song_attraction ( song * a, song  * b ) {
+    gdouble a_hue, a_brightness, a_freq, a_bpm, a_path;
+    gdouble d, ba, bb, v_diff, a_max, attraction = 0;
+    gint i;
+
+    a_max = 
+        (prefs.hue + 
+         prefs.brightness +
+         prefs.freq + 
+         prefs.bpm +
+         prefs.path_weight);
+    
+    a_hue = prefs.hue / a_max;
+    a_brightness = prefs.brightness / a_max;
+    a_freq = prefs.freq / a_max;
+    a_bpm = prefs.bpm / a_max;
+    a_path = prefs.path_weight / a_max;
+
+    if (!(a->no_color || b->no_color)) {
+        d = fabsl(a->color.H - b->color.H);
+        if (d > M_PI) {
+            d = 2.0 * M_PI - d;
+        }
+        /* d is 0...PI, where 0 is more similiar */
+        d *= (2.0 / M_PI);
+        /* d is 0...2 */
+        d = 1.0 - d;
+        /* d is -1...1, where 1 is more similiar */
+        attraction += d *  a_hue;
+
+        d = 1.0 - fabsl(a->color.B - b->color.B) * 2.0;
+        /* d is -1 ... 1, where 1 is more similiar*/
+        attraction += d * a_brightness;
+    }
+
+    if (!(a->bpm_undef || b->bpm_undef)) {
+        ba = MIN(MAX(MIN_BPM, a->bpm), MAX_BPM) - MIN_BPM;
+        bb = MIN(MAX(MIN_BPM, b->bpm), MAX_BPM) - MIN_BPM;
+        d = fabsl(ba - bb) / ((gdouble) (MAX_BPM - MIN_BPM));
+        /* d is 0...1, 0 is most similar */
+        d = 1.0 - d * 2.0;
+        /* d is -1 ... 1 */
+        attraction += d * a_bpm;
+    }
+
+    if (!(a->no_data || b->no_data)) {
+        for (d = 0, i = 0; i < NUM_FREQ_SAMPLES; i++) {
+            d += fabsl(a->freq[i] - b->freq[i]);
+            if (i < NUM_FREQ_SAMPLES - 1) {
+                d += fabsl(a->freq[i] - b->freq[i + 1]) / 2.0;
+                d += fabsl(a->freq[i + 1] - b->freq[i]) / 2.0;
+            }
+            if (i > 0) {
+                d += fabsl(a->freq[i] - b->freq[i - 1]) / 2.0;  
+                d += fabsl(a->freq[i - 1] - b->freq[i]) / 2.0;
+            }
+        }
+        /* d is 0...~20.0. Most similar is 0, medium similar are about 2 */
+        d = 1.0 - (d / 2.5);
+        d = MIN(MAX(d, -1.0), 1.0);
+        /* d is now -1...1, 1 is most similar*/
+        
+        /* We adjust the freq val by the volume diff. The closer to 0, the 
+           more similar the two songs are. Values over 1 are dissimilar. */
+        v_diff = (MAX(a->volume_diff, b->volume_diff) - 
+                  MIN(a->volume_diff, b->volume_diff));
+        v_diff = MAX(-1.0, 1.0 - v_diff);
+        d = 0.75 * d + 0.25 * v_diff;
+        attraction += d * a_freq;
+    }
+
+    if (tree_depth) {
+        d = explore_files_depth_distance(a->path, b->path);
+        if (d >= 0) {
+            d = 1.0 - 2.0 * (d / tree_depth);
+            /* d = -1 ... 1, where 1 is more similiar */
+            attraction += d * a_path;
+        }
+    }
+    return attraction;
+}
+
+
+
+/* Every song has a mass 0...1.0 */
+gdouble song_mass ( song * s ) {
+    gdouble max_mass = 0, song_mass = 0;
+    max_mass = 
+        prefs.hue + 
+        prefs.brightness +
+        prefs.freq + 
+        prefs.bpm +
+        prefs.path_weight;
+
+    assert(max_mass != 0);
+
+    song_mass += prefs.path_weight;
+    if (!s->no_data) {
+        song_mass += prefs.freq;
+    }
+    if (!s->no_color) {
+        song_mass += prefs.hue;
+        song_mass += prefs.brightness;
+    }
+    if (!s->bpm_undef) {
+        song_mass += prefs.bpm;
+    }
+    
+    return (song_mass / max_mass);
+}

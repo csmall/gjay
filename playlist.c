@@ -29,7 +29,7 @@
 
 static song * current;
 static song * first;
-static gdouble distance      ( song * s1 );
+static gdouble distance      ( song * a, song * b );
 static void remove_repeats   ( song * s, GList * list);
 
 /* How much does brightness factor into matching two songs? */
@@ -46,8 +46,9 @@ static void remove_repeats   ( song * s, GList * list);
  */
 GList * generate_playlist ( guint minutes ) {
     GList * working, * final, * rand_list, * list;
-    gint i, list_time, l, r, min_distance_index, len;
+    gint i, list_time, l, r, max_force_index, len;
     gdouble min_distance, s_distance;
+    gdouble max_force, s_force;
     song * s, * repeat;
     time_t t;
 
@@ -117,14 +118,15 @@ GList * generate_playlist ( guint minutes ) {
         }
     } 
     if (prefs.start_color || (prefs.start_selected && !first)) {
-        for (min_distance = 10000, list = g_list_first(working); list; 
+        for (min_distance = 0, list = g_list_first(working); list; 
              list = g_list_next(list)) {
             s = SONG(list);
             if (!s->no_color) {
-                s_distance = MIN(fabs(prefs.color.H - s->color.H),
-                                 (MIN(prefs.color.H, s->color.H)  + 2*M_PI) -
-                                 MAX(prefs.color.H, s->color.H)) +
-                    BRIGHTNESS_FACTOR * fabs(prefs.color.B - s->color.B);
+                s_distance = 
+                    MIN(fabs(prefs.color.H - s->color.H),
+                        ((MIN(prefs.color.H, s->color.H)  + 2*M_PI) -
+                         (MAX(prefs.color.H, s->color.H)) +
+                         BRIGHTNESS_FACTOR * fabs(prefs.color.B - s->color.B)));
                 if ((s_distance < min_distance) || 
                     ((s_distance == min_distance) && (rand() % 2))) {
                     min_distance = s_distance;
@@ -161,8 +163,8 @@ GList * generate_playlist ( guint minutes ) {
         /* Divide working list into { random set, leftover }. Then 
          * pick the best song in random set. */
         rand_list = NULL;
-        min_distance = 10000;
-        min_distance_index = -1;
+        max_force = -10000;
+        max_force_index = -1;
         l = g_list_length(working);
         r = MAX(1, (l * prefs.variance) / MAX_CRITERIA );
         /* Reduce copy of working to size of random list */
@@ -173,13 +175,17 @@ GList * generate_playlist ( guint minutes ) {
             rand_list = g_list_append(rand_list, s);
             len--;
             /* Find the closest song */
-            s_distance = distance(s);
-            if (s_distance < min_distance) {
-                min_distance = s_distance;
-                min_distance_index = g_list_length(rand_list) - 1;
+            if (prefs.wander) 
+                s_force = song_force(s, current);
+            else
+                s_force = song_force(s, first);
+
+            if (s_force > max_force) {
+                max_force = s_force;
+                max_force_index = g_list_length(rand_list) - 1;
             }
         }
-        current = SONG(g_list_nth(rand_list, min_distance_index));
+        current = SONG(g_list_nth(rand_list, max_force_index));
         list_time += current->length;
         final = g_list_append(final, current);
         rand_list = g_list_remove(rand_list, current);
@@ -201,105 +207,6 @@ GList * generate_playlist ( guint minutes ) {
                (int) (time(NULL) - t));
     
     return final;
-}
-
-
-/* Calculate "distance" between a song and "current" or "first", depending
- * on prefs. There are four factors:
- *  - Hue
- *  - Brightness
- *  - BPM
- *  - Freq
- *  - Sorting distance
- */
-static gdouble distance ( song * s1 ) {
-    gdouble total_criteria, criteria;
-    gdouble d, distance = 0;
-    gint i, path_dist;
-    song * s2;
-    
-    total_criteria = 
-        prefs.hue + 
-        prefs.brightness +
-        prefs.freq + 
-        prefs.bpm +
-        prefs.path_weight;
-    criteria = 0;
-
-    if (prefs.wander) 
-        s2 = current;
-    else
-        s2 = first;
-
-    if (!((s1->no_color) || (s2->no_color))) {
-        criteria = prefs.hue;
-        d = fabsl(s1->color.H - s2->color.H);
-        if (d > M_PI) {
-            if (s1->color.H > s2->color.H) 
-                d = fabsl(s2->color.H + 2*M_PI - s1->color.H);
-            else
-                d = fabsl(s1->color.H + 2*M_PI - s2->color.H);
-        }
-        d *=  prefs.hue / (M_PI);
-        distance += d;
-    } else {
-        /* Add half a hit against this combo */
-        criteria += prefs.hue / 2.0;
-        distance += prefs.hue / 2.0;
-    }
-
-    if (!(s1->no_color || s2->no_color)) {
-        criteria +=  prefs.brightness;
-        d = fabsl(s1->color.B - s2->color.B);
-        d *= prefs.brightness;
-        distance += d;
-    } else {
-        /* Add half a hit against this combo */
-        criteria +=  prefs.brightness / 2;
-        distance +=  prefs.brightness / 2;
-    }
-
-
-    criteria += prefs.bpm;
-    if (s1->bpm_undef || s2->bpm_undef) {
-        if (s1->bpm_undef && s2->bpm_undef)
-            d = 0;
-        else 
-            d = MAX_CRITERIA;
-    } else {
-        d = fabsl(s1->bpm - s2->bpm);
-        d *= prefs.bpm / ((gdouble) (MAX_BPM - MIN_BPM));
-    }
-    distance += d;
-   
-    criteria += prefs.freq;
-    for (d = 0, i = 0; i < NUM_FREQ_SAMPLES; i++) {
-        d += fabsl(s1->freq[i] - s2->freq[i]);
-        if (i < NUM_FREQ_SAMPLES - 1) {
-            d += fabsl(s1->freq[i] - s2->freq[i + 1])/2.0;  
-            d += fabsl(s1->freq[i + 1] - s2->freq[i])/2.0;  
-        }
-        if (i > 0) {
-            d += fabsl(s1->freq[i] - s2->freq[i - 1])/2.0;  
-            d += fabsl(s1->freq[i - 1] - s2->freq[i])/2.0;  
-        }
-    }
-    d /= 5.0;
-    d *= 1 + (MAX(s1->volume_diff, s2->volume_diff) - MIN(s1->volume_diff, s2->volume_diff))/10.0;
-    d *= prefs.freq;
-    distance += d;
-    
-    if (tree_depth) {
-        path_dist = explore_files_depth_distance(s1->path, s2->path);
-        if (path_dist >= 0) {
-            criteria += prefs.path_weight;
-            distance += PATH_DIST_FACTOR * (
-                (prefs.path_weight * ((float) path_dist)) / 
-                ((float) tree_depth));
-        }
-    }
-    
-    return distance * (total_criteria / criteria);
 }
 
 
