@@ -1,0 +1,75 @@
+.\" GJay (C) 2002-2003 Chuck Groom <cgroom@users.sourceforge.net>
+.\" This manpage written by Chuck Groom 
+.\"
+.TH GJay 
+.SH NAME
+gjay \- organizes music collections 
+.SH SYNOPSIS
+.B gjay 
+.B [ \-dvhpux\ ]
+.B [ \--help\ ]
+.B [ \-c color\ ] 
+.B [ \-l length\ ]
+.B [ \-f filename\ ]
+
+.PP
+.SH DESCRIPTION
+.I gjay
+(Gtk+ DJ) analyzes and categorizes collections of MP3, OGG, and WAV music
+files so that interesting playlists can be generated. Each song is assigned
+characteristics (BPM and spectrum) and user-assigned attributes
+(rating and color). "Color" is just a handy way for a user to describe
+a song.
+
+GJay has both a user-visible interface and a background processing
+component. The user-visible component is used to select the base music
+directory, set song attributes, and generate playlists. The background
+component (the daemon) analyzes songs.
+
+Song analysis can take a while. After the base music directory has been
+set and the daemon has started its analysis, it is possible to quit
+the user interface portion of the program and allow the daemon to
+continue in the background. GJay can be started in daemon mode by 
+passing -d, in which case it runs until song analysis is complete.
+It's OK to kill or ctrl+c to quit a running daemon; it saves data as it 
+goes along.
+
+You can create playlists from within the GJay or from the command line.
+If you generate a playlist from the command line, the previous session's 
+playlist preferences for the importance of various attributes will be used.
+
+.LP
+.SH OPTIONS
+.IP -d
+Run just the analysis daemon
+.IP "-v"
+Increase output verbosity. -vv will increase it even more.
+.IP "-h, --help"
+Display help, which is like this only less so 
+.IP "-p"
+Generate a playlist
+
+.LP
+.SH PLAYLIST OPTIONS
+.IP "-f filename"
+Start the playlist at a particular file.
+.IP "-c color"
+Start the playlist at a particular color. 
+.B color
+may be a hex value 0xRRGGBB or a named color. Run 
+.I gjay -c
+to see a list of colors.
+.IP "-l length"
+Set the playlist length, in minutes
+.IP "-u"
+Use the M3U playlist format, which includes title, artist, and length information
+.IP "-x" 
+Play the generated playlist in XMMS
+  
+.SH AUTHOR
+Written by Chuck Groom <cgroom@users.sourceforge.net>
+
+.SH COPYRIGHT
+Copyright (c) 2002-2003 by Chuck Groom. Released under the terms of the
+GPL.
+.\" end of file
