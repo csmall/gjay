@@ -54,6 +54,7 @@ typedef enum {
 #define GJAY_FILE_DATA   "file_data"
 #define GJAY_DAEMON_DATA "daemon_data"
 #define GJAY_FILE_ATTR   "file_attr"
+#define GJAY_TEMP        "temp_"
 /* Write the daemon process ID to this file */
 #define GJAY_PID       "gjay.pid"
 

@@ -47,9 +47,11 @@
 #include <sys/errno.h>
 #include <pthread.h>
 #include <string.h>
+#include <locale.h>
 #include "gjay.h"
 #include "analysis.h"
 #include "ipc.h"
+
 
 #define NUM_APPS 3
 static gchar * apps[NUM_APPS] = {
@@ -80,6 +82,9 @@ int main( int argc, char *argv[] )
     struct stat stat_buf;
     FILE * f;
     gint i;
+
+    /* Use '.' as decimal separator */
+    setlocale(LC_NUMERIC, "C");
 
     mode = UI;
     verbosity = 0;

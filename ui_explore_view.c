@@ -39,7 +39,6 @@ typedef struct {
 
 
 GtkTreeStore * store = NULL;
-GtkTreeView  * tree_view = NULL;   
 GQueue       * iter_stack = NULL;
 GQueue       * parent_name_stack = NULL; /* Stack of file name (one level
                                             down from parent_stack) */
@@ -57,6 +56,7 @@ static gchar      * animate_file = NULL;
 /* As we add files which have not been analyzed, we add their
  * names to a temporary analysis file. */
 static char       * temp_append = NULL;
+static int          temp_num = 1;
 static FILE       * f_temp = NULL;
 
 static int    tree_walk       ( const char *file, 
@@ -82,6 +82,7 @@ GtkWidget * make_explore_view ( void ) {
     GtkCellRenderer *renderer;
     GtkTreeViewColumn *column;
     GtkTreeSelection *select;
+    GtkWidget * tree_view;
     
     store = gtk_tree_store_new (N_COLUMNS, G_TYPE_STRING, GDK_TYPE_PIXBUF);
     gtk_tree_sortable_set_sort_func(GTK_TREE_SORTABLE(store),
@@ -179,10 +180,13 @@ void explore_view_set_root ( char * root_dir ) {
     parent_name_stack = g_queue_new();
 
     /* Create a temporary file for storing any file names requiring
-     * analysis
-     */
-    snprintf(buffer, BUFFER_SIZE, "%s/%s/", getenv("HOME"), GJAY_DIR);
-    temp_append = tempnam(buffer, "temp_");
+     * analysis */
+    snprintf(buffer, BUFFER_SIZE, "%s/%s/%s%d", 
+             getenv("HOME"), 
+             GJAY_DIR, 
+             GJAY_TEMP, 
+             temp_num++);
+    temp_append = g_strdup(buffer);
     f_temp = fopen(temp_append, "w");
         
     /* Recurse through the directory tree, adding file names to 
@@ -239,7 +243,7 @@ static int tree_add_idle (gpointer data) {
             f_temp = NULL;
             send_ipc_text(ui_pipe_fd, QUEUE_FILE, temp_append);
         }
-        free(temp_append);
+        g_free(temp_append);
         return FALSE;
     }
     fta = (file_to_add *) files_to_add_queue->tail->data;
