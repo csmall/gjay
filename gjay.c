@@ -110,6 +110,7 @@ int main( int argc, char *argv[] )
                    "\t-u          :  Display list in m3u format\n" \
                    "\t-x          :  Use XMMS to play generated playlist\n" \
                    "\t-l length   :  Length of playlist, in minutes\n" \
+                   "\t-f filename :  Start playlist at a particular file\n" \
                    "\t-c color    :  Start playlist at color, either a hex value or by name.\n" \
                    "\t               To see all options, just call -c\n");
             return 0;
@@ -131,7 +132,7 @@ int main( int argc, char *argv[] )
                     rgb.B = (hex & 0x0000FF) / 255.0;
                     prefs.start_color = TRUE;
                 } else if (get_named_color(buffer, &rgb)) {
-                        prefs.start_color = TRUE;
+                    prefs.start_color = TRUE;
                 }
                 prefs.color = hsv_to_hb(rgb_to_hsv(rgb));
                 i++;
@@ -139,6 +140,20 @@ int main( int argc, char *argv[] )
                 fprintf(stderr, "Usage: -c color, where color is a hex number in the form 0xRRGGBB or a color name:\n%s\n", known_colors());
                 return -1;
             }            
+        } else if (strncmp(argv[i], "-f", 2) == 0) {
+            char fname[BUFFER_SIZE];
+            char * path;
+            if (i + 1 < argc) {
+                strncpy(buffer, argv[i+1], BUFFER_SIZE);
+                sscanf(buffer, "%s", fname);
+                prefs.start_selected = TRUE;
+                path = strdup_to_utf8(fname);
+                selected_files = g_list_append(NULL, path);
+                i++;
+            } else {
+                fprintf(stderr, "Usage: -f filename\n");
+                return -1;
+            }  
         } else if (argv[i][0] == '-') {
             for (k = 1; argv[i][k]; k++) {
                 if (argv[i][k] == 'd') {

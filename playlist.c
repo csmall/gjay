@@ -105,6 +105,14 @@ GList * generate_playlist ( guint minutes ) {
                         strlen((char *) selected_files->data)) == 0)
                 first = SONG(list);
         }
+        if (!first) {
+            gchar * latin1;
+            latin1 = strdup_to_latin1((char *) selected_files->data);
+            fprintf(stderr, "File '%s' not found in data file;\n"\
+                    "perhaps it has not been analyzed. Using different starting song.\n",
+                    latin1);
+            g_free(latin1);
+        }
     } 
     if (prefs.start_color || (prefs.start_selected && !first)) {
         for (min_distance = 10000, list = g_list_first(working); list; 
