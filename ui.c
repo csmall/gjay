@@ -725,7 +725,7 @@ static gint analyize_timer_callback ( gpointer data ) {
     switch (analyze_state) {
     case ANALYZE_LEN:
         gtk_progress_bar_update (GTK_PROGRESS_BAR(analysis_progress), 
-                                 analyze_percent/100.0);
+                                 MIN(1.0, analyze_percent/100.0));
         if (!strstr(str, len_str)) {
             snprintf(buffer, 120, "%s%s",
                      len_str,
@@ -735,8 +735,8 @@ static gint analyize_timer_callback ( gpointer data ) {
         }
         break;
     case ANALYZE_FREQ:
-        gtk_progress_bar_update (GTK_PROGRESS_BAR(analysis_progress), 
-                                 analyze_percent/100.0);
+        gtk_progress_bar_update (GTK_PROGRESS_BAR(analysis_progress),
+                                 MIN(1.0, analyze_percent/100.0)); 
         if (!strstr(str, freq_str)) {
             snprintf(buffer, 120, "%s%s",
                      freq_str,
@@ -746,8 +746,12 @@ static gint analyize_timer_callback ( gpointer data ) {
         }
         break;
     case ANALYZE_BPM: 
-        gtk_progress_bar_update (GTK_PROGRESS_BAR(analysis_progress), 
-                                 analyze_percent/100.0);
+        if (analyze_redraw_freq && analyze_song) {
+            rebuild_song_in_list(analyze_song);
+            analyze_redraw_freq = FALSE;
+        }
+        gtk_progress_bar_update (GTK_PROGRESS_BAR(analysis_progress),
+                                 MIN(1.0, analyze_percent/100.0));  
         if (!strstr(str, bpm_str)) {
             snprintf(buffer, 120, "%s%s",
                      bpm_str,
