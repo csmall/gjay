@@ -77,7 +77,8 @@ GList * generate_playlist ( guint minutes ) {
          *    current dir. */
         if ((!current->in_tree) || 
             (!current->access_ok) ||
-            (prefs.rating_cutoff && (current->rating < prefs.rating)) ||
+            (prefs.use_ratings && prefs.rating_cutoff && 
+             (current->rating < prefs.rating)) ||
             (prefs.use_selected_dir && 
              selected_files && 
              (strncmp((char *) selected_files->data, current->path,
