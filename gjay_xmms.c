@@ -23,17 +23,28 @@
 #include <stdlib.h>
 #include <xmms/xmmsctrl.h>
 #include "gjay.h" 
+#include "gjay_xmms.h"
+#include "songs.h" 
 
 static gint xmms_session = -1;
 
-void init_xmms ( void ) {
+#define MAX_XMMS_SESSION 16
+
+
+gint get_xmms_session (void) {
+    for( xmms_session = 0 ; xmms_session < MAX_XMMS_SESSION ; xmms_session++ )
+        if ( xmms_remote_is_running( xmms_session ) )
+            return xmms_session;
+    return xmms_session;
+}
+
+
+void join_or_start_xmms ( void ) {
     unsigned int tries;
     /* Try to automatically find xmms session */
-    for( xmms_session = 0 ; xmms_session < 16 ; xmms_session++ )
-        if ( xmms_remote_is_running( xmms_session ) )
-            return;
+    get_xmms_session();
     
-    if (xmms_session == 16) {  /* no session found */
+    if (xmms_session == MAX_XMMS_SESSION) {  /* no session found */
         switch( fork() ) {
         case -1:
             perror("fork");
@@ -47,9 +58,8 @@ void init_xmms ( void ) {
         default:
             for( tries = 0 ; tries < 10 ; tries++ ) {
                 usleep( 500000 ); /* in usec */
-                for( xmms_session = 0 ; xmms_session < 16 ; xmms_session++ )
-                    if ( xmms_remote_is_running( xmms_session ) )
-                        return;
+                if (get_xmms_session() < MAX_XMMS_SESSION)
+                    return;
             }
             xmms_session = -1;
             return;
@@ -60,7 +70,7 @@ void init_xmms ( void ) {
 
 void play_song ( song * s ) {
     GList * list = NULL;
-    init_xmms();
+    join_or_start_xmms();
     if (xmms_session < 0)
         return;
     list = g_list_append(NULL, strdup_to_latin1(s->path));
@@ -69,9 +79,10 @@ void play_song ( song * s ) {
     g_list_free(list);
 }
 
+
 void play_songs ( GList * slist ) {
     GList * list = NULL, * ll;
-    init_xmms();
+    join_or_start_xmms();
     if (xmms_session < 0)
         return;
     for (; slist; slist = g_list_next(slist)) {
@@ -91,3 +102,28 @@ void play_files ( GList * list) {
         xmms_remote_play(xmms_session);
     }
 }
+
+
+song * get_current_xmms_song (void) {
+    gchar * path;
+    gint pos;
+    song * s = NULL;
+    get_xmms_session();
+    if (xmms_session < MAX_XMMS_SESSION) {
+        pos = xmms_remote_get_playlist_pos(xmms_session);
+        path = xmms_remote_get_playlist_file(xmms_session, pos);    
+        s = g_hash_table_lookup(song_name_hash, path);
+        free(path);
+    }
+    return s;
+}
+
+
+gboolean xmms_is_running(void) {
+    get_xmms_session();
+    if ((xmms_session != -1) && (xmms_session < MAX_XMMS_SESSION)) {
+        return TRUE;
+    }
+    return FALSE;
+}
+

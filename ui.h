@@ -1,5 +1,5 @@
 /**
- * GJay, copyright (c) 2002 Chuck Groom
+ * GJay, copyright (c) 2002-3 Chuck Groom
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -98,8 +98,10 @@ GtkWidget * make_no_root_view ( void );
 GtkWidget * make_selection_view ( void );
 GtkWidget * make_prefs_view ( void );
 GtkWidget * make_about_view ( void );
-void        show_about_window (void );
-void        show_prefs_window (void );
+void        show_about_window ( void );
+void        hide_about_window ( void );
+void        show_prefs_window ( void );
+void        hide_prefs_window ( void );
 void        prefs_update_song_dir ( void );
 void        set_analysis_progress_visible  ( gboolean visible );
 void        set_add_files_progress_visible ( gboolean visible );
@@ -123,7 +125,7 @@ gint        explore_files_depth_distance ( char * file1,
 void        explore_animate_pending      ( char * file );
 void        explore_animate_stop         ( void );
 gboolean    explore_dir_has_new_songs    ( char * dir );
-
+void        explore_select_song          ( song * s);
 
 /* Select file pane */
 void        set_selected_file             ( char * file, 

@@ -43,6 +43,7 @@
 #include <string.h>
 #include <ctype.h>
 #include "gjay.h"
+#include "gjay_xmms.h"
 #include "analysis.h"
 #include "ipc.h"
 #include "playlist.h"
@@ -269,7 +270,7 @@ int main( int argc, char *argv[] ) {
         }
         list = generate_playlist(prefs.time);
         if (playlist_in_xmms) {
-            init_xmms();
+            join_or_start_xmms();
             play_songs(list);
         } else {
             write_playlist(list, stdout, m3u_format);

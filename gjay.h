@@ -1,5 +1,5 @@
 /**
- * GJay, copyright (c) 2002 Chuck Groom
+ * GJay, copyright (c) 2002-3 Chuck Groom
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -59,12 +59,6 @@ gchar * strdup_convert ( const gchar * str,
                          const gchar * enc_from );
 float   strtof_gjay    ( const char * nptr, char ** endptr);
 gchar * parent_dir     ( const char * path );
-
-/* xmms.c */
-void        init_xmms   ( void );
-void        play_song   ( song * s );
-void        play_songs  ( GList * slist );
-void        play_files  ( GList * list);
 
 
 #endif /* GJAY_H */

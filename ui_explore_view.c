@@ -41,6 +41,7 @@ typedef struct {
 
 
 GtkTreeStore * store = NULL;
+GtkWidget    * tree_view = NULL;
 GQueue       * iter_stack = NULL;
 GQueue       * parent_name_stack = NULL; /* Stack of file name (one level
                                             down from parent_stack) */
@@ -96,7 +97,6 @@ GtkWidget * make_explore_view ( void ) {
     GtkCellRenderer *renderer;
     GtkTreeViewColumn *column;
     GtkTreeSelection *select;
-    GtkWidget * tree_view;
     
     store = gtk_tree_store_new (N_COLUMNS, G_TYPE_STRING, GDK_TYPE_PIXBUF);
     gtk_tree_sortable_set_sort_func(GTK_TREE_SORTABLE(store),
@@ -767,6 +767,26 @@ static void explore_mark_new_dirs ( char * dir ) {
     g_list_free(list);
 }
 
+
+void explore_select_song ( song * s) {
+    GtkTreeIter  * iter;
+    GtkTreePath * path;
+    if (s == NULL) 
+        return;
+    iter = g_hash_table_lookup(name_iter_hash, s->path);
+    if (iter) {
+        path = gtk_tree_model_get_path(GTK_TREE_MODEL(store), iter);
+        gtk_tree_view_expand_to_path(GTK_TREE_VIEW(tree_view), path);
+        gtk_tree_selection_select_path(
+            gtk_tree_view_get_selection(GTK_TREE_VIEW(tree_view)),
+            path);
+        
+    }
+}
+
+/********************************************************
+ * Utils 
+ */
 
 static gint compare_str ( gconstpointer a, gconstpointer b) {
     return g_strcasecmp((gchar *) a, (gchar *) b);

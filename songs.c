@@ -27,6 +27,7 @@
 #include <math.h> 
 #include <ctype.h>
 #include "gjay.h"
+#include "gjay_xmms.h"
 #include "analysis.h"
 #include "mp3.h"
 #include "vorbis.h"

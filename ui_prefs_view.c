@@ -1,5 +1,5 @@
 /**
- * GJay, copyright (c) 2002 Chuck Groom
+ * GJay, copyright (c) 2002-2003 Chuck Groom
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -59,9 +59,10 @@ static void tooltips_toggled ( GtkToggleButton *togglebutton,
 GtkWidget * make_prefs_view ( void ) {
     GtkWidget * vbox1, * vbox2, * alignment, * button, *label;
     GtkWidget * radio1, * radio2, * radio3;
+    GtkWidget * hseparator;
     
     vbox1 = gtk_vbox_new (FALSE, 2);
-    alignment = gtk_alignment_new(0.5, 0.5, 0, 0);
+    alignment = gtk_alignment_new(0, 0, 0, 0);
     gtk_box_pack_start(GTK_BOX(vbox1), alignment, TRUE, TRUE, 2);
     
     vbox2 = gtk_vbox_new (FALSE, 2);
@@ -70,7 +71,7 @@ GtkWidget * make_prefs_view ( void ) {
     prefs_label = gtk_label_new("");
     gtk_box_pack_start(GTK_BOX(vbox2), prefs_label, TRUE, TRUE, 2);
     
-    alignment = gtk_alignment_new(0.5, 0.5, 0.05, 0.05);
+    alignment = gtk_alignment_new(0, 0, 1, 0);
     button = new_button_label_pixbuf("Set base music directory",
                                      PM_BUTTON_DIR);    
     g_signal_connect (G_OBJECT (button),
@@ -83,16 +84,19 @@ GtkWidget * make_prefs_view ( void ) {
     g_signal_connect (G_OBJECT (vbox1), "parent_set",
                       G_CALLBACK (parent_set_callback), NULL);
 
-    alignment = gtk_alignment_new(0.5, 0.3, 0.1, 0.1);
-    gtk_box_pack_start(GTK_BOX(vbox1), alignment, TRUE, TRUE, 2);
+    hseparator = gtk_hseparator_new();
+    gtk_box_pack_start(GTK_BOX(vbox1), hseparator, TRUE, TRUE, 2);
+
+    alignment = gtk_alignment_new(0,0,0,0);
+
+    gtk_box_pack_start(GTK_BOX(vbox1), alignment, TRUE, TRUE, 0);
 
     vbox2 = gtk_vbox_new (FALSE, 2);
     gtk_container_add(GTK_CONTAINER(alignment), vbox2);
 
     
     label = gtk_label_new("When you quit, song analysis should...");
-    radio1 = gtk_radio_button_new_with_label (NULL, 
-                                              "Stop");
+    radio1 = gtk_radio_button_new_with_label (NULL, "Stop");
     radio2 = gtk_radio_button_new_with_label_from_widget (
         GTK_RADIO_BUTTON (radio1),
         "Continue in background");
@@ -106,10 +110,10 @@ GtkWidget * make_prefs_view ( void ) {
     else
         gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(radio3), TRUE);
 
-    gtk_box_pack_start(GTK_BOX(vbox2), label, TRUE, TRUE, 2);
-    gtk_box_pack_start(GTK_BOX(vbox2), radio1, FALSE, TRUE, 2);
-    gtk_box_pack_start(GTK_BOX(vbox2), radio2, FALSE, TRUE, 2);
-    gtk_box_pack_start(GTK_BOX(vbox2), radio3, FALSE, TRUE, 2);
+    gtk_box_pack_start(GTK_BOX(vbox2), label, TRUE, TRUE, 0);
+    gtk_box_pack_start(GTK_BOX(vbox2), radio1, FALSE, TRUE, 0);
+    gtk_box_pack_start(GTK_BOX(vbox2), radio2, FALSE, TRUE, 0);
+    gtk_box_pack_start(GTK_BOX(vbox2), radio3, FALSE, TRUE, 0);
     g_signal_connect (G_OBJECT (radio1), "toggled",
                       G_CALLBACK (radio_toggled), 
                       (void *) PREF_DAEMON_QUIT);
@@ -120,14 +124,31 @@ GtkWidget * make_prefs_view ( void ) {
                       G_CALLBACK (radio_toggled), 
                       (void *) PREF_DAEMON_ASK);
 
-    alignment = gtk_alignment_new(0.5, 0.3, 0.1, 0.1);
-    gtk_box_pack_start(GTK_BOX(vbox1), alignment, TRUE, TRUE, 2);
+    hseparator = gtk_hseparator_new();
+    gtk_box_pack_start(GTK_BOX(vbox1), hseparator, TRUE, TRUE, 2);
+
+    alignment = gtk_alignment_new(0, 0, 0, 0);
+    gtk_box_pack_start(GTK_BOX(vbox1), alignment, TRUE, TRUE, 0);
+
     button = gtk_check_button_new_with_label("Show popup tips");
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(button),
                                  !prefs.hide_tips);
     g_signal_connect (G_OBJECT (button), "toggled",
                       G_CALLBACK (tooltips_toggled), NULL);
     gtk_container_add(GTK_CONTAINER(alignment), button);
+
+    hseparator = gtk_hseparator_new();
+    gtk_box_pack_start(GTK_BOX(vbox1), hseparator, TRUE, TRUE, 2);
+
+    alignment = gtk_alignment_new(1, 0, 0.3, 0);
+    gtk_box_pack_start(GTK_BOX(vbox1), alignment, TRUE, TRUE, 0);
+
+    button = gtk_button_new_from_stock(GTK_STOCK_OK);
+    gtk_container_add(GTK_CONTAINER(alignment), button);
+    g_signal_connect (G_OBJECT (button), 
+                      "clicked",
+                      G_CALLBACK (hide_prefs_window),
+                      NULL);
     return vbox1;
 }
 

@@ -165,6 +165,11 @@ GtkWidget * make_app_ui ( void ) {
     gtk_container_add (GTK_CONTAINER (about_window), view);
     gtk_signal_connect (GTK_OBJECT (about_window), "delete_event",
 			GTK_SIGNAL_FUNC (gtk_widget_hide), NULL);
+    gtk_widget_add_events(about_window, GDK_BUTTON_PRESS_MASK);
+    g_signal_connect(GTK_OBJECT(about_window),
+                     "button_press_event",
+                     G_CALLBACK(gtk_widget_hide),
+                     NULL);
 
     return window;
 }
@@ -526,6 +531,14 @@ void show_about_window( void ) {
     gtk_window_present(GTK_WINDOW(about_window));
 }
 
+void hide_about_window( void ) {
+    gtk_widget_hide(about_window);
+}
+
 void show_prefs_window( void ) {
     gtk_window_present(GTK_WINDOW(prefs_window));
+}
+
+void hide_prefs_window( void ) {
+    gtk_widget_hide(prefs_window);
 }

@@ -23,6 +23,7 @@
 #include <math.h>
 #include <string.h>
 #include "gjay.h"
+#include "gjay_xmms.h"
 #include "ui.h"
 #include "rgbhsv.h"
 

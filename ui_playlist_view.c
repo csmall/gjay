@@ -22,6 +22,7 @@
 #include <sys/stat.h>
 #include <string.h>
 #include "gjay.h"
+#include "gjay_xmms.h"
 #include "ui.h"
 #include "playlist.h"
 
