@@ -1,0 +1,44 @@
+GJay v0.1
+(c) Chuck Groom, September 2002
+gjay.sourceforge.net
+
+GJay (Gtk+ DJ) generates playlists across a collection of music (mp3,
+ogg, wav) such that each song sounds good following the previous
+song. Matches are based on both automatically analyzed song
+characteristics (BPM, frequency) as well as user-assigned
+categorizations (song 'color' and rating). It is ideal for DJs
+planning a set list or home users who want a non-random way to wander
+large collections.
+
+Help and random information can be found at http://gjay.sourceforge.net.
+
+GJay is released under the GPL (see COPYING). 
+
+BPM analysis code comes from Van Belle Werner's "bpmdj",
+http://bpmdj.sourceforge.net/
+
+Frequency analysis code comes from Daniel Franklin's "Spectromatic",
+http://ieee.uow.edu.au/~daniel/software/spectromatic/
+
+
+BUILD
+-----
+
+GJay depends on the following programs:
+  mp3info
+  mpg321
+  ogg123
+  xmms
+
+GJay depends on the following libraries:
+  libgtk-1.2
+  libgsl
+  libgslcblas
+  libvorbis
+  libvorbisfile
+  libxmms
+
+To build GJay, you'll need libvorbis-dev and libgtk1.2-dev (assuming
+Debian).  GJay does not yet install itself anywhere or use autoconf;
+just "make."
+
