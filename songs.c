@@ -39,7 +39,7 @@ typedef enum {
     E_TITLE,
     E_ARTIST,
     E_ALBUM,
-    E_CHECKSUM,
+    E_INODE,
     E_LENGTH,
     E_RATING,
     E_COLOR,
@@ -59,7 +59,7 @@ static const char * element_str[E_LAST] = {
     "title",
     "artist",
     "album",
-    "checksum",
+    "inode",
     "length",
     "rating",
     "color",
@@ -82,14 +82,13 @@ typedef struct {
 
 
 
-GList * songs;     /* List of song *  */
-GList * not_songs; /* List of char *, UTF8 encoded */
+GList      * songs;       /* List of song *  */
+GList      * not_songs;   /* List of char *, UTF8 encoded */
+gboolean     songs_dirty;
 
 GHashTable * song_name_hash; 
-GHashTable * song_checksum_hash;
+GHashTable * song_inode_hash;
 GHashTable * not_song_hash;
-
-static guint32 * crc_table = NULL;
 
 
 static void     write_song_data     ( FILE * f, song * s );
@@ -119,11 +118,6 @@ static void     data_text           ( GMarkupParseContext *context,
 static int      get_element         ( gchar * element_name );
 static void     song_copy_attrs     ( song * dest, 
                                       song * original );
-
-/* Utilities for CRC32 Checksum */
-static void     gen_crc_table ( void );
-static guint32  file_checksum ( char * path );
-
 
 
 /* Create a new song with the given filename */
@@ -313,28 +307,29 @@ static void song_copy_attrs( song * dest, song * original ) {
  */
 void file_info ( gchar    * path,
                  gboolean * is_song,
-                 gint     * checksum,
+                 guint32  * inode,
                  gint     * length,
                  gchar   ** title,
                  gchar   ** artist,
                  gchar   ** album, 
                  song_file_type * type ) {
     gchar * latin1_path;
+    struct stat buf;
     
     *is_song = FALSE;
-    *checksum = 0;
+    *inode = 0;
     *length = 0;
     *artist = NULL;
     *title = NULL;
     *album = NULL;
 
     latin1_path = strdup_to_latin1(path);
-    if (access(latin1_path, R_OK)) {
+    if (stat(latin1_path, &buf)) {
         g_free(latin1_path);
         return;
     } 
-     
-    *checksum = file_checksum(latin1_path);
+    
+    *inode = buf.st_ino;
 
     for (*type = OGG; *type < SONG_FILE_TYPE_LAST; (*type)++) {
         if (read_song_file_type(latin1_path, *type, 
@@ -359,13 +354,18 @@ void write_data_file(void) {
     
     f = fopen(buffer_temp, "w");
     if (f) {
+        fprintf(f, "<gjay_data>\n");
         for (llist = g_list_first(songs); llist; llist = g_list_next(llist))
             write_song_data(f, (song *) llist->data);
         for (llist = g_list_first(not_songs); 
              llist; llist = g_list_next(llist))
             write_not_song_data(f, (char *) llist->data);
+        fprintf(f, "</gjay_data>\n");
         fclose(f);
         rename(buffer_temp, buffer);
+        songs_dirty = FALSE;
+    } else {
+        fprintf(stderr, "Unable to write song data %s\n", buffer_temp);
     }
 }
 
@@ -403,7 +403,7 @@ int append_daemon_file (song * s) {
  *   <title>str</title>
  *   <artist>str</artist>
  *   <album>str</album>
- *   <checksum>int</checksum>
+ *   <inode>int</inode>
  *   <length>int</length>
  *   <rating>float</rating>
  *   <color>float float</color>
@@ -438,7 +438,7 @@ static void write_song_data (FILE * f, song * s) {
             fprintf(f, "\t<title>%s</title>\n", escape);
             g_free(escape);
         }
-        fprintf(f, "\t<checksum>%d</checksum>\n", s->checksum);
+        fprintf(f, "\t<inode>%lud</inode>\n", (long unsigned int) s->inode);
         fprintf(f, "\t<length>%d</length>\n", s->length);
         if(!s->no_data) {
             if (s->bpm_undef)
@@ -636,8 +636,8 @@ void data_end_element (GMarkupParseContext *context,
             g_hash_table_insert (song_name_hash,
                                  state->s->path, 
                                  state->s);            
-            g_hash_table_insert (song_checksum_hash,
-                                 &state->s->checksum,
+            g_hash_table_insert (song_inode_hash,
+                                 &state->s->inode,
                                  state->s);
         }
         /* If there is a song and it itself is not copy of another
@@ -683,8 +683,8 @@ void data_text ( GMarkupParseContext *context,
             state->s->album = g_strdup(buffer);
         }
         break;
-    case E_CHECKSUM:
-        state->s->checksum = atoi(buffer);
+    case E_INODE:
+        state->s->inode = atol(buffer);
         break;
     case E_LENGTH:
         state->s->length = atoi(buffer);
@@ -814,54 +814,6 @@ static gboolean read_song_file_type ( char         * path,
 }
 
 
-
-
-
-void gen_crc_table(void) {
-    guint32 crc, poly;
-    int	i, j;
-    crc_table = g_malloc(sizeof(guint32) * CRC_TABLE_SIZE);
-
-    poly = 0xEDB88320L;
-    for (i = 0; i < CRC_TABLE_SIZE; i++)
-        {
-        crc = i;
-        for (j = 8; j > 0; j--)
-            {
-            if (crc & 1)
-                crc = (crc >> 1) ^ poly;
-            else
-                crc >>= 1;
-            }
-        crc_table[i] = crc;
-        }
-}
-
-
- guint32 file_checksum ( char * path ) { 
-     FILE * f;
-     guint32 crc;
-    int count;
-    int ch;
-    
-    if (!crc_table)
-        gen_crc_table();
-
-    if (!(f = fopen(path, "r"))) {
-        fprintf(stderr, "Unable to open file %s\n", path);
-        return 0;
-    } 
-    
-    for (crc = 0xFFFFFFFF, count = 0; 
-         (count < CRC_BYTES) && ((ch = getc(f)) != EOF);
-         count++) {
-        crc = ((crc>>8) & 0x00FFFFFF) ^ crc_table[ (crc^ch) & 0xFF ];
-    }
-    return crc;
- }
-
-
-
 static int get_element ( gchar * element_name ) {
     int k;
     for (k = 0; k < E_LAST; k++) {
@@ -871,29 +823,10 @@ static int get_element ( gchar * element_name ) {
     return k;
 }
 
-#if 0
-void print_song ( song * s) {
-    int i;
-    printf("Path: '%s'\n", s->path);
-    printf("Fname: '%s'\n", s->fname);
-    printf("Title: '%s'\n", s->title);
-    printf("Artist: '%s'\n", s->artist);
-    printf("Album: '%s'\n", s->album);
-    printf("Length: %.2d:%.2d\n", s->length/60, s->length%60);
-    printf("Checksum: %lu\n", (long unsigned int) s->checksum); 
-    printf("Hue: %f\n", s->color.H);
-    printf("Brightness: %f\n", s->color.B);
-    printf("Rating: %f\n", s->rating);
-    printf("BPM: %f\n", s->bpm);
-    printf("No data: %d\n", s->no_data);
-    if (s->no_color) 
-        printf("No color attr\n");
-    if (s->no_rating) 
-        printf("No rating attr\n");
-    printf("Freq: ");
-    for (i = 0; i < NUM_FREQ_SAMPLES; i++) {
-        printf("%.3f ", s->freq[i]);
-    }
-    printf("\n");
+
+int write_dirty_song_timeout ( gpointer data ) {
+    if (songs_dirty) 
+        write_data_file();
+    return TRUE;
 }
-#endif
+

@@ -174,6 +174,7 @@ void save_prefs ( void ) {
     snprintf(buffer_temp, BUFFER_SIZE, "%s_temp", buffer);
     f = fopen(buffer_temp, "w");
     if (f) {
+        fprintf(f, "<gjay_prefs>\n");
         if (prefs.song_root_dir) {
             fprintf(f, "<%s", pref_element_strs[PE_ROOTDIR]);
             if (prefs.extension_filter)
@@ -262,6 +263,7 @@ void save_prefs ( void ) {
                 prefs.path_weight,
                 pref_element_strs[PE_PATH_WEIGHT]);
 
+        fprintf(f, "</gjay_prefs>\n");
         fclose(f);
         rename(buffer_temp, buffer);
     } else {

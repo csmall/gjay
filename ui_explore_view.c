@@ -54,7 +54,7 @@ static GList      * files_to_analyze = NULL;
 static gint         animate_timeout = 0;
 static gint         animate_frame = 0;
 static gchar      * animate_file = NULL;
-static gint         total_files_to_add, file_to_add_count, new_file_count;
+static gint         total_files_to_add, file_to_add_count;
 
 
 static int    tree_walk       ( const char *file, 
@@ -197,7 +197,7 @@ void explore_view_set_root ( char * root_dir ) {
 
     total_files_to_add = g_list_length(files_to_add_queue->head);
     file_to_add_count = 0;
-    new_file_count = 0;
+    
     set_add_files_progress("Scanning tree...", 0);
     set_analysis_progress_visible(FALSE);
     set_add_files_progress_visible(TRUE);
@@ -252,7 +252,6 @@ static int tree_walk (const char *file,
 
 
 static int tree_add_idle (gpointer data) {
-    static time_t ping_time = 0;
     file_to_add * fta;
     GtkTreeIter * parent, * current;
     int pm_type;
@@ -327,8 +326,8 @@ static int tree_add_idle (gpointer data) {
                 pm_type = PM_FILE_PENDING;
                 /* Analyze this file if it's the first song of a string of
                  * duplicates */
-                if (s == g_hash_table_lookup(song_checksum_hash, 
-                                             &s->checksum)) {
+                if (s == g_hash_table_lookup(song_inode_hash, 
+                                             &s->inode)) {
                     files_to_analyze = g_list_append(
                         files_to_analyze, strdup_to_latin1(s->path));
                 }
@@ -336,15 +335,15 @@ static int tree_add_idle (gpointer data) {
         } else if (g_hash_table_lookup(not_song_hash, fta->fname)) {
             pm_type = PM_FILE_NOSONG;
         }  else {
-            new_file_count++;
             set_add_files_progress(fta->fname, 
                                    (file_to_add_count * 100) / 
                                    total_files_to_add);
-            
+            songs_dirty = TRUE;
+
             s = create_song();
             file_info(fta->fname,
                       &is_song,
-                      &s->checksum,
+                      &s->inode,
                       &s->length,
                       &s->title,
                       &s->artist,
@@ -353,13 +352,13 @@ static int tree_add_idle (gpointer data) {
             if (is_song) {
                 song_set_path(s, fta->fname);
                 /* Check for symlinkery */
-                original = g_hash_table_lookup(song_checksum_hash, 
-                                               &s->checksum);
+                original = g_hash_table_lookup(song_inode_hash, 
+                                               &s->inode);
                 if (original) { 
                     song_set_repeats(s, original);
                 } else { 
-                    g_hash_table_insert(song_checksum_hash, 
-                                        &s->checksum, s);
+                    g_hash_table_insert(song_inode_hash, 
+                                        &s->inode, s);
                     /* Add to analysis queue */
                     files_to_analyze = g_list_append(files_to_analyze,
                                                      strdup_to_latin1(fta->fname));
@@ -425,20 +424,6 @@ static int tree_add_idle (gpointer data) {
     g_free(fta->fname);
     g_free(fta);
 
-    /*
-     * Misc. tasks. We gotta ping the daemon every so often so it
-     * won't go away. And it would be nice to save song information
-     * every 100 new songs or so such that if there's a crash, not too
-     * much is lost.
-     */
-    if (time(NULL) - ping_time > DAEMON_ATTACH_FREAKOUT / 2) {
-        ping_time = time(NULL);
-        send_ipc(ui_pipe_fd, ACK);
-    }
-    if (new_file_count && (new_file_count% 100 == 0)) {
-        write_data_file();
-    }
-    
     return TRUE;
 }
 

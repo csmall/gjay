@@ -433,6 +433,8 @@ void update_selected_songs_color ( gdouble angle,
         /* If other songs mirror this one, pass on the change */
         song_set_repeat_attrs(s);
     }
+    
+    songs_dirty = TRUE;
 }
 
 
@@ -486,5 +488,7 @@ static void rating_changed ( GtkRange *range,
         song_set_repeat_attrs(s);
     }
     gtk_label_set_text (GTK_LABEL(label_rating), "Rating");
+
+    songs_dirty = TRUE;
 }
 

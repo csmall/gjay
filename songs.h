@@ -22,14 +22,16 @@
 #define __SONGS_H__
 
 /* We batch the freq spectrum into just a few bins */
-#define NUM_FREQ_SAMPLES 30
-
+#define NUM_FREQ_SAMPLES      30
 
 #define MIN_RATING            0.0
 #define MAX_RATING            5.0
 #define DEFAULT_RATING        2.5
 #define MIN_BPM               100.0
 #define MAX_BPM               160.0
+
+/* Periodically write changed song data to disk */
+#define SONG_DIRTY_WRITE_TIMEOUT  1000 * 60 * 2
 
 typedef enum {
     OGG = 0, 
@@ -50,9 +52,10 @@ typedef enum {
  
 extern GList      * songs;             /*  song *   */
 extern GList      * not_songs;         /*  char *   */
-
+extern gboolean     songs_dirty;       /* Songs list does not match
+                                          disk copy */
 extern GHashTable * song_name_hash;
-extern GHashTable * song_checksum_hash;
+extern GHashTable * song_inode_hash;
 extern GHashTable * not_song_hash;
 
 
@@ -89,7 +92,7 @@ struct _song {
 
     /* How to tell if two songs with different paths are the same
        song (symlinked, most likely) */
-    guint32 checksum; 
+    guint32 inode; 
     song * repeat_prev, * repeat_next;    
 };
 
@@ -107,7 +110,7 @@ void        song_set_repeats       ( song * s,
 void        song_set_repeat_attrs  ( song * s);
 void        file_info              ( gchar    * path,
                                      gboolean * is_song,
-                                     gint     * checksum,
+                                     guint32  * inode,
                                      gint     * length,
                                      gchar   ** title,
                                      gchar   ** artist,
@@ -115,13 +118,12 @@ void        file_info              ( gchar    * path,
                                      song_file_type * type );
 
 void        write_data_file        ( void );
+int         write_dirty_song_timeout ( gpointer data );
 int         append_daemon_file     ( song * s );
 
 void        read_data_file         ( void );
 void        read_daemon_file       ( void );
 gboolean    add_from_daemon_file_at_seek ( int seek );
 
-
-void        print_song  ( song * s );
 
 #endif /* __SONGS_H__ */

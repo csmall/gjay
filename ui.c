@@ -284,6 +284,9 @@ void display_message ( gchar * msg ) {
                                   "clicked",
                                   G_CALLBACK (gtk_widget_hide),
                                   G_OBJECT (msg_window));
+        GTK_WIDGET_SET_FLAGS (button, GTK_CAN_DEFAULT);
+        gtk_widget_grab_default (button);
+        gtk_widget_grab_focus (button);
     }
     
     buffer = gtk_text_view_get_buffer (GTK_TEXT_VIEW (msg_text_view));

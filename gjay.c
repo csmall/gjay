@@ -167,10 +167,10 @@ int main( int argc, char *argv[] )
 
         songs = NULL;
         not_songs = NULL;
-        song_name_hash     = g_hash_table_new(g_str_hash, g_str_equal);
-        song_checksum_hash = g_hash_table_new(g_int_hash, g_int_equal);
-        not_song_hash      = g_hash_table_new(g_str_hash, g_str_equal);
-
+        songs_dirty = FALSE;
+        song_name_hash    = g_hash_table_new(g_str_hash, g_str_equal);
+        song_inode_hash   = g_hash_table_new(g_int_hash, g_int_equal);
+        not_song_hash     = g_hash_table_new(g_str_hash, g_str_equal);
         
         load_prefs();
         read_data_file();
@@ -179,10 +179,14 @@ int main( int argc, char *argv[] )
         gtk_widget_show_all(widget);
         set_add_files_progress_visible(FALSE);
 
+        /* Periodically write song data to disk, if it has changed */
+        gtk_timeout_add( SONG_DIRTY_WRITE_TIMEOUT, 
+                         write_dirty_song_timeout, NULL);
+                         
         send_ipc(ui_pipe_fd, ATTACH);
         explore_view_set_root(prefs.song_root_dir);
         set_selected_file(NULL, NULL, FALSE);
-        
+
         gtk_main();
 
         save_prefs();

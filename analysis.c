@@ -269,6 +269,8 @@ gboolean ui_pipe_input (GIOChannel *source,
         send_ipc(daemon_pipe_fd, ACK);
         break;
     case ACK:
+        if (verbosity > 1)
+            printf("Daemon received ack\n");
         // No need for action
         break;
     case UNLINK_DAEMON_FILE:
@@ -292,8 +294,6 @@ gboolean ui_pipe_input (GIOChannel *source,
         queue_hash = g_hash_table_new(g_str_hash, g_str_equal);
         break;
     case QUEUE_FILE:
-        if (verbosity > 1) 
-            printf("Queuing\n");
         /* If the file is not already in the queue, enqueue the file and
          * also append the file name to the analysis log */
         buffer[len] = '\0';
@@ -370,7 +370,7 @@ void analyze(char * fname) {
 
     file_info(analyze_song->path, 
               &is_song, 
-              &analyze_song->checksum,
+              &analyze_song->inode,
               &analyze_song->length,
               &analyze_song->title,
               &analyze_song->artist,
