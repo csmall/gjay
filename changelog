@@ -1,3 +1,11 @@
+0.2.2 - November 24, 2002
+- Minor fixes
+   - Fixed compiler warnings
+   - Locale could affect whether prefs and song data files write decimal
+     numbers using a comma or period, which could lead to a seg fault. Now
+     we always use a period. (Erich Schubert)
+   - Analysis would hang on extremely short files (Erich Schubert)
+
 0.2 - November 19, 2002
 - Complete overhaul (Chuck Groom) 
    - Switched from Gtk-1.2 to Gtk-2.0

@@ -1,10 +1,9 @@
 This is a list of the features I know GJay needs, and am focusing on.
 Input is always appreciated!
 
-- Allow GJay to be run in command-line mode to:
-   - Add and analyze files
-   - Generate playlists
+- Expand range of GJay command-line options to support:
+   - Playlist generation
+   - Add files to analysis queue 
 
-- The categorize dialog should include a list of color/label pairs to the
-  right of the color wheel so users can jot down what colors
-  (e.g. "dark red") mean to them
+- Color categorization should allow an optional mechanism for naming colors,
+  e.g. "dark red means crunchy industrial beats"
