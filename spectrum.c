@@ -21,7 +21,6 @@
 
 #include <stdio.h>
 #include <malloc.h>
-#include <png.h>
 #include <string.h>
 #include <math.h>
 #include <gsl/gsl_errno.h>
