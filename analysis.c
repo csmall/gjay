@@ -1,5 +1,7 @@
 /**
- * GJay, copyright (c) 2002 Chuck Groom
+ * GJay, copyright (c) 2002 Chuck Groom. Sections of this code come
+ * from spectromatic, copyright (C) 1997-2002 Daniel Franklin, and 
+ * BpmDJ by Werner Van Belle.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -21,7 +23,9 @@
  */
 
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <fcntl.h>
 #include <sys/types.h>
@@ -34,12 +38,18 @@
 #include <vorbis/codec.h>
 #include <endian.h>
 #include <math.h>
+#include <time.h>
+#include <assert.h>
+#include <math.h>
+#include <gsl/gsl_errno.h>
+#include <gsl/gsl_fft_real.h>
+#include <gsl/gsl_fft_halfcomplex.h>
 #include "gjay.h"
 #include "analysis.h"
 
 pthread_mutex_t analyze_mutex;
 pthread_mutex_t analyze_data_mutex;
-pthread_mutex_t wav_file_shared_mutex;
+
 song * analyze_song = NULL;
 int analyze_percent = 0;
 analyze_mode analyze_state = ANALYZE_IDLE;
@@ -52,8 +62,60 @@ typedef enum {
     MP3
 } ftype;
 
+#define BPM_BUF_SIZE 32*1024
+#define SHARED_BUF_SIZE sizeof(short int) * BPM_BUF_SIZE
+
+/* Shared struct for reading wav file data between two threads */
+typedef struct {
+    FILE * f;
+    waveheaderstruct header;
+    long int freq_seek, seek;
+    char buffer[SHARED_BUF_SIZE];
+    gboolean dont_wait; /* Set when one thread finishes */
+} wav_file_shared;
+
+
+/* BPM globals */
+unsigned char *audio;
+unsigned long audiosize;
+unsigned long audiorate=2756;  /* Author states that 11025 is perfect
+                                  measure, but we can tolerate more
+                                  lossiness for the sake of speed */
+unsigned long startbpm=120;
+unsigned long stopbpm=160;
+unsigned long startshift=0;
+unsigned long stopshift=0;
+
+
+/* Spectrum globals */
+#define MAX_FREQ 22500
+#define START_FREQ 100
+
+typedef unsigned long ulongT;
+typedef unsigned short ushortT;
+
+static char * read_buffer;
+static int read_buffer_size;
+static long read_buffer_start;
+static long read_buffer_end; /* same as file position */
+static int window_size = 1024;
+static int step_size = 1024;
+
+
 void *     analyze_thread(void* arg);
 FILE *     inflate_to_wav (gchar * path, ftype type);
+
+int           run_analysis     ( wav_file_shared * wsfile,
+                                 gdouble * freq_results,
+                                 gdouble * bpm_result );
+unsigned long bpm_phasefit     ( long i );
+int           freq_read_frames ( wav_file_shared * wsfile, 
+                                 int start, 
+                                 int length, 
+                                 void *data );
+
+
+
 
 gboolean analyze(song * s) {
     pthread_t thread;
@@ -74,10 +136,10 @@ void * analyze_thread(void* arg) {
     guint16 song_len;
     char buffer[BUFFER_SIZE];
     gchar * path;
-    gdouble freq[NUM_FREQ_SAMPLES];
+    gdouble freq[NUM_FREQ_SAMPLES], analyze_bpm;
     FILE * f;
     ftype type;
-    pthread_t thread;
+    time_t t;
 
     pthread_mutex_lock(&analyze_data_mutex);
     analyze_song = (song *) arg;
@@ -113,35 +175,31 @@ void * analyze_thread(void* arg) {
     fclose(f);
 
     pthread_mutex_lock(&analyze_data_mutex);
-    if (!analyze_song)
+    if (!analyze_song) {
+        pthread_mutex_unlock(&analyze_data_mutex);
+        pthread_mutex_unlock(&analyze_mutex);
         return NULL;
+    }
+    analyze_percent = 0;
+    analyze_state = ANALYZE;
     f = inflate_to_wav(path, type);
+
     memset(&wsfile, 0x00, sizeof(wav_file_shared));
     wsfile.f = f;
     fread(&wsfile.header, sizeof(waveheaderstruct), 1, f);
     wav_header_swab(&wsfile.header);
     wsfile.header.data_length = (analyze_song->length - 1) * wsfile.header.byte_p_sec;
-    pthread_mutex_init(&wsfile.end, NULL);
-    pthread_mutex_init(&wsfile.d_w, NULL);
-    fread(&wsfile.buffer, 1, WAV_BUF_SIZE, f);
-    analyze_percent = 0;
-    analyze_state = ANALYZE;
     pthread_mutex_unlock(&analyze_data_mutex);
 
-    /* Run the analysis */
-    pthread_create(&thread, NULL, bpm, (void *) &wsfile);
-    result = spectrum(&wsfile, freq);
+    t = time(NULL);
 
-    /* If the spectrum finishs before the BPM, set the status bar to
-     * say that we're finishing up */
+    result = run_analysis(&wsfile, freq, &analyze_bpm); 
+
+    printf("Analysis took %ld seconds\n", time(NULL) - t);
+
     pthread_mutex_lock(&analyze_data_mutex);
     analyze_percent = 0;
     analyze_state = ANALYZE_FINISH;
-    pthread_mutex_unlock(&analyze_data_mutex);
-    
-    pthread_join(thread, NULL);
-
-    pthread_mutex_lock(&analyze_data_mutex);
     if (result && analyze_song) {
         for (i = 0; i < NUM_FREQ_SAMPLES; i++) 
             analyze_song->freq[i] = freq[i];
@@ -241,56 +299,306 @@ int quote_path(char *buf, size_t bufsiz, const char *path) {
 }
 
 
+/**
+ * This is the big, bad analysis algorithm. To make things REALLY complicated,
+ * I'm interspersing two algorithsm -- BPM and frequency analysis -- such that
+ * we only have to do one decode pass. Whee!
+ *
+ * BPM algorithm taken from BpmDJ by Werner Van Belle.
+ *
+ * Frequency algorithm taken from spectromatic by Daniel Franklin.
+ *
+ * Any ugliness is the fault of my munging. 
+ */
+int run_analysis  (wav_file_shared * wsfile,
+                   gdouble * freq_results,
+                   gdouble * bpm_result ) {
+    int16_t *freq_data;
+    double *ch1 = NULL, *ch2 = NULL, *mags = NULL;
+    int i, j, k, bin;
+    double ch1max = 0, ch2max = 0;
+    double *total_mags;
+    double sum, g_factor, freq, g_freq;
+    signed short buffer[BPM_BUF_SIZE];
+    long count, pos, h, redux, startpos;
 
-/* Both the frequency and BPM algorithms read the same decoded WAV.
-   They are run in separate threads, so we use a mutex lock so they
-   share the same input buffer. This is also where we update the
-   percent done. */
-int fread_wav_shared (void *ptr,  
-                      size_t size, 
-                      wav_file_shared * wsfile, 
-                      gboolean is_freq) {
-    long seek;
-    int result;
-
-    if (is_freq) {
-        seek = wsfile->freq_seek;
-    } else {
-        seek = wsfile->bpm_seek;
+    if (wsfile->header.modus != 1 && wsfile->header.modus != 2) {
+        fprintf (stderr, "Error: not a wav file...\n");
+        return FALSE;
+    }
+    
+    if (wsfile->header.byte_p_spl / wsfile->header.modus != 2) {
+        fprintf (stderr, "Error: not 16-bit...\n");
+        return FALSE;
     }
 
-    assert(seek + size <= wsfile->buffer_seek + WAV_BUF_SIZE);
-    memcpy(ptr, wsfile->buffer + seek - wsfile->buffer_seek, size);
+    /* Spectrum set-up */    
+    read_buffer_size = window_size*4;
+    read_buffer = malloc(read_buffer_size);
+    read_buffer_start = 0;
+    read_buffer_end = read_buffer_size;
+    freq_data = (int16_t*) malloc (window_size * wsfile->header.byte_p_spl);
+    mags = (double*) malloc (window_size / 2 * sizeof (double));
+    total_mags = (double*) malloc (window_size / 2 * sizeof (double));
+    memset (total_mags, 0x00, window_size / 2 * sizeof (double));
+    memset (freq_results, 0x00, NUM_FREQ_SAMPLES * sizeof(double));
+    ch1 = (double*) malloc (window_size * sizeof (double));
+    if (wsfile->header.modus == 2)
+        ch2 = (double*) malloc (window_size * sizeof (double));
     
-    if (is_freq) {
-        wsfile->freq_seek += size;
-    } else {
-        wsfile->bpm_seek += size;
-    }
-    
-    if (seek + size == wsfile->buffer_seek + WAV_BUF_SIZE) {
-        pthread_mutex_lock(&wsfile->d_w);
-        if (wsfile->dont_wait || pthread_mutex_trylock(&wsfile->end)) {
-            pthread_mutex_unlock(&wsfile->d_w);
-            /* If the mutex was already locked, that means both
-               threads are ready for more data in buffer. */
-            result = fread(wsfile->buffer, 1, WAV_BUF_SIZE, wsfile->f);
-            wsfile->buffer_seek += result;
 
+    /* BPM set-up */
+    audiosize = wsfile->header.data_length;
+    audiosize/=(4*(44100/audiorate));
+    audio=malloc(audiosize+1);
+    assert(audio);
+    pos=0;
+    startpos = pos;
+
+
+    /* Read the first chunk of the file into the shared buffer */
+    fread(wsfile->buffer, 1, SHARED_BUF_SIZE, wsfile->f);
+    wsfile->seek = SHARED_BUF_SIZE;
+    
+    /* Copy the first bit of this into the freq. analysis buffer */
+    memcpy(read_buffer, wsfile->buffer, read_buffer_size);
+    wsfile->freq_seek = read_buffer_size;
+    
+    /* In this main loop, we read the entire file. Most of this loop 
+     * represents the spectrum algorithm; the marked tight loop is the bpm
+     * algorithm. */
+    for (i = -window_size; i < window_size + (int)(wsfile->header.data_length / wsfile->header.byte_p_spl); i += step_size) {
+
+        freq_read_frames (wsfile, i, window_size, (char *)freq_data);
+
+        if (wsfile->freq_seek == SHARED_BUF_SIZE) {
+            /* At end of buffer. Read some more data. */
+            count = fread(wsfile->buffer, 1, SHARED_BUF_SIZE, wsfile->f);
+            memcpy(buffer, wsfile->buffer, SHARED_BUF_SIZE);
+            wsfile->freq_seek = 0;
+            wsfile->seek += count;
+            
+            /* Update status bar */
             pthread_mutex_lock(&analyze_data_mutex);
-            analyze_percent = (wsfile->buffer_seek * 100) / 
+            analyze_percent = (wsfile->seek * 100 ) / 
                 wsfile->header.data_length;
             pthread_mutex_unlock(&analyze_data_mutex);
-
-            pthread_mutex_unlock(&wsfile->end);
+            
+            /* BPM loop */
+            for (h=0;h<count/2;h+=2*(44100/audiorate))
+            {
+                signed long int left, right,mean;
+                left=abs(buffer[h]);
+                right=abs(buffer[h+1]);
+                mean=(left+right)/2;
+                redux=abs(mean)/128;
+                if (pos+h/(2*(44100/audiorate))>=audiosize) break;
+                assert(pos+h/(2*(44100/audiorate))<audiosize);
+                audio[pos+h/(2*(44100/audiorate))]=(unsigned char)redux;
+            }
+            pos+=count/(4*(44100/audiorate));
+        }
+        
+        /* The rest of this loop is spectrum analysis */
+        if (wsfile->header.modus == 1) {
+            for (j = 0; j < window_size; j++)
+                ch1 [j] = (int16_t)le16_to_cpu(freq_data[j]);
+            
         } else {
-            pthread_mutex_unlock(&wsfile->d_w);
-            /* The end mutex is unlocked, which means the other thread
-             * is still reading off the buffer. */
-            pthread_mutex_lock(&wsfile->end); /* Block; it's already locked */
-            pthread_mutex_unlock(&wsfile->end);
-        } 
-    } 
-    return size;
+            for (j = 0, k = 0; k < window_size; k++, j+=2) {
+                ch1[k] = (double)((int16_t)le16_to_cpu(freq_data[j]));
+                ch2[k] = (double)((int16_t)le16_to_cpu(freq_data[j+1]));
+            } 
+            gsl_fft_real_radix2_transform (ch2, 1, window_size);
+        }
+        gsl_fft_real_radix2_transform (ch1, 1, window_size);
+        
+        mags [0] = fabs (ch1 [0]);
+        
+        for (j = 0; j < window_size / 2; j++) {
+            mags [j] = sqrt (ch1 [j] * ch1 [j] + ch1 [window_size - j] * ch1 [window_size - j]);
+            
+            if (mags [j] > ch1max)
+                ch1max = mags [j];
+        }
+        
+        /* Add magnitudes */
+        for (k = 0; k < window_size / 2; k++) 
+            total_mags[k] += mags[k];
+        
+        if (wsfile->header.modus == 2) {
+            mags [0] = fabs (ch2 [0]);
+            
+            for (j = 0; j < window_size / 2; j++) {
+                mags [j] = sqrt (ch2 [j] * ch2 [j] + ch2 [window_size - j] * ch2 [window_size - j]);
+                
+                if (mags [j] > ch2max)
+                    ch2max = mags [j];
+            }
+            /* Add magnitudes */
+            for (k = 0; k < window_size / 2; k++) 
+                total_mags[k] += mags[k];
+        }
+    }
+    
+    pthread_mutex_lock(&analyze_data_mutex);
+    analyze_state = ANALYZE_FINISH;
+    analyze_percent = 0;
+    pthread_mutex_unlock(&analyze_data_mutex);
+    
+    sum = 0;
+    for (k = 0; k < window_size / 2; k++) 
+        sum += total_mags[k];
+    
+    for (k = 0; k < window_size / 2; k++) 
+        total_mags[k] = total_mags[k]/sum;
+
+    g_freq = START_FREQ;
+    g_factor = exp( log(MAX_FREQ/START_FREQ) / NUM_FREQ_SAMPLES);
+    bin = 0;
+    for (k = 0; k < window_size / 2; k++) {
+        /* Determine which frequency band this sample falls into */
+        freq = (k * MAX_FREQ ) / (window_size / 2);
+        if (freq > g_freq) {
+            bin = MIN(bin + 1, NUM_FREQ_SAMPLES - 1);
+            g_freq *= g_factor;
+        }
+        freq_results[bin] += total_mags[k];
+    }
+    
+    /* Complete BPM analysis */
+    stopshift=audiorate*60*4/startbpm;
+    startshift=audiorate*60*4/stopbpm;
+    {
+	unsigned long foutat[stopshift-startshift];
+	unsigned long fout, minimumfout=0, maximumfout,minimumfoutat,left,right;
+        memset(&foutat,0,sizeof(foutat));
+	for(h=startshift;h<stopshift;h+=50)
+        {
+            fout=bpm_phasefit(h);
+            foutat[h-startshift]=fout;
+            if (minimumfout==0) maximumfout=minimumfout=fout;
+            if (fout<minimumfout) 
+            {
+                minimumfout=fout;
+                minimumfoutat=h;
+            }
+            if (fout>maximumfout) maximumfout=fout;
+            pthread_mutex_lock(&analyze_data_mutex);
+            analyze_percent = (50*(h - startshift)) / (stopshift - startshift);
+            pthread_mutex_unlock(&analyze_data_mutex);
+        }
+        left=minimumfoutat-100;
+	right=minimumfoutat+100;
+	if ( left < startshift ) 
+            left = startshift;
+	if ( right > stopshift ) 
+            right = stopshift;
+	for(h=left; h<right; h++) {
+            fout=bpm_phasefit(h);
+            foutat[h-startshift]=fout;
+            if (minimumfout==0) maximumfout=minimumfout=fout;
+            if (fout<minimumfout) 
+            {
+                minimumfout=fout;
+                minimumfoutat=h;
+            }
+            if (fout>maximumfout) maximumfout=fout;
+            
+            pthread_mutex_lock(&analyze_data_mutex);
+            analyze_percent = 50 + ((50*(h - left)) / (right - left));
+            pthread_mutex_unlock(&analyze_data_mutex);
+        }
+        
+        for(h=startshift;h<stopshift;h++) {
+            fout=foutat[h-startshift];
+            if (fout)
+            {
+                fout-=minimumfout;
+            }
+        }
+        *bpm_result = 4.0*(double)audiorate*60.0/(double)minimumfoutat;
+    }
+    free (audio);
+    free (freq_data);
+    free (mags);
+    free (total_mags);
+    free (read_buffer);
+    return TRUE;
 }
 
+
+
+int freq_read_frames (wav_file_shared * wsfile,
+                      int start, 
+                      int length, 
+                      void *data)
+{
+    int realstart = start;
+    int reallength = length;
+    int offset = 0;
+    int seek, len;
+    
+    if (start + length < 0 || start > (int)(wsfile->header.data_length / wsfile->header.byte_p_spl)) {
+        memset (data, 0, length * wsfile->header.byte_p_spl);
+        return 0;
+    }
+    
+    if (start < 0) {
+        offset = -start;
+        memset (data, 0, offset * wsfile->header.byte_p_spl);
+        realstart = 0;
+        reallength += start;
+    }
+    
+    if (start + length > (int)(wsfile->header.data_length / wsfile->header.byte_p_spl)) {
+        reallength -= start + length - (wsfile->header.data_length / wsfile->header.byte_p_spl);
+        memset (data, 0, reallength * wsfile->header.byte_p_spl);
+    }
+    
+    seek = ((realstart + offset) * wsfile->header.byte_p_spl);
+    len = wsfile->header.byte_p_spl * reallength;
+    if (seek + len <= read_buffer_size) {
+        memcpy(data + offset * wsfile->header.byte_p_spl,
+               read_buffer + seek,
+               wsfile->header.byte_p_spl * reallength);
+    } else {
+        if (seek + len > read_buffer_end) {
+            char * new_buffer = malloc(read_buffer_size);
+            int shift = seek + len - read_buffer_end;
+            memcpy(new_buffer, 
+                   read_buffer + shift,
+                   read_buffer_size - shift);
+            free(read_buffer);
+            read_buffer = new_buffer;
+
+            memcpy (read_buffer + read_buffer_size - shift,
+                    wsfile->buffer + wsfile->freq_seek,
+                    shift);
+            wsfile->freq_seek += shift;
+
+            read_buffer_start += shift;
+            read_buffer_end += shift;
+        }
+        memcpy(data + offset * wsfile->header.byte_p_spl,
+               read_buffer + seek - read_buffer_start,
+               wsfile->header.byte_p_spl * reallength);
+    }
+    return 1;
+}
+
+
+unsigned long bpm_phasefit(long i)
+{
+   long c,d;
+   unsigned long mismatch=0;
+   unsigned long prev=mismatch;
+   for(c=i;c<audiosize;c++)
+     {
+	d=abs((long)audio[c]-(long)audio[c-i]);
+	prev=mismatch;
+	mismatch+=d;
+	assert(mismatch>=prev);
+     }
+   return mismatch;
+}

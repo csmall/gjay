@@ -52,10 +52,6 @@
              (((uint32_t)(__x) & (uint32_t)0xff000000UL) >> 24) )); \
 })
 
-/* Read buffer */
-#define BPM_BUF_SIZE 32*1024
-#define WAV_BUF_SIZE BPM_BUF_SIZE * 10
-
 
 /* This mutex is locked when an analysis is in progress, unlocked
  * otherwise.  When locked, the song analyze_song shouldn't be
@@ -87,42 +83,18 @@ typedef struct {
 } waveheaderstruct;
 
 
-/* Shared struct for reading wav file data between two threads */
-typedef struct {
-    FILE * f;
-    waveheaderstruct header;
-    long int freq_seek, bpm_seek, buffer_seek;
-    pthread_mutex_t end, d_w;
-    char buffer[WAV_BUF_SIZE];
-    gboolean dont_wait; /* Set when one thread finishes */
-} wav_file_shared;
-
-
-
 /* Mutex lock for analysis data */
 extern pthread_mutex_t analyze_data_mutex;
 extern song          * analyze_song;
 extern analyze_mode    analyze_state;
 extern int             analyze_percent;
-extern gdouble         analyze_bpm;
 
 /* Analysis.c */
 gboolean analyze(song * s);
-int quote_path(char *buf, size_t bufsiz, const char *path);
-int fread_wav_shared (void *ptr,  
-                      size_t size, 
-                      wav_file_shared * wsfile, 
-                      gboolean is_freq);
+int      quote_path(char *buf, size_t bufsiz, const char *path);
 void     wav_header_swab(waveheaderstruct * header); /* Endian stuff */
 unsigned long  swab_ul(unsigned long l); 
 unsigned short swab_us(unsigned short s);
-
-
-/* spectrum.c */
-int spectrum (wav_file_shared * wsfile,
-              gdouble * results);
-/* bpm.c */
-void * bpm (void * arg);
  
 #endif /* __ANALYSIS_H__ */
 

@@ -18,9 +18,7 @@ OBJECTS = \
 	ui_star_rating.o \
 	ui_categorize.o \
 	gjay_xmms.o \
-	spectrum.o \
 	analysis.o \
-	bpm.o \
 	playlist.o
 
 INSTALL=/usr/bin/install -o root -g root -m 755
