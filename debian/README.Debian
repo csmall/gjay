@@ -1,0 +1,14 @@
+gjay for Debian
+---------------
+
+Everything about the application has changed. There is a completely different
+usage paradigm; you simply select a base directory for your music, GJay does
+the rest. There are fewer windows that pop up.
+
+GJay now runs in two processes, one for UI and the other for analysis such
+that the analysis process can be detached/reattached.
+
+The fileformat was completely redone to make it more robust and
+human-readable.
+
+ -- martin f. krafft <madduck@debian.org>, Sun, 8 Sep 2002 15:29:34 +0100

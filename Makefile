@@ -61,5 +61,5 @@ install: $(TARGET) doc
 	$(INSTALL) 644    doc/gjay.1.gz $(PREFIX)/share/man/man1/gjay.1.gz
 
 clean:
-	-rm -f *.a *.o *~ data/*~ core $(TARGET) doc/*.gz
+	-rm -f *.a *.o *~ data/*~ core $(TARGET) doc/*.gz \#*
 

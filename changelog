@@ -1,18 +1,16 @@
-0.2.7-2 - November 2003
-- UI:
-   - Moved prefs and about into a new menubar
-- Architecture:
-   - Make libvorbis a soft (dlopen) dependency. Vorbis headers are no
-     longer required for a build
-   - Fixed bug associated with reading mp3 headers -- I didn't get the 
-     song length! I've made reading mp3s a lot more robust.
-0.2.7 - June, 2003
+0.2.7 - November 2003
 - Bugs:
    - (Provided by Giacomo Catenazzi) verify opendir()
 - Architecture:
    - Removed dependancy on mp3info to read ID3 tags. This gives a significant
-     speedup.
-	
+     speedup. 
+   - Along the way, allow us to read styles not supported by mp3info, notably
+     iTunes-ripped mp3s
+   - Ogg vorbis is now optional (though highly desired, of course)
+- UI:
+   - Added menubar, moved prefs and about into there
+   - Improved directory selection dialog
+   - Jump to song currently playing in XMMS 
 0.2.6 - January 19, 2003
 - Features:
    - Display highlight icon next to directories containing new songs (those
