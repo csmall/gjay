@@ -23,5 +23,8 @@
 GList *     generate_playlist ( guint len );
 void        save_playlist     ( GList * list, 
                                 gchar * fname );
+void        write_playlist    ( GList * list, 
+                                FILE  * f,
+                                gboolean m3u_format);
 
 #endif /* __PLAYLIST__H__ */

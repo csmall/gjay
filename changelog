@@ -1,7 +1,13 @@
-0.2.4 - December ?, 2002
-- Bug fix: Command line options are more forgiving
-- Bug fix: Still had problems with internationalized decimal format
-
+0.2.4 - December 15, 2002
+- Features:
+   - Playlists can be generated from the command-line
+   - Command line options are more forgiving
+   - Added manpage installation to install process
+- Bugs:
+   - More problems with internationalized decimal format
+   - Playlists didn't pick up latin1/UTF-8 changes
+   - Should build on IA64
+	
 0.2.3 - December 3, 2002
 - Song data, prefs stored in XML
 - Periodically write song data to disk, if it has changed

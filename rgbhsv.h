@@ -31,5 +31,8 @@ RGB     hsv_to_rgb ( HSV hsv );
 guint32 rgb_to_hex ( RGB rgb );
 HSV     hb_to_hsv  ( HB hb );
 HB      hsv_to_hb  ( HSV hsv );
+int     get_named_color (char * str, RGB * rgb );
+char *  known_colors (void);
+
 
 #endif

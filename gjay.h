@@ -34,7 +34,8 @@ typedef enum {
     UI = 0,
     DAEMON_INIT,    /* Pre-daemon mode, waiting for UI process activation */
     DAEMON,
-    DAEMON_DETACHED
+    DAEMON_DETACHED,
+    PLAYLIST        /* Generate a playlist and quit */
 } gjay_mode;
 
 

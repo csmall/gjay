@@ -16,15 +16,20 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
  * USA
  *
- * USAGE: gjay [--help] [-h] [-d] [-v [-v]]
+ * USAGE: gjay [--help] [-h] [-d] [-v] [-p] [-l len] [-c color]
  *
  *  --help, -h  :  Display help
  *  -d          :  Run as daemon (unattched)
- *  -v          :  Run in verbose mode. -v -v for lots more info.
+ *  -v          :  Run in verbose mode. -vv for lots more info.
+ *  -p          :  Generate a playlist
+ *  -l len      :  Playlist length (in minutes)
+ *  -c color    :  Start at color. Color may be named or hex value
+ *  -u          :  Use M3U playlist format
+ *  -x          :  Play playlist in XMMS
  *
  * Explanation: 
  *
- * GJay runs in either interactive (UI) or daemon mode.
+ * GJay runs in, interactive (UI), daemon, or playlist-generatio mode.
  *
  * In UI mode, GJay creates playlists, displays analyzed
  * songs, and requests new songs for analysis.
@@ -33,7 +38,7 @@
  * 'unattached' mode, it will quit once the songs in the pending list are
  * finished.
  * 
- *
+ * In playlist mode, GJay prints a playlist and exits.
  */
 
 #include <unistd.h>
@@ -51,7 +56,7 @@
 #include "gjay.h"
 #include "analysis.h"
 #include "ipc.h"
-
+#include "playlist.h"
 
 #define NUM_APPS 3
 static gchar * apps[NUM_APPS] = {
@@ -77,13 +82,15 @@ int verbosity;
 
 int main( int argc, char *argv[] ) 
 {
+    GList * list;
     char buffer[BUFFER_SIZE];
     GtkWidget * widget;
     struct stat stat_buf;
     FILE * f;
-    gint i, k;
+    gint i, k, hex;
     struct lconv * env;
-    
+    gboolean m3u_format, playlist_in_xmms;
+
     /* Insist that '.' be the decimal separator */
     setlocale(LC_NUMERIC, "C");
     env = localeconv();
@@ -91,30 +98,79 @@ int main( int argc, char *argv[] )
         setlocale(LC_ALL, "en_US");
         if (*env->decimal_point != '.') {
             fprintf(stderr, "Sorry, unable to set environment for proper decimal handling.\nPlease email a report to cgroom@users.sourceforge.net\n");
+            return -1;
         }
     }
+
+    srand(time(NULL));
     
     mode = UI;
     verbosity = 0;
+    m3u_format = FALSE;
+    playlist_in_xmms = FALSE;
+    load_prefs();
     
     for (i = 0; i < argc; i++) {
         if ((strncmp(argv[i], "-h", 2) == 0) || 
             (strncmp(argv[i], "--help", 6) == 0)) {
-            printf("USAGE: gjay [--help] [-h] [-d] [-v [-v]]\n" \
+            printf("USAGE: gjay [--help] [-hdvpux] [-l length] [-c color]\n" \
                    "\t--help, -h  :  Display this help message\n" \
                    "\t-d          :  Run as daemon\n" \
-                   "\t-v          :  Verbose mode. Repeat for way too much text\n");
+                   "\t-v          :  Run in verbose mode. -vv for lots more info\n" \
+                   "\t-p          :  Generate a playlist\n" \
+                   "\nPlaylist options:\n" \
+                   "\t-u          :  Display list in m3u format\n" \
+                   "\t-x          :  Use XMMS to play generated playlist\n" \
+                   "\t-l length   :  Length of playlist, in minutes\n" \
+                   "\t-c color    :  Start playlist at color, either a hex value or by name.\n" \
+                   "\t               To see all options, just call -c\n");
             return 0;
-        }
-        if (argv[i][0] == '-') {
+        } else if (strncmp(argv[i], "-l", 2) == 0) {
+            if (i + 1 < argc) {
+                prefs.time = atoi(argv[i + 1]);
+                i++;
+            } else {
+                fprintf(stderr, "Usage: -l length (in minutes)\n");
+                return -1;
+            }
+        } else if (strncmp(argv[i], "-c", 2) == 0) {
+            RGB rgb;
+            if (i + 1 < argc) {
+                strncpy(buffer, argv[i+1], BUFFER_SIZE);
+                if (sscanf(buffer, "0x%x", &hex)) {
+                    rgb.R = ((hex & 0xFF0000) >> 16) / 255.0;
+                    rgb.G = ((hex & 0x00FF00) >> 8) / 255.0;
+                    rgb.B = (hex & 0x0000FF) / 255.0;
+                    prefs.start_color = TRUE;
+                } else if (get_named_color(buffer, &rgb)) {
+                        prefs.start_color = TRUE;
+                }
+                prefs.color = hsv_to_hb(rgb_to_hsv(rgb));
+                i++;
+            } else {
+                fprintf(stderr, "Usage: -c color, where color is a hex number in the form 0xRRGGBB or a color name:\n%s\n", known_colors());
+                return -1;
+            }            
+        } else if (argv[i][0] == '-') {
             for (k = 1; argv[i][k]; k++) {
-                if (argv[i][k] == 'd')
+                if (argv[i][k] == 'd') {
                     mode = DAEMON_DETACHED;
+                    printf("Running as daemon. Ctrl+c to stop.\n");
+                }
                 if (argv[i][k] == 'v')
                     verbosity++;
+                if (argv[i][k] == 'u')
+                    m3u_format = TRUE;
+                if (argv[i][k] == 'x')
+                    playlist_in_xmms = TRUE;
+                if (argv[i][k] == 'p') {
+                    prefs.start_color = FALSE;
+                    mode = PLAYLIST;
+                }
             }
         }
     }
+
     
     /* Make sure there is a "~/.gjay" directory */
     snprintf(buffer, BUFFER_SIZE, "%s/%s", getenv("HOME"), GJAY_DIR);
@@ -129,9 +185,12 @@ int main( int argc, char *argv[] )
     }
 
 
-    /* Both daemon and UI app open an end of a pipe */
-    daemon_pipe_fd = open_pipe(DAEMON_PIPE);
-    ui_pipe_fd = open_pipe(UI_PIPE);
+    if (mode != PLAYLIST) {
+        /* Both daemon and UI app open an end of a pipe */
+        daemon_pipe_fd = open_pipe(DAEMON_PIPE);
+        ui_pipe_fd = open_pipe(UI_PIPE);
+    }
+
 
     if(mode == UI) {
         /* Make sure a daemon is running. If not, fork. */
@@ -161,12 +220,22 @@ int main( int argc, char *argv[] )
         }
     }
 
-    if(mode == UI) {
+    if ((mode == UI) || (mode == PLAYLIST)) {
+        songs = NULL;
+        not_songs = NULL;
+        songs_dirty = FALSE;
+        song_name_hash    = g_hash_table_new(g_str_hash, g_str_equal);
+        song_inode_hash   = g_hash_table_new(g_int_hash, g_int_equal);
+        not_song_hash     = g_hash_table_new(g_str_hash, g_str_equal);
+
+        read_data_file();
+    }
+
+    if (mode == UI) {
         if (!app_exists("xmms")) {
             fprintf(stderr, "GJay strongly suggests xmms\n"); 
         } 
 
-        srand(time(NULL));
         init_xmms();
         gtk_init (&argc, &argv);
         
@@ -174,16 +243,6 @@ int main( int argc, char *argv[] )
                         G_IO_IN,
                         daemon_pipe_input,
                         NULL);
-
-        songs = NULL;
-        not_songs = NULL;
-        songs_dirty = FALSE;
-        song_name_hash    = g_hash_table_new(g_str_hash, g_str_equal);
-        song_inode_hash   = g_hash_table_new(g_int_hash, g_int_equal);
-        not_song_hash     = g_hash_table_new(g_str_hash, g_str_equal);
-        
-        load_prefs();
-        read_data_file();
 
         widget = make_app_ui();
         gtk_widget_show_all(widget);
@@ -212,6 +271,21 @@ int main( int argc, char *argv[] )
   
         close(daemon_pipe_fd);
         close(ui_pipe_fd);
+    } else if (mode == PLAYLIST) {
+        /* Playlist mode */
+        prefs.use_selected_songs = FALSE;
+        prefs.rating_cutoff = FALSE;
+        for (list = g_list_first(songs); list;  list = g_list_next(list)) {
+            SONG(list)->in_tree = TRUE;
+        }
+        list = generate_playlist(prefs.time);
+        if (playlist_in_xmms) {
+            init_xmms();
+            play_songs(list);
+        } else {
+            write_playlist(list, stdout, m3u_format);
+        }
+        g_list_free(list);
     } else {
         /* Daemon process */
         /* Write pid to ~/.gjay/gjay.pid */

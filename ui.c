@@ -253,6 +253,12 @@ void display_message ( gchar * msg ) {
     GtkWidget * button, * swin, * vbox = NULL;
     GtkTextBuffer *buffer;
     
+    if (mode != UI) {
+        printf("%s\n", msg);
+        return;
+    }
+        
+
     if (msg_window == NULL) {
         msg_window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
         gtk_window_set_title (GTK_WINDOW (msg_window), "GJay: Messages");

@@ -24,6 +24,7 @@
 #include "gjay.h"
 #include "ui.h"
 #include "analysis.h"
+#include "playlist.h"
 
 static song * current;
 static song * first;
@@ -56,7 +57,7 @@ GList * generate_playlist ( guint minutes ) {
     final = NULL;
     for (list = g_list_first(working); list; ) {
         current = SONG(list);
-        /* OK, hold you breath here. We exclude songs which:
+        /* OK, hold your breath. We exclude songs which:
          * 1. Are not in the current file tree
          * 2. Are below the rating cutoff, if applied by the user
          * 3. Are not in the currently selected directory, if the user
@@ -263,35 +264,49 @@ static gdouble distance ( song * s1 ) {
 }
 
 
-
 void save_playlist ( GList * list, gchar * fname ) {
     FILE * f;
-    song * s;
-    gboolean title_unk;
-
     f = fopen(fname, "w");
     if (!f) {
         display_message("Sorry, cannot write playlist there.");
         return;
     }
+    write_playlist(list, f, TRUE);
+    fclose(f);
+}
+
+
+void write_playlist ( GList * list, FILE * f, gboolean m3u_format) {
+    song * s;
+    gchar * l1_artist, * l1_title, * l1_path, * l1_fname;
     
-    fprintf(f, "#EXTM3U\n");
+    if (m3u_format)
+        fprintf(f, "#EXTM3U\n");
     for (; list; list = g_list_next(list)) {
         s = SONG(list);
-        title_unk = (strcmp(s->title, "?") == 0);
-        if (title_unk) {
-            fprintf(f, "#EXTINF:%d,%s\n",
-                    s->length,
-                    s->fname);
-        } else {
-            fprintf(f, "#EXTINF:%d,%s - %s\n",
-                    s->length,
-                    s->artist, 
-                    s->title);
-        } 
-        fprintf(f, "%s\n", s->path);
+        if (m3u_format) {
+            if (s->title) {
+                l1_artist = strdup_to_latin1(s->artist);
+                l1_title = strdup_to_latin1(s->title);
+                
+                fprintf(f, "#EXTINF:%d,%s - %s\n",
+                        s->length,
+                        l1_artist,
+                        l1_title);
+                g_free(l1_artist);
+                g_free(l1_title);
+            } else {
+                l1_fname = strdup_to_latin1(s->fname);
+                fprintf(f, "#EXTINF:%d,%s\n",
+                        s->length,
+                        l1_fname);
+                g_free(l1_fname);
+            } 
+        }
+        l1_path = strdup_to_latin1(s->path);
+        fprintf(f, "%s\n", l1_path);
+        g_free(l1_path);
     }
-    fclose(f);
 }
 
 

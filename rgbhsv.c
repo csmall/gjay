@@ -19,10 +19,35 @@
 
 #include <math.h>
 #include "rgbhsv.h"
+#include "string.h"
 
 #define TO_HSV(h, s, v) {hsv.H = h; hsv.S = s; hsv.V = v; return hsv;} 
 #define TO_RGB(r, g, b) {rgb.R = r; rgb.G = g; rgb.B = b; return rgb;} 
 #define UNDEFINED -1 
+
+#define NUM_KNOWN_COLORS 8
+char * known_color_str[NUM_KNOWN_COLORS] = {
+    "black",
+    "white",
+    "red",
+    "green",
+    "blue",
+    "purple",
+    "yellow",
+    "cyan"
+};
+
+RGB known_color_rgb[NUM_KNOWN_COLORS] = {
+    { 0.0, 0.0, 0.0 },
+    { 1.0, 1.0, 1.0 },
+    { 1.0, 0.0, 0.0 },
+    { 0.0, 1.0, 0.0 },
+    { 0.0, 0.0, 1.0 },
+    { 1.0, 0.0, 1.0 },
+    { 1.0, 1.0, 0.0 },
+    { 0.0, 1.0, 1.0 }
+};
+
 
 float min(float a, float b, float c) {
     float ret_val;
@@ -110,3 +135,21 @@ HB hsv_to_hb (HSV hsv) {
     hb.B = hsv.S * hsv.S;
     return hb;
 }
+
+
+int get_named_color (char * str, RGB * rgb ) {
+    int i;
+    for (i = 0; i <NUM_KNOWN_COLORS; i++) {
+        if (strncmp(str, known_color_str[i], 
+                    strlen( known_color_str[i])) == 0){
+            memcpy(rgb, &known_color_rgb[i], sizeof(RGB));
+            return 1;
+        }
+    }
+    return 0;
+}
+
+char * known_colors(void) {
+    return "white, black, red, green, blue, purple, yellow, or cyan";
+}
+

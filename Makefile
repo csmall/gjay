@@ -42,10 +42,17 @@ all: $(TARGET)
 $(TARGET): $(OBJECTS)  
 	$(LINK) $(LFLAGS) -o $(TARGET) $(OBJECTS)
 
-install: $(TARGET)
+doc: doc/gjay.1.gz
+
+doc/gjay.1.gz: doc/gjay.1
+	gzip -9 < doc/gjay.1 > doc/gjay.1.gz
+
+install: $(TARGET) doc
 	$(INSTALL) 755    gjay $(PREFIX)/bin/gjay 
 	$(INSTALL) 644    icons/* $(PREFIX)/share/gjay/icons/
-	gzip -9 < doc/gjay.1 > $(PREFIX)/share/man/man1/gjay.1.gz
+	$(INSTALL) 755 -d $(PREFIX)/share/man/man1
+	$(INSTALL) 644    doc/gjay.1.gz $(PREFIX)/share/man/man1/gjay.1.gz
 
 clean:
-	-rm -f *.a *.o *~ data/*~ core $(TARGET) 
+	-rm -f *.a *.o *~ data/*~ core $(TARGET) doc/*.gz
+
