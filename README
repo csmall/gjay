@@ -35,15 +35,17 @@ GJay depends on the following libraries:
   libgtk-2.0
   libgsl
   libgslcblas
-  libvorbis
-  libvorbisfile
   libxmms
 
-To build GJay, you'll need the header files for libvorbis, libgsl,
-xmms, and Gtk2
+GJay has a soft dependancy on (for ogg support):
+  libvorbis
+  libvorbisfile
+  
+To build GJay, you'll need the header files for libgsl, xmms, and Gtk2
 
 The relevant Debain packages are:
 mpg321 vorbis-tools xmms
-libgtk2.0 libgsl0 libvorbis
-libvorbis-dev libgtk1.2-dev xmms-dev libgsl0-dev
+libgtk2.0 libgsl0 libvorbis (Debian keeps mucking about with this name...)
+libgtk1.2-dev xmms-dev libgsl0-dev
+
 
