@@ -62,6 +62,7 @@
 #define BPM_UNDEF  (1 << 4)
 #define FREQ_UNK   (1 << 5)
 #define COLOR_UNK  (1 << 6)
+#define SONG_ERROR (1 << 7)
 
 /* Color wheel size */
 #define CATEGORIZE_DIAMETER   200   

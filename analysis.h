@@ -96,6 +96,7 @@ gboolean analyze(song * s);
 void     wav_header_swab(waveheaderstruct * header);
 unsigned long  swab_ul(unsigned long l);
 unsigned short swab_us(unsigned short s);
+int quote_path(char *buf, size_t bufsiz, const char *path);
 
 /* spectrum.c */
 int spectrum (FILE * f, long fsize, gdouble * results);

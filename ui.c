@@ -775,7 +775,8 @@ static gint analyize_timer_callback ( gpointer data ) {
         /* FIXME: stop timer if there aren't more songs to analyze */
         for (current = songs; current; current = g_list_next(current)) {
             s = SONG(current);
-            if ((s->flags & BPM_UNK) ||  (s->flags & FREQ_UNK)) {
+            if (((s->flags & BPM_UNK) ||  (s->flags & FREQ_UNK)) && 
+                !(s->flags & SONG_ERROR)) {
                 analyze(s);
                 break;
             }

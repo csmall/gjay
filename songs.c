@@ -297,11 +297,13 @@ void get_line ( FILE * f, char * buffer, int buffer_len) {
 song * test_mp3 ( char * fname ) {
      FILE * f;
      char buffer[BUFFER_SIZE];
+     char quoted_fname[BUFFER_SIZE];
      song * s = NULL;
 
+     quote_path(quoted_fname, BUFFER_SIZE, fname);
      snprintf(buffer, BUFFER_SIZE, 
-              "mp3info -p \"frames:%%u\\n%%a\\n%%t\\n%%l\\n%%S\" \"%s\"",
-              fname);
+              "mp3info -p \"frames:%%u\\n%%a\\n%%t\\n%%l\\n%%S\" \'%s\'",
+              quoted_fname);
      if (!(f = popen(buffer, "r"))) {
          fprintf(stderr, "Unable to run %s\n", buffer);
          return NULL;

@@ -89,8 +89,15 @@ void * analyze_thread(void* arg) {
 
     /* First, determine file type */
     f = fopen(path, "r");
-    if (!f)
+    if (!f) {
+        /* Song ain't there. */
+        pthread_mutex_lock(&analyze_data_mutex);
+        analyze_song->flags |= SONG_ERROR;
+        pthread_mutex_unlock(&analyze_data_mutex);
+        pthread_mutex_unlock(&analyze_mutex);
         return NULL;
+    }
+
     if(ov_open(f, &vf, NULL, 0) == 0) {
         type = OGG;
     } else {
@@ -193,17 +200,20 @@ void * sys_thread(void* arg) {
 FILE * inflate_to_raw ( gchar * path,
                         ftype type) {
     char buffer[BUFFER_SIZE];
-    FILE * f;
+    char quoted_path[BUFFER_SIZE];
+    FILE * f; 
     waveheaderstruct header;
+
+    quote_path(quoted_path, BUFFER_SIZE, path);
 
     switch (type) {
     case OGG:
-        snprintf(buffer, BUFFER_SIZE, "ogg123 \"%s\" -d raw -f - 2> /dev/null",
-                 path);
+        snprintf(buffer, BUFFER_SIZE, "ogg123 \'%s\' -d raw -f - 2> /dev/null",
+                 quoted_path);
         break;
     case MP3:
-        snprintf(buffer, BUFFER_SIZE, "mpg321 -b 10000 -s \"%s\" 2> /dev/null ",
-                 path);
+        snprintf(buffer, BUFFER_SIZE, "mpg321 -b 10000 -s \'%s\' 2> /dev/null ",
+                 quoted_path);
         break;
     case WAV: 
         /* Read past the header */
@@ -212,7 +222,6 @@ FILE * inflate_to_raw ( gchar * path,
             fread(&header, sizeof(waveheaderstruct), 1, f);
         }
         return f;
-        break;
     }
     if (!(f = popen(buffer, "r"))) {
         fprintf(stderr, "Unable to run %s\n", buffer);
@@ -225,16 +234,18 @@ FILE * inflate_to_raw ( gchar * path,
 FILE * inflate_to_wav ( gchar * path,
                         ftype type) {
     char buffer[BUFFER_SIZE];
+    char quoted_path[BUFFER_SIZE];
     FILE * f;
 
+    quote_path(quoted_path, BUFFER_SIZE, path);
     switch (type) {
     case OGG:
-        snprintf(buffer, BUFFER_SIZE, "ogg123 \"%s\" -d wav -f - 2> /dev/null",
-                 path);
+        snprintf(buffer, BUFFER_SIZE, "ogg123 \'%s\' -d wav -f - 2> /dev/null",
+                 quoted_path);
         break;
     case MP3:
-        snprintf(buffer, BUFFER_SIZE, "mpg321 -b 10000 \"%s\" -w - 2> /dev/null",
-                 path);
+        snprintf(buffer, BUFFER_SIZE, "mpg321 -b 10000 \'%s\' -w - 2> /dev/null",
+                 quoted_path);
         break;
     case WAV:
         return fopen(path, "r");
@@ -263,3 +274,24 @@ void wav_header_swab(waveheaderstruct * header) {
 }
 
 
+
+/* Escape ' char in path */
+int quote_path(char *buf, size_t bufsiz, const char *path) {
+    int in, out = 0;
+    const char *quote = "\'\\\'\'"; /* a quoted quote character */
+    for (in = 0; out < bufsiz && path[in] != '\0'; in++) {
+        if (path[in] == '\'') {
+            if (out + strlen(quote) > bufsiz) {
+                break;
+            } else {
+                memcpy(&buf[out], quote, strlen(quote)); 
+                out += strlen(quote);
+            }
+        } else {
+            buf[out++] = path[in];
+        }
+    }
+    if (out < bufsiz)
+        buf[out++] = '\0';
+    return out;
+}
