@@ -96,10 +96,14 @@ GtkWidget * make_no_root_view ( void );
 GtkWidget * make_selection_view ( void );
 GtkWidget * make_prefs_view ( void );
 GtkWidget * make_about_view ( void );
-
+void        set_analysis_progress_visible  ( gboolean visible );
+void        set_add_files_progress_visible ( gboolean visible );
+void        set_add_files_progress         ( char * str,
+                                             gint percent );
 
 /* Explore files pane  */
 void        explore_view_set_root        ( char * root_dir );
+gint        explore_view_set_root_idle   ( gpointer data );
 gboolean    explore_update_file_pm       ( char * file, 
                                            int type );
 GList *     explore_files_in_dir         ( char * dir, 
@@ -108,7 +112,6 @@ gint        explore_files_depth_distance ( char * file1,
                                            char * file2 );
 void        explore_animate_pending      ( char * file );
 void        explore_animate_stop         ( void );
-
 
 /* Select file pane */
 void        set_selected_file             ( char * file, 

@@ -22,6 +22,7 @@ GtkWidget        * explore_view, * selection_view, * playlist_view,
 GtkTooltips      * tips;
 static tab_val     current_tab;
 static GtkWidget * analysis_label, * analysis_progress;
+static GtkWidget * add_files_label, * add_files_progress;
 static GtkWidget * explore_hbox, * playlist_hbox, * prefs_hbox, * about_hbox;
 static GtkWidget * paned;
 static GtkWidget * msg_window = NULL;
@@ -66,8 +67,7 @@ static gint     ping_daemon           ( gpointer data );
 
 
 GtkWidget * make_app_ui ( void ) {
-    GtkWidget * hbox1;
-    GtkWidget * vbox1;
+    GtkWidget * vbox1, * hbox1, * hbox2;
     GtkWidget * alignment;
     
     tips = gtk_tooltips_new();
@@ -98,15 +98,25 @@ GtkWidget * make_app_ui ( void ) {
     hbox1 = gtk_hbox_new(FALSE, 2);
     gtk_box_pack_end(GTK_BOX(vbox1), hbox1, FALSE, FALSE, 5);
 
-    analysis_label = gtk_label_new("Idle");
-    
+    analysis_label = gtk_label_new("Idle");    
     gtk_box_pack_start(GTK_BOX(hbox1), analysis_label, FALSE, FALSE, 5);
-    analysis_progress = gtk_progress_bar_new();
+    add_files_label = gtk_label_new("");
+    gtk_box_pack_start(GTK_BOX(hbox1), add_files_label, FALSE, FALSE, 5);
+
     alignment = gtk_alignment_new(0.1, 1, 1, 0);
-    gtk_container_add(GTK_CONTAINER(alignment), analysis_progress);
     gtk_box_pack_end(GTK_BOX(hbox1), alignment, FALSE, FALSE, 5);
+    hbox2 = gtk_hbox_new(FALSE, 0);
+    gtk_container_add(GTK_CONTAINER(alignment), hbox2);
+
+    analysis_progress = gtk_progress_bar_new();
     gtk_progress_bar_update (GTK_PROGRESS_BAR(analysis_progress),
                              0.0);
+    gtk_box_pack_start(GTK_BOX(hbox2), analysis_progress, FALSE, FALSE, 0);
+
+    add_files_progress = gtk_progress_bar_new();
+    gtk_progress_bar_update (GTK_PROGRESS_BAR(add_files_progress),
+                             0.0);
+    gtk_box_pack_start(GTK_BOX(hbox2), add_files_progress, FALSE, FALSE, 0);
 
     explore_hbox = gtk_hbox_new(FALSE, 2);
     gtk_notebook_append_page(GTK_NOTEBOOK(notebook), 
@@ -152,6 +162,7 @@ GtkWidget * make_app_ui ( void ) {
     gtk_notebook_set_page(GTK_NOTEBOOK(notebook), TAB_EXPLORE);
     
     gtk_timeout_add( UI_PING, ping_daemon, NULL);
+    
     return window;
 }
 
@@ -481,4 +492,49 @@ static void quit_app (void) {
 static gint ping_daemon ( gpointer data ) {
     send_ipc(ui_pipe_fd, ACK);
     return TRUE;
+}
+
+
+void set_analysis_progress_visible  ( gboolean visible ) {
+    if (visible) {
+        gtk_widget_show(analysis_label);
+        gtk_widget_show(analysis_progress);
+    } else {
+        gtk_widget_hide(analysis_label);
+        gtk_widget_hide(analysis_progress);
+    }
+}
+
+
+void set_add_files_progress_visible ( gboolean visible ) {
+    if (visible) {
+        gtk_widget_show(add_files_label);
+        gtk_widget_show(add_files_progress);
+    } else {
+        gtk_widget_hide(add_files_label);
+        gtk_widget_hide(add_files_progress);
+    }
+}
+
+
+#define ADD_PATH_CUTOFF 50
+void set_add_files_progress ( char * str,
+                              gint percent ) {
+    char buffer[BUFFER_SIZE];
+    int len;
+    gboolean add_elipsis = FALSE;
+
+    if (str) {
+        len = strlen(str);
+        if (len > ADD_PATH_CUTOFF) {
+            str = str + len - ADD_PATH_CUTOFF;
+            add_elipsis = TRUE;
+        }
+        snprintf(buffer, BUFFER_SIZE, "Add: %s%s",
+                 add_elipsis ? "..." : "",
+                 str);
+        gtk_label_set_text(GTK_LABEL(add_files_label), buffer);
+    }
+    gtk_progress_bar_update (GTK_PROGRESS_BAR(add_files_progress),
+                             percent/100.0);
 }

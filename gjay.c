@@ -174,10 +174,15 @@ int main( int argc, char *argv[] )
         
         load_prefs();
         read_data_file();
+
         widget = make_app_ui();
         gtk_widget_show_all(widget);
+        set_add_files_progress_visible(FALSE);
+
         send_ipc(ui_pipe_fd, ATTACH);
+        explore_view_set_root(prefs.song_root_dir);
         set_selected_file(NULL, NULL, FALSE);
+        
         gtk_main();
 
         save_prefs();

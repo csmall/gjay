@@ -837,7 +837,6 @@ void send_ui_percent (int percent) {
 
 void send_analyze_song_name ( void ) {
     char buffer[BUFFER_SIZE];
-    char * utf8;
     if (!analyze_song)
         return;
     if (analyze_song->title && analyze_song->artist) {

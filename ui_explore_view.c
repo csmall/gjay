@@ -20,6 +20,7 @@
 #include <stdlib.h>
 #include <ftw.h> 
 #include <string.h>
+#include <time.h>
 #include "gjay.h"
 #include "ui.h"
 #include "ipc.h"
@@ -53,6 +54,8 @@ static GList      * files_to_analyze = NULL;
 static gint         animate_timeout = 0;
 static gint         animate_frame = 0;
 static gchar      * animate_file = NULL;
+static gint         total_files_to_add, file_to_add_count, new_file_count;
+
 
 static int    tree_walk       ( const char *file, 
                                 const struct stat *sb, 
@@ -112,10 +115,6 @@ NULL);
     gtk_tree_view_append_column (GTK_TREE_VIEW (tree_view), column);
     gtk_tree_view_set_headers_visible(GTK_TREE_VIEW (tree_view), FALSE);
 
-
-    if (prefs.song_root_dir) 
-        explore_view_set_root(prefs.song_root_dir);
-
     swin = gtk_scrolled_window_new (NULL, NULL);
     gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (swin),
                                     GTK_POLICY_AUTOMATIC,
@@ -136,6 +135,9 @@ NULL);
 void explore_view_set_root ( char * root_dir ) {
     GList * llist;
     char buffer[BUFFER_SIZE];
+
+    if (!root_dir)
+        return;
 
     gtk_tree_store_clear(store);
     tree_depth = 0;
@@ -192,15 +194,38 @@ void explore_view_set_root ( char * root_dir ) {
     ftw(root_dir, tree_walk, 10);
     
     gtk_idle_add(tree_add_idle, NULL);
- 
+
+    total_files_to_add = g_list_length(files_to_add_queue->head);
+    file_to_add_count = 0;
+    new_file_count = 0;
+    set_add_files_progress("Scanning tree...", 0);
+    set_analysis_progress_visible(FALSE);
+    set_add_files_progress_visible(TRUE);
+    
     /* Run idle loop once to force display of root dir */
     tree_add_idle(NULL);
 }
 
 
+gint explore_view_set_root_idle ( gpointer data ) {
+    explore_view_set_root((gchar *) data);
+    if (gtk_notebook_get_current_page(GTK_NOTEBOOK(notebook)) !=
+        TAB_EXPLORE) {
+        gtk_notebook_set_current_page(GTK_NOTEBOOK(notebook), TAB_EXPLORE);
+    } else {
+        switch_page(GTK_NOTEBOOK(notebook),
+                    NULL,
+                    TAB_EXPLORE,
+                    NULL);
+    }
+    return FALSE;
+}
+
+
+
 static int tree_walk (const char *file, 
                       const struct stat *sb, 
-                      int flag) {
+                      int flag ) {
     file_to_add * fta;
     int len;
     
@@ -227,6 +252,7 @@ static int tree_walk (const char *file,
 
 
 static int tree_add_idle (gpointer data) {
+    static time_t ping_time = 0;
     file_to_add * fta;
     GtkTreeIter * parent, * current;
     int pm_type;
@@ -265,12 +291,16 @@ static int tree_add_idle (gpointer data) {
             fclose(f);
             send_ipc_text(ui_pipe_fd, QUEUE_FILE, buffer);
         } 
+        set_add_files_progress_visible(FALSE);
+        set_analysis_progress_visible(TRUE);
         return FALSE;
     }
 
     fta = (file_to_add *) files_to_add_queue->tail->data;
     display_name = fta->fname;
     current = g_malloc(sizeof(GtkTreeIter));
+
+    file_to_add_count++;
 
     if (fta->is_file) {
         assert(parent_name_stack);
@@ -285,7 +315,10 @@ static int tree_add_idle (gpointer data) {
         parent = iter_stack->tail->data;   
 
         s = (song *) g_hash_table_lookup(song_name_hash, fta->fname);
+        
         if (s) {
+            set_add_files_progress(NULL, (file_to_add_count * 100) / 
+                                   total_files_to_add);
             s->in_tree = TRUE;
 
             if (!s->no_data) {
@@ -303,6 +336,11 @@ static int tree_add_idle (gpointer data) {
         } else if (g_hash_table_lookup(not_song_hash, fta->fname)) {
             pm_type = PM_FILE_NOSONG;
         }  else {
+            new_file_count++;
+            set_add_files_progress(fta->fname, 
+                                   (file_to_add_count * 100) / 
+                                   total_files_to_add);
+            
             s = create_song();
             file_info(fta->fname,
                       &is_song,
@@ -386,6 +424,21 @@ static int tree_add_idle (gpointer data) {
     g_queue_pop_tail(files_to_add_queue);
     g_free(fta->fname);
     g_free(fta);
+
+    /*
+     * Misc. tasks. We gotta ping the daemon every so often so it
+     * won't go away. And it would be nice to save song information
+     * every 100 new songs or so such that if there's a crash, not too
+     * much is lost.
+     */
+    if (time(NULL) - ping_time > DAEMON_ATTACH_FREAKOUT / 2) {
+        ping_time = time(NULL);
+        send_ipc(ui_pipe_fd, ACK);
+    }
+    if (new_file_count && (new_file_count% 100 == 0)) {
+        write_data_file();
+    }
+    
     return TRUE;
 }
 

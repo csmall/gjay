@@ -242,19 +242,12 @@ static void set_base_dir ( GtkButton *button,
          * doing */
         send_ipc(ui_pipe_fd, CLEAR_ANALYSIS_QUEUE);
     }
+    prefs.song_root_dir = g_strdup(base_dir);     
+    gtk_idle_add(explore_view_set_root_idle, prefs.song_root_dir);
 
-    prefs.song_root_dir = g_strdup(base_dir); 
-    
-    explore_view_set_root(base_dir);
-    if (gtk_notebook_get_current_page(GTK_NOTEBOOK(notebook)) !=
-        TAB_EXPLORE) {
-        gtk_notebook_set_current_page(GTK_NOTEBOOK(notebook), TAB_EXPLORE);
-    } else {
-        switch_page(GTK_NOTEBOOK(notebook),
-                    NULL,
-                    TAB_EXPLORE,
-                    NULL);
-    }
+    set_add_files_progress("Scanning tree...", 0);
+    set_analysis_progress_visible(FALSE);
+    set_add_files_progress_visible(TRUE);
 }
 
 

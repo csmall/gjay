@@ -1,12 +1,17 @@
-0.2.3 - December 1, 2002
+0.2.3 - December 2, 2002
+- Display friendly feedback as songs are added to GJay
 - Song data, prefs stored in XML
-- Bug: analysis updates weren't showing up for the selected song
-- Check for duplicate songs such that analysis won't be duplicated. Both
-  show up in file view.
+- Check for duplicate songs such that analysis won't be repeated. Repeat
+  songs show up in the file view, but only one repeat will be chosen in a 
+  playlist.
 - Assume Latin1 encoding for song names such that we can convert them to 
   UTF8 for user-visible display (prevents Pango from freaking out)
 - Nice the analysis daemon to 19
-
+- Bugs: 
+    - Analysis updates weren't showing up for the selected song
+    - If you were adding a huge tree, the daemon would probably timeout and
+      go away since the UI process wasn't pinging it
+    
 0.2.2 - November 24, 2002
 - Minor fixes
    - Fixed compiler warnings

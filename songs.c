@@ -412,21 +412,32 @@ int append_daemon_file (song * s) {
  * </file>
  */
 static void write_song_data (FILE * f, song * s) {
+    gchar * escape; /* Escape XML elements from text */
     int k;
+
     assert(s);
-    
+
     fprintf(f, "<file path=\"%s\" ", s->path);
     if (s->repeat_prev)
         fprintf(f, "repeats=\"%s\"", s->repeat_prev->path);
     fprintf(f, ">\n");
 
     if (!s->repeat_prev) {
-        if(s->artist)
-            fprintf(f, "\t<artist>%s</artist>\n", s->artist);
-        if(s->album)
-            fprintf(f, "\t<album>%s</album>\n", s->album);
-        if(s->title)
-            fprintf(f, "\t<title>%s</title>\n", s->title);
+        if(s->artist) {
+            escape = g_markup_escape_text(s->artist, strlen(s->artist));
+            fprintf(f, "\t<artist>%s</artist>\n", escape);
+            g_free(escape);
+        }
+        if(s->album) {
+            escape = g_markup_escape_text(s->album, strlen(s->album));
+            fprintf(f, "\t<album>%s</album>\n", escape);
+            g_free(escape);
+        }
+        if(s->title) {
+            escape = g_markup_escape_text(s->title, strlen(s->title));
+            fprintf(f, "\t<title>%s</title>\n", escape);
+            g_free(escape);
+        }
         fprintf(f, "\t<checksum>%d</checksum>\n", s->checksum);
         fprintf(f, "\t<length>%d</length>\n", s->length);
         if(!s->no_data) {
@@ -518,15 +529,17 @@ gboolean read_data (FILE * f) {
     parser.text = data_text;
     
     parse_context = g_markup_parse_context_new(&parser, 0, &state, NULL);
-    while (result && !feof(f)) {
-        text_len = fread(buffer, 1, BUFFER_SIZE, f);
-        result = g_markup_parse_context_parse ( parse_context,
-                                                buffer,
-                                                text_len,
-                                                &error);
-        error = NULL;
+    if (parse_context) {
+        while (result && !feof(f)) {
+            text_len = fread(buffer, 1, BUFFER_SIZE, f);
+            result = g_markup_parse_context_parse ( parse_context,
+                                                    buffer,
+                                                    text_len,
+                                                    &error);
+            error = NULL;
+        }
+        g_markup_parse_context_free(parse_context);
     }
-    g_markup_parse_context_free(parse_context);
     return result;
 }
   
