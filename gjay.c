@@ -115,7 +115,7 @@ int main( int argc, char *argv[] ) {
                 } else if (get_named_color(buffer, &rgb)) {
                     prefs.start_color = TRUE;
                 }
-                prefs.color = hsv_to_hb(rgb_to_hsv(rgb));
+                prefs.color = rgb_to_hsv(rgb);
                 i++;
             } else {
                 fprintf(stderr, "Usage: -c color, where color is a hex number in the form 0xRRGGBB or a color name:\n%s\n", known_colors());

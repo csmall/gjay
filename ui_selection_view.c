@@ -52,13 +52,23 @@ static gboolean select_all_selected (GtkWidget *widget,
                                      gpointer user_data);
 static void     rating_changed ( GtkRange *range,
                                  gpointer user_data );
-static void     populate_selected_list (void);
-static void     redraw_rating (void);
+static void     populate_selected_list       ( void );
+static void     redraw_rating                ( void );
 static void     update_song_has_rating_color ( song * s );
 static void     update_dir_has_rating_color  ( gchar * dir );
+static void     update_selected_songs_color  ( gpointer data, 
+                                               gpointer user_data );
+static void     get_selected_color           ( HSV * color, 
+                                               gboolean * no_color,
+                                               gboolean * multiple_colors );
 
 /* How many chars should we truncate displayed file names to? */
 #define TRUNC_NAME 18
+
+/* Size of color swatch */
+#define COLOR_SWATCH_WIDTH 30
+#define COLOR_SWATCH_HEIGHT 20
+
 
 GtkWidget * make_selection_view ( void ) {
     GtkWidget * vbox1, * vbox2, * hbox1, * hbox2;
@@ -163,9 +173,14 @@ GtkWidget * make_selection_view ( void ) {
 
     cwheel = create_colorwheel(COLORWHEEL_DIAMETER,
                                &selected_songs,
+                               update_selected_songs_color,
                                NULL);
+
     gtk_box_pack_start(GTK_BOX(hbox2), cwheel, FALSE, FALSE, 2);
-    
+
+    alignment = gtk_alignment_new (0, 1, 0.1, 0.1);
+    gtk_box_pack_start(GTK_BOX(hbox2), alignment, FALSE, FALSE, 2);
+
     rating_vbox = gtk_vbox_new (FALSE, 2);
     gtk_box_pack_start(GTK_BOX(hbox2), rating_vbox, TRUE, FALSE, 2);    
     label_rating = gtk_label_new("Rating");
@@ -376,7 +391,13 @@ static gboolean select_all_selected (GtkWidget *widget,
 
 
 void update_selection_area (void) {
+    HSV color;
+    gboolean no_color;
+    gboolean multiple_colors;
+
     populate_selected_list();
+    get_selected_color(&color, &no_color, &multiple_colors);
+
     redraw_rating();
     gtk_widget_queue_draw(cwheel);
 }
@@ -422,20 +443,22 @@ void populate_selected_list (void) {
 }
 
 
-void update_selected_songs_color ( gdouble angle, 
-                                   gdouble radius ) {
+void update_selected_songs_color (gpointer data,
+                                  gpointer user_data) {
     GList * llist;
     song * s;
     gboolean had_color_rating;
     gchar * dir = NULL;
+    HSV hsv;
 
     if (!selected_songs)
         return;
 
+    hsv = get_colorwheel_color(GTK_WIDGET(data));
+
     s = SONG(selected_songs);
     dir = parent_dir(s->path);
 
-    
     for (llist = g_list_first(selected_songs); llist; 
          llist = g_list_next(llist)) {
         s = (song *) llist->data;
@@ -447,8 +470,7 @@ void update_selected_songs_color ( gdouble angle,
         }
         
         s->no_color = FALSE;
-        s->color.H = (float) angle;
-        s->color.B = (float) radius;
+        s->color = hsv;
         
         /* If other songs mirror this one, pass on the change */
         song_set_repeat_attrs(s);
@@ -579,4 +601,41 @@ void set_selected_rating_visible ( gboolean is_visible ) {
     } else {
         gtk_widget_hide(rating_vbox);
     }
+}
+
+
+void get_selected_color (HSV * color, 
+                         gboolean * no_color,
+                         gboolean * multiple_colors) {
+    RGB rgb, rgb_sum;
+    int num = 0;
+    GList * llist;
+    song * s;
+
+    assert(color && no_color && multiple_colors);
+    *no_color = TRUE;
+    bzero(&rgb_sum, sizeof(RGB));
+    for (llist = g_list_first(selected_songs);
+         llist;
+         llist = g_list_next(llist)) {
+        s = (song *) llist->data;
+        assert(s);
+        if (!s->no_color) {
+            num++;
+            *no_color = FALSE;
+            rgb = hsv_to_rgb(s->color);
+            rgb_sum.R += rgb.R;
+            rgb_sum.G += rgb.G;
+            rgb_sum.B += rgb.B;
+        }
+    }
+    if (num > 1) {
+        *multiple_colors = TRUE;
+        rgb_sum.R /= (float) num;
+        rgb_sum.G /= (float) num;
+        rgb_sum.B /= (float) num;
+    } else {
+        *multiple_colors = FALSE;
+    }
+    *color = rgb_to_hsv(rgb_sum);
 }

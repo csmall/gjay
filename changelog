@@ -1,3 +1,9 @@
+0.2.8 - December 2003
+-Bugs:
+   - Some (evil) ID3 tags were not readable and caused a core dump. 
+     (Debian bug 222195)
+-UI:
+   - Support full HSV model for song color selection.
 0.2.7 - November 2003
 - Bugs:
    - (Provided by Giacomo Catenazzi) verify opendir()

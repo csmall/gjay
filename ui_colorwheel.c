@@ -1,5 +1,5 @@
 /**
- * GJay, copyright (c) 2002 Chuck Groom
+ * GJay, copyright (c) 2002, 2003 Chuck Groom
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -19,13 +19,17 @@
 
 
 #include <math.h>
+#include <strings.h>
 #include "gjay.h"
 #include "ui.h"
 
-static GdkPixbuf * create_colorwheel_pixbuf( gint diameter );
+static GdkPixbuf * create_colorwheel_hs_pixbuf ( gint diameter );
+static GdkPixbuf * create_colorwheel_v_pixbuf  ( gint width,
+                                                 gint height );
 static void        colorwheel_plot_point   ( guchar * data,
-                                             gfloat saturation,
-                                             gfloat hue,
+                                             HSV color,
+                                             gfloat radius,
+                                             gfloat angle,
                                              gint rowstride,
                                              gint x,
                                              gint y );
@@ -41,52 +45,114 @@ static gboolean drawing_motion_event_callback ( GtkWidget *widget,
 static void     click_in_colorwheel (GtkWidget * widget,
                                      gdouble x, 
                                      gdouble y);
+static void     draw_selected_color ( GtkWidget * widget, 
+                                       HSV hsv );
+static void     draw_swatch_color ( GtkWidget * widget, 
+                                    HSV hsv );
 
-
-static gchar * data_pixbuf = "cw_pb";
+static gchar * data_hs_pixbuf = "cw_hs_pb";
+static gchar * data_v_pixbuf = "cw_v_pb";
 static gchar * data_list =   "cw_list";
 static gchar * data_color =  "cw_color";
+static gchar * data_func =  "cw_func";
+static gchar * data_user_data =  "cw_user_data";
 
 
 GtkWidget * create_colorwheel (gint diameter, 
                                GList ** list, 
-                               HB * color) {
-    GdkPixbuf * colorwheel = NULL;
+                               GFunc change_func,
+                               gpointer user_data) {
+    gint width, height, brightness_width;
+    GdkPixbuf * colorwheel = NULL, * brightness = NULL;
     GtkWidget * widget;
+    HSV * color;
 
-    colorwheel = create_colorwheel_pixbuf(diameter);
-    
     widget = gtk_drawing_area_new();
-    gtk_drawing_area_size(GTK_DRAWING_AREA(widget),
-                          diameter + COLORWHEEL_SELECT*2,
-                          diameter + COLORWHEEL_SELECT*2);
+    brightness_width = diameter * COLORWHEEL_V_SWATCH_WIDTH;
+    width =  diameter + COLORWHEEL_SELECT*4 + COLORWHEEL_SPACING + 
+        brightness_width;
+    height = diameter + COLORWHEEL_SELECT*2;
+
+    colorwheel = create_colorwheel_hs_pixbuf(diameter);
+    brightness = create_colorwheel_v_pixbuf(brightness_width, 
+                                            diameter * COLORWHEEL_V_HEIGHT);
+
+    gtk_drawing_area_size(GTK_DRAWING_AREA(widget), width, height);
     gtk_widget_add_events(widget, 
                           GDK_BUTTON_PRESS_MASK | GDK_POINTER_MOTION_MASK);
-    g_object_set_data(G_OBJECT (widget), data_pixbuf, colorwheel);
+    g_object_set_data(G_OBJECT (widget), data_hs_pixbuf, colorwheel);
+    g_object_set_data(G_OBJECT (widget), data_v_pixbuf, brightness);
     g_object_set_data(G_OBJECT (widget), data_list, list);
+
+    color = g_malloc(sizeof(HSV));
+    color->H = 0;
+    color->S = 1;
+    color->V = 1;
     g_object_set_data(G_OBJECT (widget), data_color, color);
-    
+
+    g_object_set_data(G_OBJECT (widget), data_func, change_func);
+    g_object_set_data(G_OBJECT (widget), data_user_data, user_data);
+
     g_signal_connect (G_OBJECT (widget), "expose_event",  
                       G_CALLBACK (drawing_expose_event_callback), NULL);
     g_signal_connect (G_OBJECT (widget), "button-press-event",  
                       G_CALLBACK (drawing_button_event_callback), NULL);
     g_signal_connect (G_OBJECT (widget), "motion-notify-event",  
                       G_CALLBACK (drawing_motion_event_callback), NULL);
-
     return widget;
 }
 
 
-static GdkPixbuf * create_colorwheel_pixbuf (gint diameter) {
+HSV get_colorwheel_color ( GtkWidget * widget) {
+    return *((HSV *) g_object_get_data(G_OBJECT (widget), data_color));
+}
+
+
+void set_colorwheel_color ( GtkWidget * widget,
+                            HSV color) {
+    *((HSV *) g_object_get_data(G_OBJECT (widget), data_color)) = color;
+    gtk_widget_queue_draw(widget);
+}
+
+
+static GdkPixbuf * create_colorwheel_v_pixbuf (gint width, gint height) {
+    GdkPixbuf * pixbuf = NULL;
+    gint rowstride, x, y, v, offset;
+    guchar * data;
+
+    pixbuf = gdk_pixbuf_new (GDK_COLORSPACE_RGB,
+                             TRUE,
+                             8,
+                             width, height);
+    data = gdk_pixbuf_get_pixels (pixbuf);
+    rowstride = gdk_pixbuf_get_rowstride(pixbuf);
+    bzero (data, rowstride * height);
+    for (y = 0; y < height; y++) {
+        v = 255 - (y * 255) / height;
+        offset = y * rowstride;
+        for (x = 0; x < width; x++, offset += 4) {
+            memset(data + offset, v, 3);
+            data[offset + 3] = 255;
+
+        }
+    }
+    return pixbuf;
+}
+
+
+static GdkPixbuf * create_colorwheel_hs_pixbuf (gint diameter) {
     GdkPixbuf * colorwheel = NULL;
     gint width, height, rowstride;
     float angle, percent_radius;
+    HSV hsv;
     guchar * data;
     gint x, y, draw_x, draw_y, p, xcenter, ycenter;
 
+    hsv.V = 1; 
     width = height = diameter;
     xcenter = width / 2;
     ycenter = height / 2;
+    diameter -= 2;
     
     colorwheel = gdk_pixbuf_new  (GDK_COLORSPACE_RGB,
                                   TRUE,
@@ -105,7 +171,7 @@ static GdkPixbuf * create_colorwheel_pixbuf (gint diameter) {
             percent_radius = (2.0 * sqrt (draw_x*draw_x + draw_y*draw_y)) / 
                 ((float) diameter);
             angle = atan2((double) draw_y, (double) draw_x);
-            colorwheel_plot_point(data, percent_radius, angle,
+            colorwheel_plot_point(data, hsv, percent_radius, angle,
                                   rowstride, 
                                   draw_x + xcenter, draw_y + ycenter); 
         }
@@ -115,7 +181,7 @@ static GdkPixbuf * create_colorwheel_pixbuf (gint diameter) {
             percent_radius = (2.0 * sqrt (draw_x*draw_x + draw_y*draw_y)) / 
                 ((float) diameter);
             angle = atan2((double) draw_y, (double) draw_x);
-            colorwheel_plot_point(data, percent_radius, angle, rowstride,
+            colorwheel_plot_point(data, hsv, percent_radius, angle, rowstride,
                                   draw_x + xcenter, draw_y + ycenter); 
         }
 
@@ -124,7 +190,7 @@ static GdkPixbuf * create_colorwheel_pixbuf (gint diameter) {
             percent_radius = (2.0 * sqrt (draw_x*draw_x + draw_y*draw_y)) / 
                 ((float) diameter);
             angle = atan2((double) draw_y, (double) draw_x);
-            colorwheel_plot_point(data, percent_radius, angle, rowstride,
+            colorwheel_plot_point(data, hsv, percent_radius, angle, rowstride,
                                   draw_x + xcenter, draw_y + ycenter); 
         }
 
@@ -133,7 +199,7 @@ static GdkPixbuf * create_colorwheel_pixbuf (gint diameter) {
             percent_radius = (2.0 * sqrt (draw_x*draw_x + draw_y*draw_y)) / 
                 ((float) diameter);
             angle = atan2((double) draw_y, (double) draw_x);
-            colorwheel_plot_point(data, percent_radius, angle, rowstride,
+            colorwheel_plot_point(data, hsv, percent_radius, angle, rowstride,
                                   draw_x + xcenter, draw_y + ycenter); 
         }
         if (p < 0) 
@@ -146,34 +212,31 @@ static GdkPixbuf * create_colorwheel_pixbuf (gint diameter) {
 
 
 static void colorwheel_plot_point ( guchar * data,
-                                    gfloat saturation,
-                                    gfloat hue,
+                                    HSV hsv,
+                                    gfloat radius,
+                                    gfloat angle,
                                     gint rowstride,
                                     gint x,
                                     gint y ) {
     int offset;
-    
     RGB rgb;
-    HB hb;
-    if (hue > 2*M_PI) {
-        hue -= 2*M_PI;
-    } else if (hue < 0) {
-        hue += 2*M_PI;
+    if (angle > 2*M_PI) {
+        angle -= 2*M_PI;
+    } else if (angle < 0) {
+        angle += 2*M_PI;
     }
-    hb.H = (3.0 * hue) / M_PI;
-    hb.B = MIN(1, saturation);
-    rgb = hsv_to_rgb (hb_to_hsv(hb));
-    if (y == 150)
-        y--;
-    offset = rowstride * y + 4 * x;
-    data[offset] =   MIN(255, rgb.R * 255);
-    data[offset+1] = MIN(255, rgb.G * 255);
-    data[offset+2] = MIN(255, rgb.B * 255);
-    if (saturation > 0.99) 
-        data[offset+3] = 180;
-    else
-        data[offset+3] = 255;
+    /* Yep, folks -- hue is 0...6, not 0...2pi! */
+    hsv.H = (angle / (2*M_PI)) * 6.0;
+    hsv.S = radius;
+
+    hsv.V = 1;
     
+    rgb = hsv_to_rgb (hsv);
+    offset = rowstride * y + 4 * x;
+    data[offset] =   MAX(0, MIN(255, rgb.R * 255));
+    data[offset+1] = MAX(0, MIN(255, rgb.G * 255));
+    data[offset+2] = MAX(0, MIN(255, rgb.B * 255));
+    data[offset+3]=255;
 }
 
 
@@ -182,21 +245,23 @@ static gboolean drawing_expose_event_callback (GtkWidget *widget,
                                                GdkEventExpose *event, 
                                                gpointer data) {
     GList * ll, ** list;
-    HB * hb;
+    HSV * hsv, prev_hsv;
     song * s;
-    float angle, radius, old_angle = -1, old_radius = -1;
-    gint xcenter, ycenter, x, y, width, height;
-    GdkPixbuf * colorwheel;
-    gboolean set = FALSE;
-    
-    colorwheel = g_object_get_data(G_OBJECT (widget), data_pixbuf);
+    gint xcenter, ycenter, width, height, num_colors;
+    GdkPixbuf * colorwheel, * brightness;
+    gboolean set;
+
+    set = FALSE;
+    num_colors = 0;
     list = g_object_get_data(G_OBJECT (widget), data_list);
-    hb = g_object_get_data(G_OBJECT (widget), data_color);
-    
-    xcenter = widget->allocation.width  / 2.0;
-    ycenter = widget->allocation.height / 2.0;
-    width = gdk_pixbuf_get_width(colorwheel);
-    height = gdk_pixbuf_get_height(colorwheel);
+    hsv = g_object_get_data(G_OBJECT (widget), data_color);
+    assert(hsv);
+    prev_hsv.H = -1;
+    prev_hsv.S = -1;
+    prev_hsv.V = -1;
+
+    colorwheel = g_object_get_data(G_OBJECT (widget), data_hs_pixbuf);
+    brightness = g_object_get_data(G_OBJECT (widget), data_v_pixbuf);
 
     gdk_draw_rectangle  (widget->window,
                          widget->style->bg_gc[GTK_WIDGET_STATE (widget)],
@@ -206,48 +271,58 @@ static gboolean drawing_expose_event_callback (GtkWidget *widget,
                          event->area.width,
                          event->area.height);
     
-    gdk_pixbuf_render_to_drawable_alpha(colorwheel, 
-                                        widget->window,
-                                        0, 0,
-                                        xcenter - width/2,
-                                        ycenter - height/2,
-                                        width,
-                                        height,
-                                        GDK_PIXBUF_ALPHA_FULL,
-                                        127,
-                                        GDK_RGB_DITHER_NORMAL, 
-                                        0, 0);
+    width = gdk_pixbuf_get_width(brightness);
+    height = gdk_pixbuf_get_height(brightness);
+    gdk_pixbuf_render_to_drawable_alpha(
+        brightness, 
+        widget->window,
+        0, 0,
+        widget->allocation.width - width - COLORWHEEL_SELECT,
+        COLORWHEEL_SELECT,
+        width,
+        height,
+        GDK_PIXBUF_ALPHA_FULL,
+        127,
+        GDK_RGB_DITHER_NORMAL, 
+        0, 0);
+
+    width = gdk_pixbuf_get_width(colorwheel);
+    height = gdk_pixbuf_get_height(colorwheel);
+    xcenter = widget->allocation.height / 2.0; // Use height on purpose
+    ycenter = widget->allocation.height / 2.0;
+    gdk_pixbuf_render_to_drawable_alpha(
+        colorwheel, 
+        widget->window,
+        0, 0,
+        xcenter - width/2,
+        ycenter - height/2,
+        width,
+        height,
+        GDK_PIXBUF_ALPHA_FULL,
+        127,
+        GDK_RGB_DITHER_NORMAL, 
+        0, 0);
+
     if (list) {
         for (ll = g_list_first(selected_songs); ll; ll = g_list_next(ll)) {
             s = (song *) ll->data;
             if (!s->no_color) {
                 set = TRUE;
-                angle = s->color.H;
-                radius = (s->color.B * gdk_pixbuf_get_width(colorwheel)) / 2.0;
-                if ((old_angle != angle) || (old_radius != radius)) {
-                    x = radius * cos (angle);
-                    y = radius * sin (angle);
-                    
-                    width = gdk_pixbuf_get_width(pixbufs[PM_COLOR_SEL]);
-                    height = gdk_pixbuf_get_height(pixbufs[PM_COLOR_SEL]);
-                    
-                    gdk_pixbuf_render_to_drawable_alpha(
-                        pixbufs[PM_COLOR_SEL],
-                        widget->window,
-                        0, 0,
-                        (xcenter + x) - width/2, (ycenter + y) - height/2, 
-                        width,
-                        height,
-                        GDK_PIXBUF_ALPHA_FULL,
-                        127,
-                        GDK_RGB_DITHER_NORMAL, 
-                        0, 0);
-                    old_angle = angle;
-                    old_radius = radius;
-                }
+                *hsv = s->color;
+                if (!((hsv->H == prev_hsv.H) &&
+                      (hsv->S == prev_hsv.S) &&
+                      (hsv->V == prev_hsv.V))) {
+                    draw_selected_color(widget, s->color);
+                    num_colors++;   
+                    prev_hsv = *hsv;
+             }
             }
         }    
-        if (!set) {
+        if (set) {
+            if (num_colors == 1) {
+                draw_swatch_color(widget, *hsv);
+            }
+        } else {
             width = gdk_pixbuf_get_width(pixbufs[PM_NOT_SET]);
             height = gdk_pixbuf_get_height(pixbufs[PM_NOT_SET]);
             gdk_pixbuf_render_to_drawable_alpha(
@@ -260,31 +335,107 @@ static gboolean drawing_expose_event_callback (GtkWidget *widget,
                 127,
                 GDK_RGB_DITHER_NORMAL, 
                 0, 0);
+
+            // When the user does set a color, make it full brightness
+            hsv->V = 1;
         }
-    } else if (hb) {
-        angle = hb->H;
-        radius = (hb->B * gdk_pixbuf_get_width(colorwheel)) / 2.0;
-        x = radius * cos (angle);
-        y = radius * sin (angle);
-        
-        width = gdk_pixbuf_get_width(pixbufs[PM_COLOR_SEL]);
-        height = gdk_pixbuf_get_height(pixbufs[PM_COLOR_SEL]);
-        
-        gdk_pixbuf_render_to_drawable_alpha(
-            pixbufs[PM_COLOR_SEL],
-            widget->window,
-            0, 0,
-            (xcenter + x) - width/2, (ycenter + y) - height/2, 
-            width,
-            height,
-            GDK_PIXBUF_ALPHA_FULL,
-            127,
-            GDK_RGB_DITHER_NORMAL, 
-            0, 0);
+    } else {
+        draw_selected_color(widget, *hsv);
+        draw_swatch_color(widget, *hsv);
     }
     return TRUE;
 }
 
+
+void draw_selected_color (GtkWidget * widget, 
+                          HSV hsv) {
+    GdkGC * gc;
+    float angle, radius;
+    GdkPixbuf * colorwheel, * brightness;
+    gint xcenter, ycenter, x, y, width, height;
+
+    gc = gdk_gc_new(widget->window);
+    gdk_rgb_gc_set_foreground(gc, 0);
+    
+    colorwheel = g_object_get_data(G_OBJECT (widget), data_hs_pixbuf);
+    brightness = g_object_get_data(G_OBJECT (widget), data_v_pixbuf);
+
+    width = gdk_pixbuf_get_width(brightness);
+    height = gdk_pixbuf_get_height(brightness);
+    x = widget->allocation.width - 
+        gdk_pixbuf_get_width(brightness) -
+        2*COLORWHEEL_SELECT;
+    y = (1.0 - hsv.V) * (float) gdk_pixbuf_get_height(brightness);
+    gdk_draw_line(
+        widget->window, gc,
+        x, y + COLORWHEEL_SELECT,
+        widget->allocation.width, COLORWHEEL_SELECT + y);
+    
+    /* Hue is 0..6 */
+    angle = (hsv.H / 3) * (M_PI);
+    radius = (hsv.S * gdk_pixbuf_get_width(colorwheel)) / 2.0;
+    x = radius * cos (angle);
+    y = radius * sin (angle);
+
+    width = gdk_pixbuf_get_width(pixbufs[PM_COLOR_SEL]);
+    height = gdk_pixbuf_get_height(pixbufs[PM_COLOR_SEL]);
+    xcenter = widget->allocation.height / 2.0; // Use height on purpose
+    ycenter = widget->allocation.height / 2.0;    
+    gdk_pixbuf_render_to_drawable_alpha(
+        pixbufs[PM_COLOR_SEL],
+        widget->window,
+        0, 0,
+        (xcenter + x) - width/2, (ycenter + y) - height/2, 
+        width,
+        height,
+        GDK_PIXBUF_ALPHA_FULL,
+        127,
+        GDK_RGB_DITHER_NORMAL, 
+        0, 0);
+    gdk_gc_unref(gc);
+}
+
+
+void draw_swatch_color (GtkWidget * widget, 
+                        HSV hsv) {
+    GdkGC * black_gc, * color_gc;
+    RGB rgb;
+    guint32 rgb32 = 0;
+    gint width, height, x, y;
+    GdkPixbuf * brightness;
+
+    brightness = g_object_get_data(G_OBJECT (widget), data_v_pixbuf);
+
+    rgb = hsv_to_rgb(hsv);
+    rgb32 = 
+        ((int) (rgb.R * 255.0)) << 16 |
+        ((int) (rgb.G * 255.0)) << 8 |
+        ((int) (rgb.B * 255.0));
+    black_gc = gdk_gc_new(widget->window);
+    color_gc = gdk_gc_new(widget->window);
+    gdk_rgb_gc_set_foreground(black_gc, 0);
+    gdk_rgb_gc_set_foreground(color_gc, rgb32);
+    
+    width = gdk_pixbuf_get_width(brightness);
+    height = (widget->allocation.height -                  
+              2*COLORWHEEL_SELECT) * COLORWHEEL_SWATCH_HEIGHT;
+    x = widget->allocation.width - 
+        width - 
+        COLORWHEEL_SELECT;            
+    y = widget->allocation.height - COLORWHEEL_SELECT - height;
+    gdk_draw_rectangle  (widget->window,
+                         black_gc,
+                         FALSE,
+                         x, y,
+                         width - 1, height - 1 );
+    gdk_draw_rectangle  (widget->window,
+                         color_gc,
+                         TRUE,
+                         x + 1, y + 1,
+                         width - 2, height - 2 );
+    gdk_gc_unref(black_gc);
+    gdk_gc_unref(color_gc);            
+}
 
 
 static gboolean drawing_button_event_callback (GtkWidget *widget,
@@ -307,19 +458,36 @@ static gboolean drawing_motion_event_callback  (GtkWidget *widget,
 static void click_in_colorwheel (GtkWidget * widget,
                                  gdouble x, 
                                  gdouble y) {
+    gboolean updateHS = TRUE;
+    gboolean updateV  = TRUE;
     gdouble radius, angle;
     gint xcenter, ycenter, diameter;
-    GdkPixbuf * colorwheel;
+    GdkPixbuf * colorwheel, * brightness;
     GList ** list;
-    HB * hb;
+    HSV * hsv;
+    GFunc change_func;
+    gpointer user_data;
 
-    colorwheel = g_object_get_data(G_OBJECT (widget), data_pixbuf);
+    colorwheel = g_object_get_data(G_OBJECT (widget), data_hs_pixbuf);
+    brightness = g_object_get_data(G_OBJECT (widget), data_v_pixbuf);
     list = g_object_get_data(G_OBJECT (widget), data_list);
-    hb = g_object_get_data(G_OBJECT (widget), data_color);
+    hsv = g_object_get_data(G_OBJECT (widget), data_color);
+    assert (hsv);
 
+    /* Check for v */
+    if ((x >= widget->allocation.width - gdk_pixbuf_get_width(brightness) - COLORWHEEL_SELECT) &&
+        (x <= widget->allocation.width - COLORWHEEL_SELECT)) {
+        hsv->V = MIN(1.0, 
+                     MAX(0, 1.0 - 
+                         (((float) (y - COLORWHEEL_SELECT)) / 
+                          ((float) gdk_pixbuf_get_height(brightness)))));
+    } else {
+        updateV = FALSE;
+    }
+
+    /* Check for h-s */
     diameter = gdk_pixbuf_get_width(colorwheel);
-
-    xcenter = widget->allocation.width  / 2.0;
+    xcenter = widget->allocation.height / 2.0; // Use height on purpose
     ycenter = widget->allocation.height / 2.0;
 
     x -= xcenter;
@@ -329,37 +497,42 @@ static void click_in_colorwheel (GtkWidget * widget,
         (x >   diameter / 2) || 
         (y < - diameter / 2) || 
         (y >   diameter / 2)) 
-        return;
+        updateHS = FALSE;
     
-    radius = sqrt(x*x + y*y);
-    if (radius > diameter/2.0)
-        return;
-    radius /= diameter/2.0;
+    radius = (2.0 * sqrt(x*x + y*y)) / diameter;
+    if (radius > 1.0)
+        updateHS = FALSE;
 
-    if (x == 0) {
-        if (y > 0)
-            angle = M_PI/2.0;
-        else 
-            angle = (3.0*M_PI)/2.0;
-    } else if (y == 0) {
-        if (x > 0)
-            angle = 0;
-        else
-            angle = M_PI;
-    } else {
-        angle = atan(y / x);
-        if (x < 0)
-            angle += M_PI;
-        else if (y < 0)
-            angle += 2*M_PI;
-    }
+    if (updateHS) {
+        if (x == 0) {
+            if (y > 0)
+                angle = M_PI/2.0;
+            else 
+                angle = (3.0*M_PI)/2.0;
+        } else if (y == 0) {
+            if (x > 0)
+                angle = 0;
+            else
+                angle = M_PI;
+        } else {
+            angle = atan(y / x);
+            if (x < 0)
+                angle += M_PI;
+            else if (y < 0)
+                angle += 2*M_PI;
+        }
         
-    if (list)
-        update_selected_songs_color(angle, radius);
-    if (hb) {
-        hb->H = angle;
-        hb->B = radius;
+        hsv->H = (3.0 * angle) / M_PI;
+        hsv->S = radius;
+    } 
+
+    if (updateHS || updateV) {
+        change_func = g_object_get_data(G_OBJECT (widget), data_func);
+        user_data = g_object_get_data(G_OBJECT (widget), data_user_data);
+        if (change_func) {
+            change_func(widget, user_data);
+        }
+        gtk_widget_queue_draw(widget);
     }
-    gtk_widget_queue_draw(widget);
 }
 

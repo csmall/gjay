@@ -1,2 +1,0 @@
-?package(gjay):needs=X11 section=Apps/Sound\
-  title="GJay" command="/usr/bin/gjay"

@@ -57,12 +57,16 @@ typedef struct {
     float variance; 
     float hue;
     float brightness;
+    float saturation;
     float bpm;
     float freq;
     float rating; 
     float path_weight;
 
-    HB color;
+    HSV color;
+
+    /* Store how a color was loaded */
+    gboolean use_hsv;
 } app_prefs;
 
 

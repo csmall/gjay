@@ -11,11 +11,12 @@
  * <rating [cutoff=...]>float</rating>
  * <hue>...
  * <brightness>...
+ * <saturation>...
  * <bpm>...
  * <freq>...
  * <variance>...
  * <path_weight>...
- * <color>float float</color>
+ * <color type="hsv">float float float</color>
  * <time>int</time>
  *
  * This program is free software; you can redistribute it and/or
@@ -52,6 +53,7 @@ typedef enum {
     PE_RATING,
     PE_HUE,
     PE_BRIGHTNESS,
+    PE_SATURATION,
     PE_BPM,
     PE_FREQ,
     PE_VARIANCE,
@@ -65,11 +67,12 @@ typedef enum {
     PE_CUTOFF,
     PE_VERSION,
     PE_USE_RATINGS,
+    PE_TYPE,
     /* values */
     PE_RANDOM,
     PE_SELECTED,
     PE_SONGS,
-    PE_DIR, 
+    PE_DIR,
     PE_LAST
 } pref_element_type;
 
@@ -84,6 +87,7 @@ char * pref_element_strs[PE_LAST] = {
     "rating",
     "hue",
     "brightness",
+    "saturation",
     "bpm",
     "freq",
     "variance",
@@ -96,6 +100,7 @@ char * pref_element_strs[PE_LAST] = {
     "cutoff",
     "version",
     "use_ratings",
+    "type",
     "random",
     "selected",
     "songs",
@@ -139,9 +144,12 @@ void load_prefs ( void ) {
         prefs.bpm =
         prefs.freq =
         prefs.path_weight = DEFAULT_CRITERIA;
+    prefs.saturation = 1;
     prefs.extension_filter = TRUE;
     prefs.color.H = 0;
-    prefs.color.B = 0.5;
+    prefs.color.S = 0.5;
+    prefs.color.V = 1.0;
+    prefs.use_hsv = FALSE;
     prefs.daemon_action = PREF_DAEMON_QUIT;
     prefs.hide_tips = FALSE;
     snprintf(buffer, BUFFER_SIZE, "%s/%s/%s", getenv("HOME"), 
@@ -225,10 +233,12 @@ void save_prefs ( void ) {
                 prefs.time,
                 pref_element_strs[PE_TIME]);
 
-        fprintf(f, "<%s>%f %f</%s>\n",
+        fprintf(f, "<%s %s=\"hsv\">%f %f %f</%s>\n",
                 pref_element_strs[PE_COLOR],
+                pref_element_strs[PE_TYPE],
                 prefs.color.H,
-                prefs.color.B, 
+                prefs.color.S, 
+                prefs.color.V, 
                 pref_element_strs[PE_COLOR]);
                 
         if (prefs.rating_cutoff) {
@@ -255,6 +265,11 @@ void save_prefs ( void ) {
                 pref_element_strs[PE_BRIGHTNESS],
                 prefs.brightness,
                 pref_element_strs[PE_BRIGHTNESS]);
+
+        fprintf(f, "<%s>%f</%s>\n",
+                pref_element_strs[PE_SATURATION],
+                prefs.saturation,
+                pref_element_strs[PE_SATURATION]);
         
         fprintf(f, "<%s>%f</%s>\n",
                 pref_element_strs[PE_BPM],
@@ -295,6 +310,11 @@ void data_start_element  (GMarkupParseContext *context,
     for (k = 0; attribute_names[k]; k++) {
         attr = get_element((char *) attribute_names[k]);
         switch(attr) {
+        case PE_TYPE:
+            if (strcasecmp(attribute_values[k], "hsv") == 0) {
+                prefs.use_hsv = TRUE;
+            }
+            break;
         case PE_EXTENSION_FILTER:
             if (*element == PE_ROOTDIR)
                 prefs.extension_filter = TRUE;
@@ -371,6 +391,9 @@ void data_text ( GMarkupParseContext *context,
     case PE_BRIGHTNESS:
         prefs.brightness = strtof_gjay(buffer, NULL);
         break;
+    case PE_SATURATION:
+        prefs.saturation = strtof_gjay(buffer, NULL);
+        break;
     case PE_BPM:
         prefs.bpm = strtof_gjay(buffer, NULL);
         break;
@@ -384,8 +407,16 @@ void data_text ( GMarkupParseContext *context,
         prefs.path_weight = strtof_gjay(buffer, NULL);  
         break;
     case PE_COLOR:
-        prefs.color.H = strtof_gjay(buffer, &buffer_str);
-        prefs.color.B = strtof_gjay(buffer_str, NULL);
+        if (prefs.use_hsv) {
+            prefs.color.H = strtof_gjay(buffer, &buffer_str);
+            prefs.color.S = strtof_gjay(buffer_str, &buffer_str);
+            prefs.color.V = strtof_gjay(buffer_str, NULL);
+        } else {
+            HB hb;
+            hb.H = strtof_gjay(buffer, &buffer_str);
+            hb.B = strtof_gjay(buffer_str, NULL);
+            prefs.color = hb_to_hsv(hb);
+        }
         break;
     case PE_TIME:
         prefs.time = atoi(buffer);

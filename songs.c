@@ -50,6 +50,7 @@ typedef enum {
     E_NOT_SONG,
     E_REPEATS,
     E_VOL_DIFF,
+    E_TYPE,
     E_VERSION,
     E_LAST
 } element_type;
@@ -71,6 +72,7 @@ static const char * element_str[E_LAST] = {
     "not_song",
     "repeats",
     "volume_diff",
+    "type",
     "version"
 };
 
@@ -78,6 +80,7 @@ static const char * element_str[E_LAST] = {
 typedef struct {
     gboolean is_repeat;
     gboolean not_song;
+    gboolean use_hb;
     gboolean new;
     element_type element;
     song * s;
@@ -224,7 +227,7 @@ void song_set_color_pixbuf ( song * s) {
                                      COLOR_IMAGE_HEIGHT);
     rowstride = gdk_pixbuf_get_rowstride(s->color_pixbuf);
     data = gdk_pixbuf_get_pixels (s->color_pixbuf);
-    rgb = hsv_to_rgb(hb_to_hsv(s->color));    
+    rgb = hsv_to_rgb(s->color);    
     r = rgb.R * 255;
     g = rgb.G * 255;
     b = rgb.B * 255;
@@ -429,7 +432,7 @@ int append_daemon_file (song * s) {
  *   <inode>int</inode>
  *   <length>int</length>
  *   <rating>float</rating>
- *   <color>float float</color>
+ *   <color type="hsv">float float float</color>  
  *   <freq volume_diff="float">float float...</freq>
  *   <bpm>float</bpm>
  * </file>
@@ -485,9 +488,10 @@ static void write_song_data (FILE * f, song * s) {
         if (!s->no_rating)
             fprintf(f, "\t<rating>%f</rating>\n", s->rating);
         if (!s->no_color)
-            fprintf(f, "\t<color>%f %f</color>\n", 
+            fprintf(f, "\t<color type=\"hsv\">%f %f %f</color>\n", 
                     s->color.H,
-                    s->color.B);
+                    s->color.S,
+                    s->color.V);
     }
     fprintf(f, "</file>\n");
 }
@@ -643,6 +647,16 @@ void data_start_element  (GMarkupParseContext *context,
         state->s->no_rating = FALSE;
         break;
     case E_COLOR:
+        state->use_hb = TRUE;
+        for (k = 0; attribute_names[k]; k++) {
+            switch(get_element((char *) attribute_names[k])) {
+            case E_TYPE:
+                if (strcasecmp(attribute_values[k], "hsv") == 0) {
+                    state->use_hb = FALSE;
+                }
+                break;
+            }
+        }
         state->s->no_color = FALSE;
         break;
     case E_FREQ:
@@ -748,8 +762,16 @@ void data_text ( GMarkupParseContext *context,
         }
         break;
     case E_COLOR:
-        state->s->color.H = strtof_gjay(buffer, &buffer_str);
-        state->s->color.B = strtof_gjay(buffer_str, NULL);
+        if (state->use_hb) {
+            HB hb;
+            hb.H = strtof_gjay(buffer, &buffer_str);
+            hb.B = strtof_gjay(buffer_str, NULL);
+            state->s->color = hb_to_hsv(hb);
+        } else {
+            state->s->color.H = strtof_gjay(buffer, &buffer_str);
+            state->s->color.S = strtof_gjay(buffer_str, &buffer_str);
+            state->s->color.V = strtof_gjay(buffer_str, NULL);
+        }
         break;
     case E_FREQ:
         buffer_str = buffer;
@@ -892,13 +914,14 @@ gdouble song_force ( song * a, song  * b ) {
 /* Attraction is a value -1...1 for the affinity between A and B,
    with criteria weighed by prefs */
 gdouble song_attraction ( song * a, song  * b ) {
-    gdouble a_hue, a_brightness, a_freq, a_bpm, a_path;
+    gdouble a_hue, a_saturation, a_brightness, a_freq, a_bpm, a_path;
     gdouble d, ba, bb, v_diff, a_max, attraction = 0;
     gint i;
 
     a_max = 
         (prefs.hue + 
          prefs.brightness +
+         prefs.saturation +
          prefs.freq + 
          prefs.bpm +
          prefs.path_weight);
@@ -910,18 +933,21 @@ gdouble song_attraction ( song * a, song  * b ) {
     a_path = prefs.path_weight / a_max;
 
     if (!(a->no_color || b->no_color)) {
-        d = fabsl(a->color.H - b->color.H);
-        if (d > M_PI) {
-            d = 2.0 * M_PI - d;
+        /* Hue is 0...6 */
+        d = fabsl(a->color.H - b->color.H) / 6.0;
+        if (d > 0.5) {
+            d = 1 - d;
         }
-        /* d is 0...PI, where 0 is more similiar */
-        d *= (2.0 / M_PI);
-        /* d is 0...2 */
-        d = 1.0 - d;
-        /* d is -1...1, where 1 is more similiar */
-        attraction += d *  a_hue;
+        /* d is 0...1, where 0 is more similiar */
+        d = 1.0 - d*2.0;
+        /* d is now -1...1, where 1 is more similiar */
+        attraction += d * a_hue;
 
-        d = 1.0 - fabsl(a->color.B - b->color.B) * 2.0;
+        d = 1.0 - fabsl(a->color.S - b->color.S) * 2.0;
+        /* d is -1 ... 1, where 1 is more similiar*/
+        attraction += d * a_saturation;
+
+        d = 1.0 - fabsl(a->color.V - b->color.V) * 2.0;
         /* d is -1 ... 1, where 1 is more similiar*/
         attraction += d * a_brightness;
     }
@@ -962,7 +988,7 @@ gdouble song_attraction ( song * a, song  * b ) {
         attraction += d * a_freq;
     }
 
-    if (tree_depth) {
+    if (tree_depth && a->path && b->path) {
         d = explore_files_depth_distance(a->path, b->path);
         if (d >= 0) {
             d = 1.0 - 2.0 * (d / tree_depth);

@@ -29,7 +29,6 @@
 
 static song * current;
 static song * first;
-static gdouble distance      ( song * a, song * b );
 static void remove_repeats   ( song * s, GList * list);
 
 /* How much does brightness factor into matching two songs? */
@@ -47,9 +46,8 @@ static void remove_repeats   ( song * s, GList * list);
 GList * generate_playlist ( guint minutes ) {
     GList * working, * final, * rand_list, * list;
     gint i, list_time, l, r, max_force_index, len;
-    gdouble min_distance, s_distance;
     gdouble max_force, s_force;
-    song * s, * repeat;
+    song * s;
     time_t t;
 
     list_time = 0;
@@ -112,26 +110,25 @@ GList * generate_playlist ( guint minutes ) {
             gchar * latin1;
             latin1 = strdup_to_latin1((char *) selected_files->data);
             fprintf(stderr, "File '%s' not found in data file;\n"\
-                    "perhaps it has not been analyzed. Using different starting song.\n",
+                    "perhaps it has not been analyzed. Using random starting song.\n",
                     latin1);
             g_free(latin1);
         }
     } 
-    if (prefs.start_color || (prefs.start_selected && !first)) {
-        for (min_distance = 0, list = g_list_first(working); list; 
+    if (prefs.start_color) {
+        song temp_song;
+        bzero(&temp_song, sizeof(song));
+        temp_song.no_data = TRUE;
+        temp_song.no_rating = TRUE;
+        temp_song.color = prefs.color;
+        for (max_force = -1000, list = g_list_first(working); 
+             list; 
              list = g_list_next(list)) {
             s = SONG(list);
-            if (!s->no_color) {
-                s_distance = 
-                    MIN(fabs(prefs.color.H - s->color.H),
-                        ((MIN(prefs.color.H, s->color.H)  + 2*M_PI) -
-                         (MAX(prefs.color.H, s->color.H)) +
-                         BRIGHTNESS_FACTOR * fabs(prefs.color.B - s->color.B)));
-                if ((s_distance < min_distance) || 
-                    ((s_distance == min_distance) && (rand() % 2))) {
-                    min_distance = s_distance;
-                    first = SONG(list);
-                } 
+            s_force = song_force(&temp_song, s);
+            if (s_force > max_force) {
+                max_force = s_force;
+                first = s;
             }
         } 
     } 

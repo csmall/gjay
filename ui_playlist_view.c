@@ -1,5 +1,5 @@
 /**
- * GJay, copyright (c) 2002 Chuck Groom
+ * GJay, copyright (c) 2002, 2003 Chuck Groom
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -54,7 +54,9 @@ static void value_changed ( GtkRange *range,
                             gpointer user_data );
 static void playlist_button_clicked (GtkButton *button,
                                      gpointer user_data);
-
+static GtkWidget * create_float_slider_widget (gchar * name,
+                                               gchar * description,
+                                               float * value);
 
 /* Playlist window -- what to do with the list of songs we've created */
 static void make_playlist_window ( GList * list);
@@ -75,6 +77,9 @@ static void confirm_save_response (GtkDialog *dialog,
                                    gint arg1,
                                    gpointer user_data);
 static void save_playlist_selector (GtkWidget * file_selector);
+
+static void set_prefs_color ( gpointer data,
+                              gpointer user_data);
 
 
 
@@ -130,7 +135,11 @@ GtkWidget * make_playlist_view ( void ) {
                       G_CALLBACK (toggled_start_color), NULL);
     gtk_box_pack_start(GTK_BOX(hbox1), button_start_color, FALSE, FALSE, 2);
 
-    colorwheel = create_colorwheel(PLAYLIST_CW_DIAMETER, NULL, &prefs.color);
+    colorwheel = create_colorwheel(PLAYLIST_CW_DIAMETER, 
+                                   NULL, 
+                                   set_prefs_color, 
+                                   &prefs.color);
+    set_colorwheel_color(colorwheel, prefs.color);
     gtk_box_pack_start(GTK_BOX(hbox1), colorwheel, FALSE, FALSE, 2);
 
     frame = gtk_frame_new("Criteria");
@@ -142,91 +151,42 @@ GtkWidget * make_playlist_view ( void ) {
     hbox1 = gtk_hbox_new(FALSE, 2);     
     gtk_box_pack_start(GTK_BOX(vbox2), hbox1, TRUE, TRUE, 2);
 
-    vbox3 = gtk_vbox_new(FALSE, 2);
+    vbox3 = create_float_slider_widget(
+        "Hue", 
+        "Hue: Match songs by the color, ignoring lightness and intensity",
+        &prefs.hue);
     gtk_box_pack_start(GTK_BOX(hbox1), vbox3, TRUE, TRUE, 2);
-    label = gtk_label_new("Freq.");
-    event_box = gtk_event_box_new();
-    gtk_container_add (GTK_CONTAINER(event_box), label);
-    range = gtk_vscale_new_with_range (MIN_CRITERIA, MAX_CRITERIA, .1);
-    gtk_range_set_value(GTK_RANGE(range), prefs.freq);
-    g_signal_connect (G_OBJECT (range), "value-changed",
-                      G_CALLBACK (value_changed), &prefs.freq);
-    gtk_scale_set_draw_value(GTK_SCALE(range), FALSE);
-    gtk_range_set_inverted(GTK_RANGE(range), TRUE);
-    gtk_box_pack_start(GTK_BOX(vbox3), event_box, FALSE, FALSE, 2);
-    gtk_box_pack_start(GTK_BOX(vbox3), range, TRUE, TRUE, 2);
-    gtk_tooltips_set_tip (tips, event_box,
-                          "Frequency: Match songs by their spectrum \"fingerprint\"",
-                          "");
 
-    vbox3 = gtk_vbox_new(FALSE, 2);
+    vbox3 = create_float_slider_widget(
+        "Bright", 
+        "Brightness: Match songs by the color light/darkness",
+        &prefs.brightness);
     gtk_box_pack_start(GTK_BOX(hbox1), vbox3, TRUE, TRUE, 2);
-    label = gtk_label_new("BPM");
-    event_box = gtk_event_box_new();
-    gtk_container_add (GTK_CONTAINER(event_box), label);
-    range = gtk_vscale_new_with_range (MIN_CRITERIA, MAX_CRITERIA, .1);
-    gtk_range_set_value(GTK_RANGE(range), prefs.bpm);
-    g_signal_connect (G_OBJECT (range), "value-changed",
-                      G_CALLBACK (value_changed), &prefs.bpm);
-    gtk_range_set_inverted(GTK_RANGE(range), TRUE);
-    gtk_scale_set_draw_value(GTK_SCALE(range), FALSE);
-    gtk_box_pack_start(GTK_BOX(vbox3), event_box, FALSE, FALSE, 2);
-    gtk_box_pack_start(GTK_BOX(vbox3), range, TRUE, TRUE, 2);
-    gtk_tooltips_set_tip (tips, event_box,
-                          "Beats Per Minute: Match songs by their beat. Note that this may be an unreliable criteria across genres",
-                          "");
 
-
-    vbox3 = gtk_vbox_new(FALSE, 2);
+    vbox3 = create_float_slider_widget(
+        "Satur.", 
+        "Saturation: Match songs by the color intensity",
+        &prefs.saturation);
     gtk_box_pack_start(GTK_BOX(hbox1), vbox3, TRUE, TRUE, 2);
-    label = gtk_label_new("Hue");
-    event_box = gtk_event_box_new();
-    gtk_container_add (GTK_CONTAINER(event_box), label);
-    range = gtk_vscale_new_with_range (MIN_CRITERIA, MAX_CRITERIA, .1);
-    gtk_scale_set_draw_value(GTK_SCALE(range), FALSE);
-    gtk_range_set_value(GTK_RANGE(range), prefs.hue);
-    g_signal_connect (G_OBJECT (range), "value-changed",
-                      G_CALLBACK (value_changed), &prefs.hue);
-    gtk_range_set_inverted(GTK_RANGE(range), TRUE);
-    gtk_box_pack_start(GTK_BOX(vbox3), event_box, FALSE, FALSE, 2);
-    gtk_box_pack_start(GTK_BOX(vbox3), range, TRUE, TRUE, 2);
-    gtk_tooltips_set_tip (tips, event_box,
-                          "Hue: Match songs by the color you assigned them, disregarding the saturation/brightness component",
-                          "");
 
-    vbox3 = gtk_vbox_new(FALSE, 2);
+    vbox3 = create_float_slider_widget(
+        "Freq", 
+        "Frequency: Match on how songs sound",
+        &prefs.freq);
     gtk_box_pack_start(GTK_BOX(hbox1), vbox3, TRUE, TRUE, 2);
-    label = gtk_label_new("Brightness");
-    event_box = gtk_event_box_new();
-    gtk_container_add (GTK_CONTAINER(event_box), label);
-    range = gtk_vscale_new_with_range (MIN_CRITERIA, MAX_CRITERIA, .1);
-    gtk_range_set_value(GTK_RANGE(range), prefs.brightness);
-    g_signal_connect (G_OBJECT (range), "value-changed",
-                      G_CALLBACK (value_changed), &prefs.brightness);
-    gtk_scale_set_draw_value(GTK_SCALE(range), FALSE);
-    gtk_range_set_inverted(GTK_RANGE(range), TRUE);
-    gtk_box_pack_start(GTK_BOX(vbox3), event_box, FALSE, FALSE, 2);
-    gtk_box_pack_start(GTK_BOX(vbox3), range, TRUE, TRUE, 2);
-    gtk_tooltips_set_tip (tips, event_box,
-                          "Brightness: Match songs by the brightness portion of the color you assigned them",
-                          "");
 
-    vbox3 = gtk_vbox_new(FALSE, 2);
+    vbox3 = create_float_slider_widget(
+        "BPM", 
+        "BPM: Match on beat",
+        &prefs.bpm);
     gtk_box_pack_start(GTK_BOX(hbox1), vbox3, TRUE, TRUE, 2);
-    label = gtk_label_new("File Loc.");
-    event_box = gtk_event_box_new();
-    gtk_container_add (GTK_CONTAINER(event_box), label);
-    range = gtk_vscale_new_with_range (MIN_CRITERIA, MAX_CRITERIA, .1);
-    gtk_range_set_value(GTK_RANGE(range), prefs.path_weight);
-    g_signal_connect (G_OBJECT (range), "value-changed",
-                      G_CALLBACK (value_changed), &prefs.path_weight);
-    gtk_range_set_inverted(GTK_RANGE(range), TRUE);
-    gtk_scale_set_draw_value(GTK_SCALE(range), FALSE);
-    gtk_box_pack_start(GTK_BOX(vbox3), event_box, FALSE, FALSE, 2);
-    gtk_box_pack_start(GTK_BOX(vbox3), range, TRUE, TRUE, 2);
-    gtk_tooltips_set_tip (tips, event_box,
-                          "File Location: Match songs by their nearness in the file system. Two songs in the same directory are closer than two songs in different directories.",
-                          "");
+
+    vbox3 = create_float_slider_widget(
+        "File Loc.",
+        "File Location: Match songs by their nearness in the file system. Two songs in the same directory are closer than two songs in different directories.",
+        &prefs.path_weight);
+    gtk_box_pack_start(GTK_BOX(hbox1), vbox3, TRUE, TRUE, 2);
+
 
     button = gtk_check_button_new_with_label("Wander");
     gtk_tooltips_set_tip (tips, button,
@@ -669,3 +629,37 @@ void set_playlist_rating_visible ( gboolean is_visible ) {
         gtk_widget_hide(rating_hbox);
     }
 }
+
+GtkWidget * create_float_slider_widget (gchar * name,
+                                        gchar * description,
+                                        float * value) {
+    GtkWidget * vbox, * event_box, * range, * label;
+
+    vbox = gtk_vbox_new(FALSE, 2);
+    label = gtk_label_new(name);
+    event_box = gtk_event_box_new();
+    gtk_container_add (GTK_CONTAINER(event_box), label);
+    range = gtk_vscale_new_with_range (MIN_CRITERIA, MAX_CRITERIA, .1);
+    gtk_range_set_value(GTK_RANGE(range), *value);
+    g_signal_connect (G_OBJECT (range), "value-changed",
+                      G_CALLBACK (value_changed), value);
+    gtk_scale_set_draw_value(GTK_SCALE(range), FALSE);
+    gtk_range_set_inverted(GTK_RANGE(range), TRUE);
+    gtk_box_pack_start(GTK_BOX(vbox), event_box, FALSE, FALSE, 2);
+    gtk_box_pack_start(GTK_BOX(vbox), range, TRUE, TRUE, 2);
+    if (tips && description) {
+        gtk_tooltips_set_tip (tips, 
+                              event_box,
+                              description,
+                              "");
+    }
+    return vbox;
+}
+
+
+static void set_prefs_color ( gpointer data,
+                              gpointer user_data) {
+    assert(data && user_data);
+    *((HSV *) user_data) = get_colorwheel_color(GTK_WIDGET(data));
+}
+

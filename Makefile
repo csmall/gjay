@@ -30,6 +30,7 @@ OBJECTS = \
 	ui_selection_view.o \
 	ui_playlist_view.o \
 	ui_colorwheel.o \
+	ui_colorbox.o \
 	ui_menubar.o \
 	gjay_xmms.o \
 	analysis.o \

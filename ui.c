@@ -26,6 +26,7 @@ static GtkWidget * prefs_window, * about_window;
 static GtkWidget * paned;
 static GtkWidget * msg_window = NULL;
 static GtkWidget * msg_text_view = NULL;
+static GtkWidget * plugin_pane[1];
 static gboolean    destroy_window_flag = FALSE;
 
 GdkPixbuf * pixbufs[PM_LAST];
@@ -61,7 +62,8 @@ static void     respond_quit_analysis ( GtkDialog *dialog,
                                         gint arg1,
                                         gpointer user_data );
 static void     destroy_app           ( void);    
-
+// REMOVE
+GtkWidget * plugin_new (void);
 
 GtkWidget * make_app_ui ( void ) {
     GtkWidget * vbox1, * hbox1, * hbox2;
@@ -129,6 +131,13 @@ GtkWidget * make_app_ui ( void ) {
                              playlist_hbox,
                              gtk_label_new(tabs[TAB_PLAYLIST]));
 
+    // REMOVE
+#if GRAV
+    plugin_pane[0] = plugin_new();
+    gtk_notebook_append_page(GTK_NOTEBOOK(notebook), 
+                             plugin_pane[0],
+                             gtk_label_new("Gravity"));
+#endif
     explore_view = make_explore_view();
     playlist_view = make_playlist_view();
     selection_view = make_selection_view();
@@ -367,6 +376,10 @@ void switch_page (GtkNotebook *notebook,
         gtk_widget_show(paned);
         gtk_widget_show(playlist_hbox);
         break;
+    default:
+        /* Plug-ins */
+        gtk_widget_show(plugin_pane[page_num - TAB_LAST]);
+        break;
     }
 }
 
@@ -542,3 +555,146 @@ void show_prefs_window( void ) {
 void hide_prefs_window( void ) {
     gtk_widget_hide(prefs_window);
 }
+
+#if GRAV
+typedef struct {
+    song * s;
+    gdouble x, y, vx, vy;
+} grav_song;
+gboolean gravity_running = FALSE;
+GList * gravity_list = NULL;
+
+gboolean expose_gravity (GtkWidget *widget, 
+                         GdkEventExpose *event, 
+                         gpointer data) {
+    gint width, height, w, h;
+    GdkGC * gc; 
+    RGB rgb;
+    GdkFont * font;
+    gc = gdk_gc_new(window->window);
+    gdk_rgb_gc_set_foreground(gc, 0xFFFFFF);
+    gdk_gc_set_clip_rectangle (gc,
+                               &event->area);
+    gdk_draw_rectangle (widget->window,
+                        gc,
+                        TRUE,
+                        0, 0, 
+                        width, height);
+    if (gravity_running) {
+        gdouble m1, m2, a, d, f, dx, dy, fx, fy;
+        guchar r, g, b;
+        GList * llist1, * llist2;
+        grav_song * g1, * g2;
+        for (llist1 = g_list_first(gravity_list); 
+             llist1; 
+             llist1 = g_list_next(llist1)) {
+            g1 = llist1->data;
+
+            for (llist2 = g_list_next(llist1);
+                 llist2; 
+                 llist2 = g_list_next(llist2)) {
+                g2 = llist2->data;
+                a = song_attraction(g1->s, g2->s);
+                m1 = song_mass(g1->s);
+                m2 = song_mass(g2->s);
+                dx = g2->x - g1->x;
+                dy = g2->y - g1->y;
+                
+                f = m1 * m2 * (1.0 / (fabs(dx) + fabs(dy))) * a * 1000.0;
+                if (dx == 0) {
+                    fx = 0;
+                    fy = (dy > 0) ?  f : -f;
+                } else if (dy == 0) {
+                    fx = (dx > 0) ?  f : -f;
+                    fy = 0;
+                } else {
+                    float theta = atan(dy / dx);
+                    if ((dx < 0 && dy < 0) ||
+                        (dx < 0 && dy > 0)){
+//                            theta += M_PI;
+                    }  else {
+                        theta += M_PI;
+                    }
+                    fx = f * cos (theta);
+                    fy = f * sin (theta);
+                }
+                g1->vx -= fx;
+                g1->vy -= fy;
+                g2->vx += fx;
+                g2->vy += fy;
+            }
+            g1->vx *= 0.95;
+            g1->vy *= 0.95;
+            if (g1->vx < 0) {
+                g1->vx = MAX(g1->vx, -10.0);                
+            } else {
+                g1->vx = MIN(g1->vx, 10.0);                
+            }
+            if (g1->vy < 0) {
+                g1->vy = MAX(g1->vy, -10.0);                
+            } else {
+                g1->vy = MIN(g1->vy, 10.0);                
+            }
+            g1->x += g1->vx;
+            g1->y += g1->vy;
+            rgb = hsv_to_rgb(g1->s->color);    
+            r = rgb.R * 255;
+            g = rgb.G * 255;
+            b = rgb.B * 255;
+            gdk_rgb_gc_set_foreground(gc,
+                                      r << 16 | g << 8 | b);
+            gdk_draw_rectangle (widget->window,
+                                gc,
+                                TRUE,
+                                (int) g1->x, (int) g1->y, 2, 2);
+        } 
+    }
+}
+
+gint gravity_timeout(gpointer user_data) {
+    gtk_widget_queue_draw(GTK_WIDGET(user_data));
+    return TRUE;
+}
+
+void start_gravity ( GtkButton *button,
+                     gpointer user_data ) {
+    GList * llist;
+
+    gravity_running = TRUE;
+    for (llist = g_list_first(songs); llist; llist = g_list_next(llist)) {
+        grav_song * g = malloc(sizeof(grav_song));
+        bzero(g, sizeof(grav_song));
+        g->s = llist->data;
+        g->x = rand() % 500;
+        g->y = rand() % 400;
+        gravity_list = g_list_append(gravity_list, g);
+    }
+    gtk_timeout_add(500, gravity_timeout, user_data);
+}
+
+
+
+GtkWidget * plugin_new (void) {
+    GtkWidget * hbox, * button, * drawing;
+    hbox = gtk_hbox_new(FALSE, 2);
+    
+    button = gtk_button_new_with_label("Start");
+    drawing = gtk_drawing_area_new();
+    gtk_widget_set_usize(drawing, 500, 400);
+    gtk_signal_connect (GTK_OBJECT (drawing),
+                        "expose_event",
+                        (GtkSignalFunc) expose_gravity,
+                        NULL);
+ 
+    g_signal_connect (G_OBJECT (button),
+                      "clicked",
+                      G_CALLBACK (start_gravity),
+                      drawing);
+  
+    gtk_box_pack_start(GTK_BOX(hbox), button, FALSE, FALSE, 5);
+    gtk_box_pack_start(GTK_BOX(hbox), drawing, FALSE, FALSE, 5);
+    
+    gtk_widget_show_all(hbox);
+    return hbox;
+}
+#endif 

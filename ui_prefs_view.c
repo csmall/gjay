@@ -361,3 +361,5 @@ static void useratings_toggled ( GtkToggleButton *togglebutton,
     set_playlist_rating_visible ( prefs.use_ratings );
     save_prefs();
 }
+
+

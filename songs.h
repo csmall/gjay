@@ -51,21 +51,21 @@ extern GHashTable * not_song_hash;
 
 struct _song {
     /* Characteristics (don't change). Strings are UTF8 encoded. */
-    char * path;
-    char * fname; /* Pointer within path */
-    char * title;
-    char * artist;
-    char * album;
-    gdouble bpm;
+    char   * path;
+    char   * fname; /* Pointer within path */
+    char   * title;
+    char   * artist;
+    char   * album;
+    gdouble  bpm;
     gboolean bpm_undef;
-    gdouble freq[NUM_FREQ_SAMPLES];
-    gdouble volume_diff; /* % difference in volume between loudest and
-                            average frame */
-    gint    length;      /* Song length, in sec */
+    gdouble  freq[NUM_FREQ_SAMPLES];
+    gdouble  volume_diff; /* % difference in volume between loudest and
+                             average frame */
+    gint     length;      /* Song length, in sec */
     
     /* Attributes (user-defined values that may change) */
-    HB color;
-    gdouble rating;
+    HSV      color;
+    gdouble  rating;
 
     /* Meta-info */
     gboolean no_data;   /* Characteristics not set */

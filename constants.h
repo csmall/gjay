@@ -19,10 +19,10 @@
 #define SELECT_RADIUS        3
 
 /* Values */
-#define MAX_FREQ_VAL         10.0
-#define MAX_VOL_DIFF         10.0
 #define MIN_CRITERIA         0.1
 #define MAX_CRITERIA         10.0
+#define MAX_FREQ_VAL         10.0
+#define MAX_VOL_DIFF         10.0
 #define MIN_RATING           0.0
 #define MAX_RATING           5.0
 #define MIN_BPM              100.0

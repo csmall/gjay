@@ -34,6 +34,10 @@
 #define COLOR_IMAGE_HEIGHT  FREQ_IMAGE_HEIGHT
 #define COLORWHEEL_DIAMETER 150
 #define COLORWHEEL_SELECT   3
+#define COLORWHEEL_SPACING  5
+#define COLORWHEEL_V_SWATCH_WIDTH 0.2
+#define COLORWHEEL_V_HEIGHT       0.7
+#define COLORWHEEL_SWATCH_HEIGHT  0.2
 
 
 typedef enum {
@@ -133,12 +137,21 @@ void        set_selected_file             ( char * file,
                                             gboolean is_dir );
 void        update_selection_area         ( void );
 void        set_selected_in_playlist_view ( gboolean in_view );
-void        update_selected_songs_color   ( gdouble angle, 
-                                            gdouble radius );
+void        set_selected_rating_visible   ( gboolean is_visible );
+
+/* Colorwheel widget (in select file pane) */
 GtkWidget * create_colorwheel             ( gint diameter,
                                             GList ** list,
-                                            HB * color );
-void        set_selected_rating_visible   ( gboolean is_visible );
+                                            GFunc change_func,
+                                            gpointer user_data);
+HSV         get_colorwheel_color          ( GtkWidget * colorwheel );
+void        set_colorwheel_color          ( GtkWidget * colorwheel,
+                                            HSV color );
+
+/* Color box */
+GtkWidget * create_colorbox               ( HSV * hsv );
+void        set_colorbox_color            ( GtkWidget * widget,
+                                            HSV hsv );
 
 /* Playlist */
 void        set_playlist_rating_visible   ( gboolean is_visible );
