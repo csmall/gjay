@@ -423,7 +423,7 @@ void analyze(char * fname) {
     while ((result = fread(buffer, 1,  BUFFER_SIZE, f)))
         ;
     fclose(f);
-    
+
     send_ipc(daemon_pipe_fd, ANIMATE_STOP);
     send_ipc_text(daemon_pipe_fd, STATUS_TEXT, "Idle");
     

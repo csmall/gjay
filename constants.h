@@ -2,7 +2,7 @@
 #define __CONSTANTS_H__
 
 /* Default directory for storing app info */
-#define GJAY_VERSION        "0.2.6"
+#define GJAY_VERSION        "0.3.0"
 #define GJAY_DIR            ".gjay"
 #define GJAY_PREFS          "prefs.xml"
 #define GJAY_FILE_DATA      "data.xml"
@@ -41,4 +41,16 @@
 /* For prefs */
 #define DEFAULT_PLAYLIST_TIME 72
 
+#define HELP_TEXT "USAGE: gjay [--help] [-hdvpux] [-l length] [-c color]\n" \
+                   "\t--help, -h  :  Display this help message\n" \
+                   "\t-d          :  Run as daemon\n" \
+                   "\t-v          :  Run in verbose mode. -vv for lots more info\n" \
+                   "\t-p          :  Generate a playlist\n" \
+                   "\nPlaylist options:\n" \
+                   "\t-u          :  Display list in m3u format\n" \
+                   "\t-x          :  Use XMMS to play generated playlist\n" \
+                   "\t-l length   :  Length of playlist, in minutes\n" \
+                   "\t-f filename :  Start playlist at a particular file\n" \
+                   "\t-c color    :  Start playlist at color, either a hex value or by name.\n" \
+                   "\t               To see all options, just call -c\n"
 #endif /* __CONSTANTS_H__ */

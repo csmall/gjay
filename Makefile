@@ -14,7 +14,7 @@ HEADERS = \
 	analysis.h \
 	playlist.h \
 	ipc.h \
-	constants.h
+	constants.h 
 OBJECTS = \
 	gjay.o \
 	ipc.o \
@@ -30,7 +30,8 @@ OBJECTS = \
 	ui_colorwheel.o \
 	gjay_xmms.o \
 	analysis.o \
-	playlist.o
+	playlist.o 
+
 
 INSTALL = /usr/bin/install -o root -g root -m
 

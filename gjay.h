@@ -49,8 +49,10 @@ extern gint      xmms_session;
 extern gint      verbosity;
 
 /* utilities */
-void    read_line   ( FILE * f, char * buffer, int buffer_len);
-#define strdup_to_utf8(str) (strdup_convert(str, "UTF8", "LATIN1"))
+void    read_line             ( FILE * f, 
+                                char * buffer, 
+                                int buffer_len);
+#define strdup_to_utf8(str)   (strdup_convert(str, "UTF8", "LATIN1"))
 #define strdup_to_latin1(str) (strdup_convert(str, "LATIN1", "UTF8"))
 gchar * strdup_convert ( const gchar * str, 
                          const gchar * enc_to, 

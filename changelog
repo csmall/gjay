@@ -1,4 +1,20 @@
-0.2.5 - January 07, 2002
+0.3.0 - June, 2003
+- Architecture:
+   - Removed dependancy on mp3info to read ID3 tags. This gives a significant
+     speedup.
+	
+0.2.6 - January 19, 2003
+- Features:
+   - Display highlight icon next to directories containing new songs (those
+     which haven't been had rank or color set)
+- Bugs: 
+   - Empty directories do not cause crashes when clicked upon (doh!)
+   - Avoid localization alltogether w/r/t reading data ("." vs "," decimal)
+     by writing local strtof function which is decimal locale agnostic
+   - Found recursive directory scan bug 
+   - Fixed very serious bug in which new repeat songs would not be shown
+
+0.2.5 - January 07, 2003
 - Features:
    - Tweaked UI: removed "select directory contents non-recursively" option
      for the sake of simplicity. All selection is recursive.

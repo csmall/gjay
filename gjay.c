@@ -1,5 +1,5 @@
 /**
- * GJay, copyright (c) 2002 Chuck Groom
+ * GJay, copyright (c) 2002, 2003 Chuck Groom
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -47,11 +47,10 @@
 #include "ipc.h"
 #include "playlist.h"
 
-#define NUM_APPS 3
+#define NUM_APPS 2
 static gchar * apps[NUM_APPS] = {
     "mpg321",
-    "ogg123",
-    "mp3info"
+    "ogg123"
 };
 
 
@@ -68,8 +67,7 @@ static int open_pipe(const char* filepath);
 
 
 
-int main( int argc, char *argv[] ) 
-{
+int main( int argc, char *argv[] ) {
     GList * list;
     char buffer[BUFFER_SIZE];
     GtkWidget * widget;
@@ -89,18 +87,7 @@ int main( int argc, char *argv[] )
     for (i = 0; i < argc; i++) {
         if ((strncmp(argv[i], "-h", 2) == 0) || 
             (strncmp(argv[i], "--help", 6) == 0)) {
-            printf("USAGE: gjay [--help] [-hdvpux] [-l length] [-c color]\n" \
-                   "\t--help, -h  :  Display this help message\n" \
-                   "\t-d          :  Run as daemon\n" \
-                   "\t-v          :  Run in verbose mode. -vv for lots more info\n" \
-                   "\t-p          :  Generate a playlist\n" \
-                   "\nPlaylist options:\n" \
-                   "\t-u          :  Display list in m3u format\n" \
-                   "\t-x          :  Use XMMS to play generated playlist\n" \
-                   "\t-l length   :  Length of playlist, in minutes\n" \
-                   "\t-f filename :  Start playlist at a particular file\n" \
-                   "\t-c color    :  Start playlist at color, either a hex value or by name.\n" \
-                   "\t               To see all options, just call -c\n");
+            printf(HELP_TEXT);
             return 0;
         } else if (strncmp(argv[i], "-l", 2) == 0) {
             if (i + 1 < argc) {
@@ -174,7 +161,6 @@ int main( int argc, char *argv[] )
             return 0;
         }
     }
-
 
     if (mode != PLAYLIST) {
         /* Both daemon and UI app open an end of a pipe */

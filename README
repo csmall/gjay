@@ -1,5 +1,5 @@
-GJay v0.2
-(c) Chuck Groom, January 2003
+GJay v0.3
+(c) Chuck Groom, 2003
 gjay.sourceforge.net
 
 GJay (Gtk+ DJ) generates playlists across a collection of music (mp3,
@@ -27,7 +27,6 @@ BUILD
 -----
 
 GJay uses the following programs:
-  mp3info
   mpg321
   ogg123
   xmms
@@ -44,7 +43,7 @@ To build GJay, you'll need the header files for libvorbis, libgsl,
 xmms, and Gtk2
 
 The relevant Debain packages are:
-mp3info mpg321 vorbis-tools xmms
+mpg321 vorbis-tools xmms
 libgtk2.0 libgsl0 libvorbis
 libvorbis-dev libgtk1.2-dev xmms-dev libgsl0-dev
 

@@ -1,6 +1,9 @@
 This is a list of the features I know GJay needs, and am focusing on.
 Input is always appreciated!
 
+- Add freq. and BPM information to the comment portion of ogg files so 
+  users sharing oggs won't need to analyze them again
+
 - Expand range of GJay command-line options to support:
    - Add files to analysis queue 
 
