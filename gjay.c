@@ -41,7 +41,7 @@
 #include <sys/errno.h>
 #include <pthread.h>
 #include <string.h>
-#include <locale.h>
+#include <ctype.h>
 #include "gjay.h"
 #include "analysis.h"
 #include "ipc.h"
@@ -76,19 +76,7 @@ int main( int argc, char *argv[] )
     struct stat stat_buf;
     FILE * f;
     gint i, k, hex;
-    struct lconv * env;
     gboolean m3u_format, playlist_in_xmms;
-
-    /* Insist that '.' be the decimal separator */
-    setlocale(LC_NUMERIC, "C");
-    env = localeconv();
-    if (*env->decimal_point != '.') {
-        setlocale(LC_ALL, "en_US");
-        if (*env->decimal_point != '.') {
-            fprintf(stderr, "Sorry, unable to set environment for proper decimal handling.\nPlease email a report to cgroom@users.sourceforge.net\n");
-            return -1;
-        }
-    }
 
     srand(time(NULL));
     
@@ -416,4 +404,30 @@ gchar * strdup_convert ( const gchar * str,
         return g_strdup(str);
     }
     return conv;
+}
+
+
+/**
+ * Implement strtof, except make it locale agnostic w/r/t whether a
+ * decimal is "," or "."
+ */
+float strtof_gjay ( const char *nptr, char **endptr) {
+    char * end;
+    float base = 10.0;
+    float divisor;
+    float result = 0;
+
+    result = strtol(nptr, &end, 10);
+    if ((*end == '.') || (*end == ',')) {
+        end++;
+        divisor = base;
+        while (isdigit(*end)) {
+            result += (*end - '0') / divisor;
+            divisor *= base;
+            end++;
+        }
+    }
+    if (endptr) 
+        *endptr = end;
+    return result;
 }

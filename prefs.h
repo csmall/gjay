@@ -21,11 +21,6 @@
 #ifndef __PREFS_H__
 #define __PREFS_H__
 
-#define DEFAULT_PLAYLIST_TIME 72
-#define MIN_CRITERIA          0.1
-#define MAX_CRITERIA          10.0
-#define DEFAULT_CRITERIA      5.0
-
 typedef enum {
     PREF_DAEMON_QUIT,
     PREF_DAEMON_DETACH,

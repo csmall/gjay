@@ -25,6 +25,8 @@
 #include <glib.h>
 #include <assert.h>
 #include <limits.h>
+#include <math.h>
+#include "constants.h"
 #include "rgbhsv.h"
 #include "songs.h"
 #include "prefs.h"
@@ -37,24 +39,6 @@ typedef enum {
     DAEMON_DETACHED,
     PLAYLIST        /* Generate a playlist and quit */
 } gjay_mode;
-
-
-/* Default directory for storing app info */
-#define GJAY_VERSION     "0.2.5"
-#define GJAY_DIR         ".gjay"
-#define GJAY_PREFS       "prefs.xml"
-#define GJAY_FILE_DATA   "data.xml"
-#define GJAY_DAEMON_DATA "daemon.xml"
-#define GJAY_QUEUE       "analysis_queue"
-#define GJAY_TEMP        "temp_analysis_append"
-#define GJAY_PID         "gjay.pid"
-
-/* We use fixed-size buffers for labels and filenames */
-#define BUFFER_SIZE      FILENAME_MAX
-
-/* Color wheel size */
-#define CATEGORIZE_DIAMETER   200   
-#define SELECT_RADIUS         3
 
 
 /* State */
@@ -71,6 +55,8 @@ void    read_line   ( FILE * f, char * buffer, int buffer_len);
 gchar * strdup_convert ( const gchar * str, 
                          const gchar * enc_to, 
                          const gchar * enc_from );
+float   strtof_gjay    ( const char *nptr, char **endptr);
+
 
 /* xmms.c */
 void        init_xmms   ( void );

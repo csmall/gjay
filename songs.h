@@ -16,22 +16,11 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
  * USA
  */
-
+#include "gjay.h"
 
 #ifndef __SONGS_H__
 #define __SONGS_H__
 
-/* We batch the freq spectrum into just a few bins */
-#define NUM_FREQ_SAMPLES      30
-
-#define MIN_RATING            0.0
-#define MAX_RATING            5.0
-#define DEFAULT_RATING        2.5
-#define MIN_BPM               100.0
-#define MAX_BPM               160.0
-
-/* Periodically write changed song data to disk */
-#define SONG_DIRTY_WRITE_TIMEOUT  1000 * 60 * 2
 
 typedef enum {
     OGG = 0, 
@@ -39,6 +28,7 @@ typedef enum {
     WAV,
     SONG_FILE_TYPE_LAST
 } song_file_type;
+
 
 typedef struct _song song;
 

@@ -35,7 +35,8 @@
 
 
 typedef enum {
-    E_FILE = 0,
+    E_GJAY_DATA = 0,
+    E_FILE,
     E_TITLE,
     E_ARTIST,
     E_ALBUM,
@@ -50,11 +51,13 @@ typedef enum {
     E_NOT_SONG,
     E_REPEATS,
     E_VOL_DIFF,
+    E_VERSION,
     E_LAST
 } element_type;
 
 
 static const char * element_str[E_LAST] = {
+    "gjay_data",
     "file",
     "title",
     "artist",
@@ -68,7 +71,8 @@ static const char * element_str[E_LAST] = {
     "path",
     "not_song",
     "repeats",
-    "volume_diff" 
+    "volume_diff",
+    "version"
 };
 
 
@@ -368,7 +372,7 @@ void write_data_file(void) {
     
     f = fopen(buffer_temp, "w");
     if (f) {
-        fprintf(f, "<gjay_data>\n");
+        fprintf(f, "<gjay_data version=\"%s\">\n", GJAY_VERSION);
         for (llist = g_list_first(w_songs); llist; llist = g_list_next(llist))
             write_song_data(f, SONG(llist));
         for (llist = g_list_first(not_songs); 
@@ -434,13 +438,13 @@ static void write_song_data (FILE * f, song * s) {
     assert(s);
 
     escape = g_markup_escape_text(s->path, strlen(s->path));
-    fprintf(f, "<file path=\"%s\" ", escape);
+    fprintf(f, "<file path=\"%s\"", escape);
     g_free(escape);
 
     if (s->repeat_prev) {
         escape = g_markup_escape_text(s->repeat_prev->path, 
                                       strlen(s->repeat_prev->path));
-        fprintf(f, "repeats=\"%s\"", escape);
+        fprintf(f, " repeats=\"%s\"", escape);
         g_free(escape);
     }
     fprintf(f, ">\n");
@@ -461,14 +465,16 @@ static void write_song_data (FILE * f, song * s) {
             fprintf(f, "\t<title>%s</title>\n", escape);
             g_free(escape);
         }
-        fprintf(f, "\t<inode>%lud</inode>\n", (long unsigned int) s->inode);
+        fprintf(f, "\t<inode>%lu</inode>\n", (long unsigned int) s->inode);
         fprintf(f, "\t<length>%d</length>\n", s->length);
         if(!s->no_data) {
             if (s->bpm_undef)
                 fprintf(f, "\t<bpm>undef</bpm>\n");
             else 
                 fprintf(f, "\t<bpm>%f</bpm>\n", s->bpm);
+            
             fprintf(f, "\t<freq volume_diff=\"%f\">", s->volume_diff);
+
             for (k = 0; k < NUM_FREQ_SAMPLES; k++) 
                 fprintf(f, "%f ", s->freq[k]);
             fprintf(f, "</freq>\n");
@@ -476,7 +482,9 @@ static void write_song_data (FILE * f, song * s) {
         if (!s->no_rating)
             fprintf(f, "\t<rating>%f</rating>\n", s->rating);
         if (!s->no_color)
-            fprintf(f, "\t<color>%f %f</color>\n", s->color.H, s->color.B);
+            fprintf(f, "\t<color>%f %f</color>\n", 
+                    s->color.H,
+                    s->color.B);
     }
     fprintf(f, "</file>\n");
 }
@@ -546,7 +554,7 @@ gboolean read_data (FILE * f) {
     song_parse_state state;
 
     memset(&state, 0x00, sizeof(song_parse_state));
-
+    
     parser.start_element = data_start_element;
     parser.end_element = data_end_element;
     parser.text = data_text;
@@ -636,8 +644,9 @@ void data_start_element  (GMarkupParseContext *context,
         break;
     case E_FREQ:
         for (k = 0; attribute_names[k]; k++) {
-            if (get_element((gchar *) attribute_names[k]) == E_VOL_DIFF) 
-                state->s->volume_diff = strtod(attribute_values[0], NULL);
+            if (get_element((gchar *) attribute_names[k]) == E_VOL_DIFF) { 
+                state->s->volume_diff = strtof_gjay(attribute_values[0], NULL);
+            }
         }
         /* Fall into next case */
     case E_BPM:
@@ -726,22 +735,23 @@ void data_text ( GMarkupParseContext *context,
         state->s->length = atoi(buffer);
         break;
     case E_RATING:
-        state->s->rating = strtod(buffer, NULL);
+        state->s->rating = strtof_gjay(buffer, NULL);
         break;
     case E_BPM:
-        if (strcmp(buffer, "undef") == 0)
+        if (strcmp(buffer, "undef") == 0) {
             state->s->bpm_undef = TRUE;
-        else
-            state->s->bpm = strtod(buffer, NULL);
+        } else {
+            state->s->bpm = strtof_gjay(buffer, NULL);
+        }
         break;
     case E_COLOR:
-        state->s->color.H = strtod(buffer, &buffer_str);
-        state->s->color.B = strtod(buffer_str, NULL);
+        state->s->color.H = strtof_gjay(buffer, &buffer_str);
+        state->s->color.B = strtof_gjay(buffer_str, NULL);
         break;
     case E_FREQ:
         buffer_str = buffer;
         for (n = 0; n < NUM_FREQ_SAMPLES; n++) {
-            state->s->freq[n] = strtod(buffer_str, &buffer_str);
+            state->s->freq[n] = strtof_gjay(buffer_str, &buffer_str);
         }
         break;
     default:

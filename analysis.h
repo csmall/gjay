@@ -26,6 +26,7 @@
 #include <stdint.h>
 #include "gjay.h"
 
+
 /* Shamelessly excerpted from the Linux kernel */
 #if __BYTE_ORDER == __BIG_ENDIAN
 #define le32_to_cpu(x) __swab32((x))

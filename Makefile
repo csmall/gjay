@@ -13,7 +13,8 @@ HEADERS = \
 	rgbhsv.h \
 	analysis.h \
 	playlist.h \
-	ipc.h
+	ipc.h \
+	constants.h
 OBJECTS = \
 	gjay.o \
 	ipc.o \

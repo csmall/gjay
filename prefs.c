@@ -43,6 +43,7 @@
 #include "gjay.h"
 
 typedef enum {
+    PE_GJAY_PREFS,
     PE_ROOTDIR,
     PE_FLAGS,
     PE_DAEMON_ACTION,
@@ -62,6 +63,7 @@ typedef enum {
     PE_HIDE_TIP,
     PE_WANDER,
     PE_CUTOFF,
+    PE_VERSION,
     /* values */
     PE_RANDOM,
     PE_SELECTED,
@@ -72,6 +74,7 @@ typedef enum {
 
 
 char * pref_element_strs[PE_LAST] = {
+    "gjay_prefs",
     "rootdir",
     "flags",
     "daemon_action",
@@ -90,6 +93,7 @@ char * pref_element_strs[PE_LAST] = {
     "hide_tip",
     "wander",
     "cutoff",
+    "version",
     "random",
     "selected",
     "songs",
@@ -98,7 +102,6 @@ char * pref_element_strs[PE_LAST] = {
 
 
 app_prefs prefs;
-
 
 static void     data_start_element  ( GMarkupParseContext *context,
                                       const gchar         *element_name,
@@ -174,7 +177,7 @@ void save_prefs ( void ) {
     snprintf(buffer_temp, BUFFER_SIZE, "%s_temp", buffer);
     f = fopen(buffer_temp, "w");
     if (f) {
-        fprintf(f, "<gjay_prefs>\n");
+        fprintf(f, "<gjay_prefs version=\"%s\">\n", GJAY_VERSION);
         if (prefs.song_root_dir) {
             fprintf(f, "<%s", pref_element_strs[PE_ROOTDIR]);
             if (prefs.extension_filter)
@@ -221,21 +224,22 @@ void save_prefs ( void ) {
         fprintf(f, "<%s>%f %f</%s>\n",
                 pref_element_strs[PE_COLOR],
                 prefs.color.H,
-                prefs.color.B,
+                prefs.color.B, 
                 pref_element_strs[PE_COLOR]);
                 
-        if (prefs.rating_cutoff)
+        if (prefs.rating_cutoff) {
             fprintf(f, "<%s %s=\"t\">", 
                     pref_element_strs[PE_RATING],
                     pref_element_strs[PE_CUTOFF]);
-        else
+        } else {
             fprintf(f, "<%s>", pref_element_strs[PE_RATING]);
+        }
         fprintf(f, "%f", prefs.rating);
         fprintf(f, "</%s>\n", pref_element_strs[PE_RATING]);
         
         fprintf(f, "<%s>%f</%s>\n",
                 pref_element_strs[PE_VARIANCE],
-                prefs.variance,
+                prefs.variance, 
                 pref_element_strs[PE_VARIANCE]);
 
         fprintf(f, "<%s>%f</%s>\n",
@@ -247,7 +251,7 @@ void save_prefs ( void ) {
                 pref_element_strs[PE_BRIGHTNESS],
                 prefs.brightness,
                 pref_element_strs[PE_BRIGHTNESS]);
-
+        
         fprintf(f, "<%s>%f</%s>\n",
                 pref_element_strs[PE_BPM],
                 prefs.bpm,
@@ -351,29 +355,29 @@ void data_text ( GMarkupParseContext *context,
         }
         break;
     case PE_RATING:
-        prefs.rating = strtod(buffer, NULL);
+        prefs.rating = strtof_gjay(buffer, NULL);
         break;
     case PE_HUE:
-        prefs.hue = strtod(buffer, NULL);
+        prefs.hue = strtof_gjay(buffer, NULL);
         break;
     case PE_BRIGHTNESS:
-        prefs.brightness = strtod(buffer, NULL);
+        prefs.brightness = strtof_gjay(buffer, NULL);
         break;
     case PE_BPM:
-        prefs.bpm = strtod(buffer, NULL);
+        prefs.bpm = strtof_gjay(buffer, NULL);
         break;
     case PE_FREQ:
-        prefs.freq = strtod(buffer, NULL);
+        prefs.freq = strtof_gjay(buffer, NULL);
         break;
     case PE_VARIANCE:
-        prefs.variance = strtod(buffer, NULL);
+        prefs.variance = strtof_gjay(buffer, NULL);
         break;
     case PE_PATH_WEIGHT:
-        prefs.path_weight = strtod(buffer, NULL);  
+        prefs.path_weight = strtof_gjay(buffer, NULL);  
         break;
     case PE_COLOR:
-        prefs.color.H = strtod(buffer, &buffer_str);
-        prefs.color.B = strtod(buffer_str, NULL);
+        prefs.color.H = strtof_gjay(buffer, &buffer_str);
+        prefs.color.B = strtof_gjay(buffer_str, NULL);
         break;
     case PE_TIME:
         prefs.time = atoi(buffer);
