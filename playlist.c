@@ -21,6 +21,7 @@
 #include <math.h>
 #include <unistd.h>
 #include <string.h>
+#include <time.h>
 #include "gjay.h"
 #include "ui.h"
 #include "analysis.h"
@@ -33,17 +34,26 @@ static gdouble distance      ( song * s1 );
 /* How much does brightness factor into matching two songs? */
 #define BRIGHTNESS_FACTOR .8
 
+#define PATH_DIST_FACTOR 0.5
+
+/* Limit size of working set to 1500 songs */
+#define MAX_WORKING_SET 1500
+
 /**
  * Generate a playlist (list of song *) no longer than the specified
  * time, in minutes 
  */
 GList * generate_playlist ( guint minutes ) {
     GList * working, * final, * rand_list, * list;
-    gint i, time, l, r, min_distance_index;
+    gint i, list_time, l, r, min_distance_index, len;
     gdouble min_distance, s_distance;
     song * s, * repeat;
+    time_t t;
 
-    time = 0;
+    list_time = 0;
+
+    if (verbosity) 
+        t = time(NULL);
     
     if (!g_list_length(songs))
         return NULL;
@@ -103,10 +113,11 @@ GList * generate_playlist ( guint minutes ) {
                                  (MIN(prefs.color.H, s->color.H)  + 2*M_PI) -
                                  MAX(prefs.color.H, s->color.H)) +
                     BRIGHTNESS_FACTOR * fabs(prefs.color.B - s->color.B);
-                if (s_distance < min_distance) {
+                if ((s_distance < min_distance) || 
+                    ((s_distance == min_distance) && (rand() % 2))) {
                     min_distance = s_distance;
                     first = SONG(list);
-                }
+                } 
             }
         } 
     } 
@@ -120,8 +131,18 @@ GList * generate_playlist ( guint minutes ) {
     working = g_list_remove (working, first);
     current = first;
 
+
+    /* Regretably, we must winnow the working set to something reasonable.
+       If there were 10,000 songs, this would take ~20 seconds on a fast
+       machine. */
+    for (len = g_list_length(working); len > MAX_WORKING_SET; len--) {
+        s = SONG(g_list_nth(working, rand() % len));
+        working = g_list_remove(working, s);
+    }
+    
+
     /* Pick the rest of the songs */
-    while (working && (time < minutes * 60)) {
+    while (working && (list_time < minutes * 60)) {
         /* Divide working list into { random set, leftover }. Then 
          * pick the best song in random set. */
         rand_list = NULL;
@@ -130,10 +151,12 @@ GList * generate_playlist ( guint minutes ) {
         l = g_list_length(working);
         r = MAX(1, (l * prefs.variance) / MAX_CRITERIA );
         /* Reduce copy of working to size of random list */
+        len = g_list_length(working);
         while(r--) {
-            s = SONG(g_list_nth(working, rand() % g_list_length(working)));
+            s = SONG(g_list_nth(working, rand() % len));
             working = g_list_remove(working, s);
             rand_list = g_list_append(rand_list, s);
+            len--;
             /* Find the closest song */
             s_distance = distance(s);
             if (s_distance < min_distance) {
@@ -142,7 +165,7 @@ GList * generate_playlist ( guint minutes ) {
             }
         }
         current = SONG(g_list_nth(rand_list, min_distance_index));
-        time += current->length;
+        list_time += current->length;
         final = g_list_append(final, current);
         rand_list = g_list_remove(rand_list, current);
         working = g_list_concat(working, rand_list);
@@ -156,12 +179,17 @@ GList * generate_playlist ( guint minutes ) {
              repeat = repeat->repeat_next) 
             working = g_list_remove(working, repeat);
     }
-    if (final && (time > minutes * 60)) {
-        time -= SONG(g_list_last(final))->length;
+    if (final && (list_time > minutes * 60)) {
+        list_time -= SONG(g_list_last(final))->length;
         final = g_list_remove(final, SONG(g_list_last(final)));
     }
     
     g_list_free(working);
+
+    if (verbosity) 
+        printf("It took %d seconds to generate playlist\n",  
+               (int) (time(NULL) - t));
+    
     return final;
 }
 
@@ -255,8 +283,9 @@ static gdouble distance ( song * s1 ) {
         path_dist = explore_files_depth_distance(s1->path, s2->path);
         if (path_dist >= 0) {
             criteria += prefs.path_weight;
-            distance += (prefs.path_weight * ((float) path_dist)) / 
-                ((float) tree_depth);
+            distance += PATH_DIST_FACTOR * (
+                (prefs.path_weight * ((float) path_dist)) / 
+                ((float) tree_depth));
         }
     }
     

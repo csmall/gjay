@@ -146,6 +146,7 @@ int get_named_color (char * str, RGB * rgb ) {
             return 1;
         }
     }
+    printf("Did not recognize %s as a color; ignoring.\n", str);
     return 0;
 }
 
