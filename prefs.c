@@ -46,10 +46,13 @@ void load_prefs ( void ) {
     }
     fscanf(in, "%s\n", buffer);
     if (strcmp(buffer, GJAY_VERSION)) {
-        fprintf(stderr, "Unknown file format for version %s; this is version %s\n", buffer, GJAY_VERSION);
-        default_prefs();
-        fclose(in);
-        return;
+        /* Prefs didn't change from 0.1 */
+        if (strcmp(buffer, "0.1")) {
+            fprintf(stderr, "Unknown file format for version %s; this is version %s\n", buffer, GJAY_VERSION);
+            default_prefs();
+            fclose(in);
+            return;
+        }
     }   
     fread(&prefs, sizeof(app_prefs), 1, in);
 

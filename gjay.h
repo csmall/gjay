@@ -31,7 +31,7 @@
 #define NUM_FREQ_SAMPLES 30
 
 /* Default directory for storing app info */
-#define GJAY_VERSION "0.1"
+#define GJAY_VERSION "0.1.3"
 #define GJAY_DIR     ".gjay"
 #define GJAY_DATA    "gjay_data"
 #define GJAY_PREFS   "gjay_prefs"

@@ -24,6 +24,7 @@
 #include <string.h>
 #include <vorbis/vorbisfile.h>
 #include <vorbis/codec.h>
+#include <endian.h>
 #include <errno.h>
 #include "gjay.h"
 #include "analysis.h"
@@ -61,6 +62,9 @@ void load_songs ( void ) {
     int i, k, t, len;
     unsigned int n;
     long unsigned int ln;
+    gboolean clear_freq;
+
+    clear_freq = FALSE;
 
     snprintf(buffer, BUFFER_SIZE, "%s/%s/%s", getenv("HOME"), 
              GJAY_DIR, GJAY_DATA);
@@ -72,8 +76,13 @@ void load_songs ( void ) {
 
     fscanf(in, "%s", buffer);
     if (strcmp(buffer, GJAY_VERSION)) {
-        fprintf(stderr, "Unknown file format for version %s; this is version %s\n", buffer, GJAY_VERSION);
-        return;
+        if (strcmp(buffer, "0.1") == 0) {
+            clear_freq = TRUE;
+            display_message("This is a newer version of GJay.\nThe frequency analysis has changed.");
+        } else {
+            fprintf(stderr, "Unknown file format for version %s; this is version %s\n", buffer, GJAY_VERSION);
+            return;
+        }
     }
         
     fscanf(in, "%d ", &num_songs);
@@ -109,6 +118,9 @@ void load_songs ( void ) {
         s->length = n;
         fscanf(in, "%d ", &t);
         s->flags = t;
+
+        if (clear_freq)
+            s->flags |= FREQ_UNK;
         songs = g_list_append(songs, s);
     }
     fclose(in);
@@ -204,7 +216,7 @@ song * new_song_file ( gchar * fname ) {
             s->album = g_strdup ("?");
     } else {
         snprintf(buffer, BUFFER_SIZE, "Sorry, unable to open '%s'.\n"
-                 "Make sure file is mp3, ogg, or wav", SONG(current)->fname);
+                 "Make sure file is mp3, ogg, or wav", fname);
         display_message(buffer);
     }
     return s;
@@ -368,13 +380,14 @@ song * test_wav ( char * fname ) {
     if (!f)
         return NULL;
     fread(&header, sizeof(waveheaderstruct), 1, f);
+    wav_header_swab(&header);
     fclose(f);
     if ((strncmp(header.chunk_type, "WAVE", 4) == 0) &&
         (header.byte_p_spl / header.modus == 2)) {
         s = new_song(fname);
         stat(fname, & buf);
         s->length = (buf.st_size - sizeof(waveheaderstruct)) / 176758;
-    }
+    } 
     return s;
 }
 
@@ -611,7 +624,7 @@ gint sort_color ( gconstpointer a, gconstpointer b) {
 gint sort_freq ( gconstpointer a, gconstpointer b) {
     song * s_a = (song *) a;
     song * s_b = (song *) b;
-    gdouble a_sum, b_sum, ideal, a_val, b_val;
+    gdouble a_sum, b_sum, a_val, b_val;
     gint i;
     
     if (s_a->flags & FREQ_UNK) {
@@ -623,17 +636,12 @@ gint sort_freq ( gconstpointer a, gconstpointer b) {
         return 1;
 
     for (i = 0, a_sum = 0, b_sum = 0; i < NUM_FREQ_SAMPLES; i++) {
-        ideal = ideal_freq(i);
-        a_val = (s_a->freq[i] - ideal)/ideal;
-        b_val = (s_b->freq[i] - ideal)/ideal;
-        if (a_val > 0)
+        a_val = s_a->freq[i];
+        b_val = s_b->freq[i];
+        if (a_val > b_val)
             a_sum += a_val;
-        else
-            b_sum -= a_val;
-        if (b_val > 0)
+        else if (a_val < b_val)
             b_sum += b_val;
-        else
-            a_sum -= b_val;
     }
 
     if (a_sum < b_sum) 

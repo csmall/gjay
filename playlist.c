@@ -191,9 +191,17 @@ static gdouble distance ( song * s1 ) {
         criteria += prefs.criteria_freq;
         d = 0;
         for (i = 0; i < NUM_FREQ_SAMPLES; i++) {
-            d += fabsl(s1->freq[i] - s2->freq[i]) / ideal_freq(i);
+            d += fabsl(s1->freq[i] - s2->freq[i]);
+            if (i < NUM_FREQ_SAMPLES - 1) {
+                d += fabsl(s1->freq[i] - s2->freq[i + 1])/2.0;  
+                d += fabsl(s1->freq[i + 1] - s2->freq[i])/2.0;  
+            }
+            if (i > 0) {
+                d += fabsl(s1->freq[i] - s2->freq[i - 1])/2.0;  
+                d += fabsl(s1->freq[i - 1] - s2->freq[i])/2.0;  
+            }
         }
-        d *= prefs.criteria_freq / 25.0;
+        d *= prefs.criteria_freq / 4.0;
         distance += d;
     }
 

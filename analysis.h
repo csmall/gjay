@@ -22,7 +22,36 @@
 #define __ANALYSIS_H__
 
 #include <pthread.h>
+#include <stdint.h>
+
 #include "gjay.h"
+
+/* Shamelessly excerpted from the Linux kernel */
+#if __BYTE_ORDER == __BIG_ENDIAN
+#define le32_to_cpu(x) __swab32((x))
+#define le16_to_cpu(x) __swab16((x))
+#elif __BYTE_ORDER == __LITTLE_ENDIAN
+#define le32_to_cpu(x) ((uint32_t)(x))
+#define le16_to_cpu(x) ((uint16_t)(x))
+#endif
+
+#define __swab16(x) \
+({ \
+         uint16_t __x = (x); \
+	 ((uint16_t)( \
+	 (((uint16_t)(__x) & (uint16_t)0x00ffU) << 8) | \
+	 (((uint16_t)(__x) & (uint16_t)0xff00U) >> 8) )); \
+})
+#define __swab32(x) \
+({ \
+         uint32_t __x = (x); \
+	         ((uint32_t)( \
+			 (((uint32_t)(__x) & (uint32_t)0x000000ffUL) << 24) | \
+             (((uint32_t)(__x) & (uint32_t)0x0000ff00UL) <<  8) | \
+             (((uint32_t)(__x) & (uint32_t)0x00ff0000UL) >>  8) | \
+             (((uint32_t)(__x) & (uint32_t)0xff000000UL) >> 24) )); \
+})
+
 
 /* This mutex is locked when an analysis is in progress, unlocked
  * otherwise.  When locked, the song analyze_song shouldn't be
@@ -57,15 +86,19 @@ typedef struct {
 /* Mutex lock for analysis data */
 extern pthread_mutex_t analyze_data_mutex;
 extern song          * analyze_song;
-extern int             analyze_percent;
 extern analyze_mode    analyze_state;
+extern int             analyze_percent;
+extern gboolean        analyze_redraw_freq;
 
 /* Analysis.c */
 gboolean analyze(song * s);
+/* Swap endian-ness */
+void     wav_header_swab(waveheaderstruct * header);
+unsigned long  swab_ul(unsigned long l);
+unsigned short swab_us(unsigned short s);
 
 /* spectrum.c */
 int spectrum (FILE * f, long fsize, gdouble * results);
-gdouble ideal_freq (int i);
 
 /* bpm.c */
 double bpm (FILE * f, long fsize);

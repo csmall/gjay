@@ -32,6 +32,7 @@
 #include <sys/poll.h>
 #include <vorbis/vorbisfile.h>
 #include <vorbis/codec.h>
+#include <endian.h>
 #include <math.h>
 #include "gjay.h"
 #include "analysis.h"
@@ -41,6 +42,8 @@ pthread_mutex_t analyze_data_mutex;
 song * analyze_song = NULL;
 int analyze_percent = 0;
 analyze_mode analyze_state = ANALYZE_IDLE;
+gboolean analyze_redraw_freq = FALSE;
+
 
 typedef enum {
     OGG = 0,
@@ -53,7 +56,6 @@ void *     analyze_thread(void* arg);
 FILE *     inflate_to_wav (gchar * path, ftype type);
 FILE *     inflate_to_raw (gchar * path, ftype type);
 
-  
 gboolean analyze(song * s) {
     pthread_t thread;
     if (!(s->flags & ( FREQ_UNK | BPM_UNK)))
@@ -81,6 +83,7 @@ void * analyze_thread(void* arg) {
     pthread_mutex_lock(&analyze_data_mutex);
     analyze_song = (song *) arg;
     analyze_percent = 0;
+    analyze_redraw_freq = FALSE;
     path = g_strdup(analyze_song->path);
     pthread_mutex_unlock(&analyze_data_mutex);
 
@@ -93,6 +96,8 @@ void * analyze_thread(void* arg) {
     } else {
         rewind(f);
         fread(&header, sizeof(waveheaderstruct), 1, f);
+        wav_header_swab(&header);
+            
         if ((strncmp(header.chunk_type, "WAVE", 4) == 0) &&
             (header.byte_p_spl / header.modus == 2)) {
             type = WAV;
@@ -134,14 +139,15 @@ void * analyze_thread(void* arg) {
         analyze_state = ANALYZE_FREQ;
         pthread_mutex_unlock(&analyze_data_mutex);
         f = inflate_to_wav(path, type);
-        spectrum(f, fsize, freq);
+        result = spectrum(f, fsize, freq);
         fclose(f);
 
         pthread_mutex_lock(&analyze_data_mutex);
-        if (analyze_song) {
+        if (result && analyze_song) {
             for (i = 0; i < NUM_FREQ_SAMPLES; i++) 
                 analyze_song->freq[i] = freq[i];
             analyze_song->flags -= FREQ_UNK;
+            analyze_redraw_freq = TRUE;
         }
     }  
     pthread_mutex_unlock(&analyze_data_mutex);
@@ -239,6 +245,21 @@ FILE * inflate_to_wav ( gchar * path,
         return NULL;
     } 
     return f;
+}
+
+
+/* Swap the byte order of wav header. Wavs are stored little-endian, so this
+   is necessary when using on big-endian (e.g. PPC) machines */
+void wav_header_swab(waveheaderstruct * header) {
+    header->length = le32_to_cpu(header->length);
+    header->length_chunk = le32_to_cpu(header->length_chunk);
+    header->data_length = le32_to_cpu(header->data_length);
+    header->sample_fq = le32_to_cpu(header->sample_fq);
+    header->byte_p_sec = le32_to_cpu(header->byte_p_sec);
+    header->format = le16_to_cpu(header->format);
+    header->modus = le16_to_cpu(header->modus);
+    header->byte_p_spl = le16_to_cpu(header->byte_p_spl);
+    header->bit_p_spl = le16_to_cpu(header->bit_p_spl);
 }
 
 

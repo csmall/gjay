@@ -24,10 +24,13 @@
 #include <malloc.h>
 #include <string.h>
 #include <math.h>
+#include <endian.h>
 #include <gsl/gsl_errno.h>
 #include <gsl/gsl_fft_real.h>
 #include <gsl/gsl_fft_halfcomplex.h>
 #include <assert.h>
+#include <unistd.h>
+#include <stdint.h>
 #include "analysis.h"
 
 typedef unsigned long ulongT;
@@ -35,7 +38,7 @@ typedef unsigned short ushortT;
 
 int read_header   (FILE *f, waveheaderstruct *header);
 int read_frames   (FILE *f, waveheaderstruct *header, 
-                   int start, int length, char *data);
+                   int start, int length, void *data);
 
 static char * read_buffer;
 static int read_buffer_size;
@@ -44,14 +47,18 @@ static long read_buffer_end; /* same as file position */
 static int window_size = 1024;
 static int step_size = 256;
 
+#define MAX_FREQ 22500
+#define START_FREQ 100
+
+
 int spectrum (FILE * wav_file, long fsize, gdouble * results) {
     waveheaderstruct header;
-    char *data;
+    int16_t *data;
     double *ch1 = NULL, *ch2 = NULL, *mags = NULL;
     int i, j, k, bin, percent = 0, old_percent = 0;
     double ch1max = 0, ch2max = 0;
     double *total_mags;
-    double sum;
+    double sum, g_factor, freq, g_freq;
     
     if (!wav_file) {
         fprintf (stderr, "Error - file not open for reading\n");
@@ -64,18 +71,21 @@ int spectrum (FILE * wav_file, long fsize, gdouble * results) {
     read_buffer_start = 0;
     read_buffer_end = read_buffer_size;
     memcpy(&header, read_buffer, sizeof (waveheaderstruct));
+
+    wav_header_swab(&header);
+    
     header.data_length = fsize;
     if (header.modus != 1 && header.modus != 2) {
         fprintf (stderr, "Error: not a wav file...\n");
-        _exit (-1);
+        return FALSE;
     }
     
     if (header.byte_p_spl / header.modus != 2) {
         fprintf (stderr, "Error: not 16-bit...\n");
-        _exit (-1);
+        return FALSE;
     }
 
-    data = (char*) malloc (window_size * header.byte_p_spl);
+    data = (int16_t*) malloc (window_size * header.byte_p_spl);
     mags = (double*) malloc (window_size / 2 * sizeof (double));
     total_mags = (double*) malloc (window_size / 2 * sizeof (double));
     memset (total_mags, 0x00, window_size / 2 * sizeof (double));
@@ -94,21 +104,24 @@ int spectrum (FILE * wav_file, long fsize, gdouble * results) {
             old_percent = percent;
         }
         
-        read_frames (wav_file, &header, i, window_size, data);
+        read_frames (wav_file, &header, i, window_size, (char *)data);
         
         if (header.modus == 1) {
             for (j = 0; j < window_size; j++)
-                ch1 [j] = data [j << 1] + (data [(j << 1) + 1] << 8);
+                ch1 [j] = (int16_t)le16_to_cpu(data[j]);
             
         } else {
-            for (j = 0; j < window_size; j++) {
+            /*for (j = 0; j < window_size; j++) {
                 ch1 [j] = data [j << 2] + (data [(j << 2) + 1] << 8);
                 ch2 [j] = data [(j << 2) + 2] + (data [(j << 2) + 3] << 8);
             }
-            
+            */
+            for (j = 0, k = 0; k < window_size; k++, j+=2) {
+                ch1[k] = (double)((int16_t)le16_to_cpu(data[j]));
+                ch2[k] = (double)((int16_t)le16_to_cpu(data[j+1]));
+            } 
             gsl_fft_real_radix2_transform (ch2, 1, window_size);
         }
-        
         gsl_fft_real_radix2_transform (ch1, 1, window_size);
         
         mags [0] = fabs (ch1 [0]);
@@ -145,9 +158,17 @@ int spectrum (FILE * wav_file, long fsize, gdouble * results) {
     
     for (k = 0; k < window_size / 2; k++) 
         total_mags[k] = total_mags[k]/sum;
-    
-    for (k = 0; k < window_size / 2; k++) { 
-        bin = (k * NUM_FREQ_SAMPLES) / (window_size / 2);
+
+    g_freq = START_FREQ;
+    g_factor = exp( log(MAX_FREQ/START_FREQ) / NUM_FREQ_SAMPLES);
+    bin = 0;
+    for (k = 0; k < window_size / 2; k++) {
+        /* Determine which frequency band this sample falls into */
+        freq = (k * MAX_FREQ ) / (window_size / 2);
+        if (freq > g_freq) {
+            bin = MIN(bin + 1, NUM_FREQ_SAMPLES - 1);
+            g_freq *= g_factor;
+        }
         results[bin] += total_mags[k];
     }
     
@@ -155,7 +176,7 @@ int spectrum (FILE * wav_file, long fsize, gdouble * results) {
     free (mags);
     free (total_mags);
     free (read_buffer);
-    return 0;
+    return TRUE;
 }
 
 
@@ -164,7 +185,7 @@ int read_frames (FILE *f,
                  waveheaderstruct *header,
                  int start, 
                  int length, 
-                 char *data)
+                 void *data)
 {
 	int realstart = start;
 	int reallength = length;
@@ -215,13 +236,5 @@ int read_frames (FILE *f,
                    header->byte_p_spl * reallength);
         }
 	return 1;
-}
-
-
-/* The 'ideal' song intensity follows the equation .4/((n +
-   1)^1.4), where n is the freqency bucket. I got this by just
-   fitting a curve to a lot of normalized frequency graphs. */
-gdouble ideal_freq(int i) {
-    return (.4 / pow(1 + i, 1.4));
 }
 

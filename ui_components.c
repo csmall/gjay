@@ -198,7 +198,6 @@ static GdkPixmap * create_song_freq_pixmap ( song * s) {
     GdkGC * gc; 
     guint k;
     HSV hsv;
-    double ideal;
     gint depth, t;
 
     gdk_window_get_geometry (app_window->window,
@@ -218,8 +217,7 @@ static GdkPixmap * create_song_freq_pixmap ( song * s) {
     hsv.S = 1.0;
 
     for (k = 0; k < NUM_FREQ_SAMPLES; k++) {
-        ideal = ideal_freq(k);
-        hsv.V = .5 + (s->freq[k] - ideal)/ideal;
+        hsv.V = MIN(1.0,  15 * s->freq[k]);
         hsv.V = MIN(1.0, MAX(0, hsv.V));
         hsv.H = (M_PI * k) / (double) NUM_FREQ_SAMPLES;
         gdk_rgb_gc_set_foreground(gc, rgb_to_hex(hsv_to_rgb (hsv)));
