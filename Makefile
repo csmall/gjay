@@ -23,6 +23,7 @@ OBJECTS = \
 	bpm.o \
 	playlist.o
 
+INSTALL=/usr/bin/install -o root -g root -m 755
 
 all: $(TARGET) 
 
@@ -33,5 +34,8 @@ all: $(TARGET)
 $(TARGET): $(OBJECTS)  
 	$(LINK) $(LFLAGS) -o $(TARGET) $(OBJECTS)
 
+install: $(TARGET)
+        $(INSTALL) gjay $(DESTDIR)/usr/bin/gjay
+	
 clean:
 	-rm -f *.a *.o *~ data/*~ core $(TARGET) 
