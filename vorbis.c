@@ -62,13 +62,13 @@ int gjay_vorbis_dlopen(void) {
     void * sym;
     
     vorbis_opened = 0;
-    lib = dlopen("libvorbis.so", RTLD_GLOBAL | RTLD_LAZY);
+    lib = dlopen("libvorbis.so.0", RTLD_GLOBAL | RTLD_LAZY);
     if (!lib) {
-        vorbis_error = "Unable to open libvorbis.so";
+        vorbis_error = "Unable to open libvorbis.so.0";
         return vorbis_opened;
     }
 
-    lib = dlopen("libvorbisfile.so", RTLD_GLOBAL | RTLD_LAZY);
+    lib = dlopen("libvorbisfile.so.3", RTLD_GLOBAL | RTLD_LAZY);
     if (lib) {
         vorbis_opened = 1;
         

@@ -1,4 +1,4 @@
-GJay v0.3
+GJay v0.2
 (c) Chuck Groom, 2003
 gjay.sourceforge.net
 
@@ -37,7 +37,7 @@ GJay depends on the following libraries:
   libgslcblas
   libxmms
 
-GJay has a soft dependancy on (for ogg support):
+GJay supports ogg if it's there (a soft dependancy):
   libvorbis
   libvorbisfile
   
