@@ -38,17 +38,16 @@ OBJECTS = \
 	bpm.o \
 	playlist.o
 
-.SUFFIXES: .c
-
-.c.o: $(HEADERS)
-	$(CC) -c $(CFLAGS) -o $@ $<
 
 all: $(TARGET)
 
+.SUFFIXES: .c
+.c.o: $(HEADERS)
+	$(CC) -c $(CFLAGS) -o $@ $<
+
+
 $(TARGET): $(OBJECTS) 
 	$(LINK) $(LFLAGS) -o $(TARGET) $(OBJECTS)
-
-$(OBJECTS): $(SOURCES) $(HEADERS)
 
 clean:
 	-rm -f *.a *.o *~ data/*~ core $(TARGET) 

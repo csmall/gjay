@@ -67,7 +67,6 @@ void load_songs ( void ) {
     num_songs = 0;
     in = fopen(buffer, "r");
     if (!in) {
-        fprintf(stderr, "File not found: %s\n", buffer);
         return;
     }
 
@@ -128,12 +127,13 @@ void save_songs ( void ) {
     snprintf(buffer, BUFFER_SIZE, "%s/%s", getenv("HOME"), GJAY_DIR);
     if (stat(buffer, &stat_buf) < 0) {
         if (mkdir (buffer, 
-                   S_IXUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IXGRP | 
+                   S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IXGRP |
                    S_IROTH | S_IXOTH) < 0) {
             fprintf (stderr, "Could not create %s\n", buffer);
             perror(NULL);
             return;
         }
+        fprintf(stderr, "Created directory %s\n", buffer);
     }
     snprintf(buffer, BUFFER_SIZE, "%s/%s/%s", getenv("HOME"), 
              GJAY_DIR, GJAY_DATA);
@@ -203,7 +203,9 @@ song * new_song_file ( gchar * fname ) {
         if (!s->album)
             s->album = g_strdup ("?");
     } else {
-        display_message("Sorry, unable to open.\nMake sure file is mp3, ogg, or wav");
+        snprintf(buffer, BUFFER_SIZE, "Sorry, unable to open '%s'.\n"
+                 "Make sure file is mp3, ogg, or wav", SONG(current)->fname);
+        display_message(buffer);
     }
     return s;
 }
@@ -232,6 +234,13 @@ void print_song ( song * s) {
 
 
 void delete_song (song * s) {
+    /* If we're in the middle of analyzing a song that we're deleting,
+       we tell the thread that we're done with the song by simply
+       setting it to NULL */
+    pthread_mutex_lock(&analyze_data_mutex);
+    if (s == analyze_song)
+        analyze_song = NULL;
+    pthread_mutex_unlock(&analyze_data_mutex);
     g_free(s->path);
     g_free(s->title);
     g_free(s->artist);
@@ -277,9 +286,10 @@ song * test_mp3 ( char * fname ) {
      FILE * f;
      char buffer[BUFFER_SIZE];
      song * s = NULL;
-     
+
      snprintf(buffer, BUFFER_SIZE, 
-              "mp3info -p \"frames:%%u\\n%%a\\n%%t\\n%%l\\n%%S\" %s", fname);
+              "mp3info -p \"frames:%%u\\n%%a\\n%%t\\n%%l\\n%%S\" \"%s\"",
+              fname);
      if (!(f = popen(buffer, "r"))) {
          fprintf(stderr, "Unable to run %s\n", buffer);
          return NULL;
@@ -323,9 +333,9 @@ song * test_ogg ( char * fname ) {
     vorbis_comment * vc;
 
     f = fopen(fname, "r");
-    if (!f) {
+    if (!f) 
         return NULL;
-    }
+    
     if(ov_open(f, &vf, NULL, 0) == 0) {
         s = new_song(fname);
         vc = ov_comment(&vf, -1);
@@ -340,9 +350,10 @@ song * test_ogg ( char * fname ) {
                 s->album = g_strdup(vc->user_comments[i] + strlen("album="));
             }
         }
-//        ov_clear(&vf);
+        ov_clear(&vf);
+    } else {
+        fclose(f);
     }
-    fclose(f);
     return s;
 }
 
@@ -671,4 +682,5 @@ GList * songs_by_artist ( GList * list, gchar * artist) {
     }
     return new;
 }
+
 

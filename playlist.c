@@ -20,6 +20,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <unistd.h>
+#include <string.h>
 #include "gjay.h"
 #include "analysis.h"
 

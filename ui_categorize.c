@@ -20,6 +20,7 @@
  * a color, a rating, and title/artist.
  */
 
+#include <string.h>
 #include <math.h>
 #include "gjay.h"
 #include "images/play.h"

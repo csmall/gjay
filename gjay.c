@@ -52,7 +52,7 @@ int main( int argc, char *argv[] )
     } 
     if(missing_app)
         return 0;
-
+    g_thread_init(NULL);
     srand(time(NULL));
     pthread_mutex_init(&analyze_mutex, NULL);
     pthread_mutex_init(&analyze_data_mutex, NULL);
@@ -60,7 +60,9 @@ int main( int argc, char *argv[] )
     load_prefs();
     load_songs();
     gtk_widget_show_all(make_app_ui());
+    gdk_threads_enter();
     gtk_main();
+    gdk_threads_leave();
     save_songs();
     save_prefs();
     return(0);

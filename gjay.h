@@ -195,7 +195,7 @@ GList *     songs_by_artist ( GList * list, gchar * artist );
 void        print_song  ( song * s );
 gint        sort_artist_title ( gconstpointer a, gconstpointer b);
 gint        sort_color ( gconstpointer a, gconstpointer b);
-
+ 
 
 /* playlist.c */
 GList *     generate_playlist ( guint len );

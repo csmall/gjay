@@ -19,6 +19,7 @@
  * USA
  */
 
+#include <stdlib.h>
 #include <stdio.h>
 #include <malloc.h>
 #include <string.h>
@@ -54,7 +55,7 @@ int spectrum (FILE * wav_file, long fsize, gdouble * results) {
     
     if (!wav_file) {
         fprintf (stderr, "Error - file not open for reading\n");
-        exit (-1);
+        _exit (-1);
     }
     
     read_buffer_size = sizeof (waveheaderstruct) + window_size*4;
@@ -66,12 +67,12 @@ int spectrum (FILE * wav_file, long fsize, gdouble * results) {
     header.data_length = fsize;
     if (header.modus != 1 && header.modus != 2) {
         fprintf (stderr, "Error: not a wav file...\n");
-        exit (-1);
+        _exit (-1);
     }
     
     if (header.byte_p_spl / header.modus != 2) {
         fprintf (stderr, "Error: not 16-bit...\n");
-        exit (-1);
+        _exit (-1);
     }
 
     data = (char*) malloc (window_size * header.byte_p_spl);

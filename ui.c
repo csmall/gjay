@@ -757,14 +757,13 @@ static gint analyize_timer_callback ( gpointer data ) {
         }
         break;
     case ANALYZE_DONE:
-        if (analyze_song) {
-            /* Analysis just finished */
-            gtk_progress_bar_update (GTK_PROGRESS_BAR(analysis_progress), 
-                                     0);
-            gtk_label_set_text(GTK_LABEL(analysis_label), "Idle");
+        /* Analysis just finished */
+        gtk_progress_bar_update (GTK_PROGRESS_BAR(analysis_progress), 
+                                 0);
+        gtk_label_set_text(GTK_LABEL(analysis_label), "Idle");
+        if (analyze_song)
             rebuild_song_in_list(analyze_song);
-            analyze_song = NULL;
-        }
+        analyze_song = NULL;
         analyze_state = ANALYZE_IDLE;
         /* fall into next */
     case ANALYZE_IDLE:
@@ -1005,6 +1004,8 @@ static void make_playlist_window ( GList * list) {
    clist = make_song_clist();
    gtk_container_add(GTK_CONTAINER(s_win), clist);
     
+   memset(list_data, 0x00, SONG_LAST * sizeof(gchar *));
+
    for (current = list, row = 0, time = 0;
         current; 
         current = g_list_next(current), row++) {
@@ -1520,6 +1521,8 @@ static void delete_songs_ok (GtkWidget * widget,
     for (current = (GList *) user_data; current; current = g_list_next(current)) {
         s = SONG(current);
         songs = g_list_remove(songs, s);
+        delete_song(s);
+        num_songs--;
     }
     build_song_list();
     

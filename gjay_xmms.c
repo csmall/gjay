@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <stdlib.h>
 #include <xmms/xmmsctrl.h>
 #include "gjay.h" 
 
@@ -36,7 +37,7 @@ void init_xmms ( void ) {
         switch( fork() ) {
         case -1:
             perror("fork");
-            exit(1);
+            _exit(1);
             
         case 0:
             execlp("xmms", "xmms", NULL);

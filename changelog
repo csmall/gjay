@@ -1,0 +1,21 @@
+0.1.2 - September 4, 2002
+
+- Make GJay threadsafe (Devin Carraway)
+- Song delete is threadsafe w/r/t analysis (CG)
+- Makefile improvements (DC and Andrew Baumann)
+- Song delete actually frees memory (CG)
+- File names can now contain spaces and quotes (CG and Andrew Baumann)
+- Adds some system includes (AB)
+- The ~/.gjay directory is created with user read permissions (AB)
+- Fixed segfault by initializing pointer to null (AB)
+- Fixed song delete behavior (AB and CG)
+
+	
+0.1.1 - September 3, 2002
+
+-Fixed creation of ~/.gjay directory
+
+
+0.1 - September 2, 2002
+
+Initial release
