@@ -1,3 +1,16 @@
+0.2.8-3 - January 2004
+-Bugs:
+  - Color saturation was being factored in _way_ too much for playlist
+    generation (thanks to William Thomas for pointing this out)
+  - Fix case where some long analysis runs were not getting written to 
+    data.xml properly (sourceforge bug 698761)
+-Features:
+  - Make playlist time 4 digits wide so users can have extra-long lists
+    (sourceforge bug 745364)
+  - Use both inode and dev for identifying symlinks (debian bug 227122)
+0.2.8-2 - December 2003
+-Patch: 
+  - Apply Udi Meiri's patch to escape not_song paths.
 0.2.8 - December 2003
 -Bugs:
    - Some (evil) ID3 tags were not readable and caused a core dump. 

@@ -1,5 +1,5 @@
 /**
- * GJay, copyright (c) 2002-3 Chuck Groom
+ * GJay, copyright (c) 2002-4 Chuck Groom
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -45,8 +45,9 @@ typedef enum {
 extern gjay_mode mode;
 extern gint      xmms_session;
 
-/* User option */
+/* User options */
 extern gint      verbosity;
+extern gint      skip_verify;
 
 /* utilities */
 void    read_line             ( FILE * f, 
@@ -54,11 +55,12 @@ void    read_line             ( FILE * f,
                                 int buffer_len);
 #define strdup_to_utf8(str)   (strdup_convert(str, "UTF8", "LATIN1"))
 #define strdup_to_latin1(str) (strdup_convert(str, "LATIN1", "UTF8"))
-gchar * strdup_convert ( const gchar * str, 
-                         const gchar * enc_to, 
-                         const gchar * enc_from );
-float   strtof_gjay    ( const char * nptr, char ** endptr);
-gchar * parent_dir     ( const char * path );
+gchar * strdup_convert        ( const gchar * str, 
+                                const gchar * enc_to, 
+                                const gchar * enc_from );
+float   strtof_gjay           ( const char * nptr,
+                                char ** endptr);
+gchar * parent_dir            ( const char * path );
 
 
 #endif /* GJAY_H */

@@ -238,7 +238,7 @@ GtkWidget * make_playlist_view ( void ) {
     hbox1 = gtk_hbox_new(FALSE, 2);
     gtk_box_pack_start(GTK_BOX(vbox1), hbox1, FALSE, FALSE, 2);
     label = gtk_label_new("Time (minutes)");
-    time_entry = gtk_entry_new_with_max_length (3);
+    time_entry = gtk_entry_new_with_max_length (4);
     snprintf(buffer, BUFFER_SIZE, "%d", prefs.time);
     gtk_entry_set_text(GTK_ENTRY(time_entry), buffer);
     gtk_tooltips_set_tip (tips, time_entry,

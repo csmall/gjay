@@ -196,6 +196,9 @@ static void add_file_to_queue ( char * fname) {
     char queue_fname[BUFFER_SIZE], buffer[BUFFER_SIZE], * str;
     FILE * f_queue, * f_add;
         
+    if (verbosity > 1) {
+        printf("Adding '%s' to analysis queue\n", fname);
+    }
     snprintf(queue_fname, BUFFER_SIZE, "%s/%s/%s", getenv("HOME"), 
              GJAY_DIR, GJAY_QUEUE);
     f_queue = fopen(queue_fname, "a");
@@ -369,6 +372,7 @@ void analyze(char * fname) {
     file_info(analyze_song->path, 
               &is_song, 
               &analyze_song->inode,
+              &analyze_song->dev,
               &analyze_song->length,
               &analyze_song->title,
               &analyze_song->artist,

@@ -1,5 +1,5 @@
 /**
- * GJay, copyright (c) 2002-3 Chuck Groom
+ * GJay, copyright (c) 2002,2004 Chuck Groom
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -91,7 +91,7 @@ static gboolean expose_about_view (GtkWidget *widget,
                       (width - w) / 2, height * 0.55,
                       buffer);
 
-     snprintf(buffer, BUFFER_SIZE, "Copyright (c) 2003, Chuck Groom");
+     snprintf(buffer, BUFFER_SIZE, "Copyright (c) 2004, Chuck Groom");
      w = gdk_text_width(font,
                         buffer,
                         strlen(buffer));

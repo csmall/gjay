@@ -1,5 +1,5 @@
 /**
- * GJay, copyright (c) 2002, 2003 Chuck Groom
+ * GJay, copyright (c) 2002-2004 Chuck Groom
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -40,6 +40,7 @@ typedef enum {
     E_ARTIST,
     E_ALBUM,
     E_INODE,
+    E_DEV,
     E_LENGTH,
     E_RATING,
     E_COLOR,
@@ -63,6 +64,7 @@ static const char * element_str[E_LAST] = {
     "artist",
     "album",
     "inode",
+    "dev",
     "length",
     "rating",
     "color",
@@ -82,6 +84,7 @@ typedef struct {
     gboolean not_song;
     gboolean use_hb;
     gboolean new;
+    gboolean has_dev;
     element_type element;
     song * s;
 } song_parse_state;
@@ -93,7 +96,7 @@ GList      * not_songs;   /* List of char *, UTF8 encoded */
 gboolean     songs_dirty;
 
 GHashTable * song_name_hash; 
-GHashTable * song_inode_hash;
+GHashTable * song_inode_dev_hash;
 GHashTable * not_song_hash;
 
 
@@ -314,6 +317,7 @@ static void song_copy_attrs( song * dest, song * original ) {
 void file_info ( gchar    * path,
                  gboolean * is_song,
                  guint32  * inode,
+                 guint32  * dev,
                  gint     * length,
                  gchar   ** title,
                  gchar   ** artist,
@@ -324,6 +328,7 @@ void file_info ( gchar    * path,
     
     *is_song = FALSE;
     *inode = 0;
+    *dev = 0;
     *length = 0;
     *artist = NULL;
     *title = NULL;
@@ -339,6 +344,7 @@ void file_info ( gchar    * path,
         return;
     } 
     
+    *dev = buf.st_dev;
     *inode = buf.st_ino;
 
     for (*type = OGG; *type < SONG_FILE_TYPE_LAST; (*type)++) {
@@ -430,6 +436,7 @@ int append_daemon_file (song * s) {
  *   <artist>str</artist>
  *   <album>str</album>
  *   <inode>int</inode>
+ *   <dev>int</dev>
  *   <length>int</length>
  *   <rating>float</rating>
  *   <color type="hsv">float float float</color>  
@@ -472,6 +479,7 @@ static void write_song_data (FILE * f, song * s) {
             g_free(escape);
         }
         fprintf(f, "\t<inode>%lu</inode>\n", (long unsigned int) s->inode);
+        fprintf(f, "\t<dev>%lu</dev>\n", (long unsigned int) s->dev);
         fprintf(f, "\t<length>%d</length>\n", s->length);
         if(!s->no_data) {
             if (s->bpm_undef)
@@ -520,6 +528,9 @@ void read_data_file ( void ) {
     for (k = 0; k < NUM_DATA_FILES; k++) {
         snprintf(buffer, BUFFER_SIZE, "%s/%s/%s", 
                  getenv("HOME"), GJAY_DIR, files[k]);
+        if (verbosity) {
+            printf("Reading from file %s\n", buffer);
+        }
         f = fopen(buffer, "r");
         if (f) {
             read_data(f);
@@ -545,6 +556,9 @@ gboolean add_from_daemon_file_at_seek (int seek) {
     if (f) {
         fseek(f, seek, SEEK_SET);
         result = read_data(f);
+        if (result) {
+            songs_dirty = TRUE;
+        }
         fclose(f);
     }
     return result;
@@ -554,7 +568,7 @@ gboolean add_from_daemon_file_at_seek (int seek) {
 /**
  * Read file data from the file f to its end 
  */
-gboolean read_data (FILE * f) {
+gboolean read_data (FILE * f ) {
     GMarkupParseContext * parse_context;
     GMarkupParser parser;
     gboolean result = TRUE;
@@ -617,7 +631,7 @@ void data_start_element  (GMarkupParseContext *context,
             }
         }
         assert(path);
-
+        
         if (state->not_song) {
             if (!g_hash_table_lookup(not_song_hash, path)) {
                 state->new = TRUE;
@@ -700,9 +714,10 @@ void data_end_element (GMarkupParseContext *context,
             songs = g_list_append(songs, state->s);
             g_hash_table_insert (song_name_hash,
                                  state->s->path, 
-                                 state->s);            
-            g_hash_table_insert (song_inode_hash,
-                                 &state->s->inode,
+                                 state->s);           
+            hash_inode_dev(state->s, state->has_dev);
+            g_hash_table_insert (song_inode_dev_hash,
+                                 &state->s->inode_dev_hash,
                                  state->s);
         }
         /* If there is a song and it itself is not copy of another
@@ -750,6 +765,10 @@ void data_text ( GMarkupParseContext *context,
         break;
     case E_INODE:
         state->s->inode = atol(buffer);
+        break;
+    case E_DEV:
+        state->s->dev = atol(buffer);
+        state->has_dev = TRUE;
         break;
     case E_LENGTH:
         state->s->length = atoi(buffer);
@@ -931,6 +950,7 @@ gdouble song_attraction ( song * a, song  * b ) {
     
     a_hue = prefs.hue / a_max;
     a_brightness = prefs.brightness / a_max;
+    a_saturation = prefs.saturation / a_max;
     a_freq = prefs.freq / a_max;
     a_bpm = prefs.bpm / a_max;
     a_path = prefs.path_weight / a_max;
@@ -1023,10 +1043,22 @@ gdouble song_mass ( song * s ) {
     if (!s->no_color) {
         song_mass += prefs.hue;
         song_mass += prefs.brightness;
+        song_mass += prefs.saturation;
     }
     if (!s->bpm_undef) {
         song_mass += prefs.bpm;
     }
     
     return (song_mass / max_mass);
+}
+
+
+void hash_inode_dev( song * s, gboolean has_dev) {
+    if ((has_dev == FALSE) && (skip_verify == 0)) {
+        struct stat buf;
+        if (stat(s->path, &buf)) {
+            s->dev = buf.st_dev;
+        }
+    }
+    s->inode_dev_hash = s->inode ^ ( (s->dev << 16) | (s->dev >> 16) );
 }

@@ -1,5 +1,5 @@
 /**
- * GJay, copyright (c) 2002 Chuck Groom
+ * GJay, copyright (c) 2002-2004 Chuck Groom
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -215,7 +215,7 @@ void explore_view_set_root ( char * root_dir ) {
      * a stack. In spare cycles, we'll process these files properly for
      * list display and requesting daemon processing */
     gjay_ftw(root_dir, tree_walk, 10);
-    
+
     gtk_idle_add(tree_add_idle, NULL);
 
     total_files_to_add = g_list_length(files_to_add_queue->head);
@@ -348,15 +348,14 @@ static int tree_add_idle (gpointer data) {
             set_add_files_progress(NULL, (file_to_add_count * 100) / 
                                    total_files_to_add);
             s->in_tree = TRUE;
-
             if (!s->no_data) {
                 pm_type = PM_FILE_SONG;
             } else {
                 pm_type = PM_FILE_PENDING;
                 /* Analyze this file if it's the first song of a string of
                  * duplicates */
-                if (s == g_hash_table_lookup(song_inode_hash, 
-                                             &s->inode)) {
+                if (s == g_hash_table_lookup(song_inode_dev_hash, 
+                                             &s->inode_dev_hash)) {
                     files_to_analyze = g_list_append(
                         files_to_analyze, strdup_to_latin1(s->path));
                 }
@@ -372,23 +371,25 @@ static int tree_add_idle (gpointer data) {
             s = create_song();
             file_info(fta->fname,
                       &is_song,
-                      &s->inode,
+                      &s->inode,                      
+                      &s->dev,
                       &s->length,
                       &s->title,
                       &s->artist,
                       &s->album,
                       &type);
+            hash_inode_dev(s, TRUE);
             if (is_song) {
                 song_set_path(s, fta->fname);
                 /* Check for symlinkery */
-                original = g_hash_table_lookup(song_inode_hash, 
-                                               &s->inode);
+                original = g_hash_table_lookup(song_inode_dev_hash, 
+                                               &s->inode_dev_hash);
                 if (original) { 
                     song_set_repeats(s, original);
                     pm_type = PM_FILE_SONG;
                 } else { 
-                    g_hash_table_insert(song_inode_hash, 
-                                        &s->inode, s);
+                    g_hash_table_insert(song_inode_dev_hash, 
+                                        &s->inode_dev_hash, s);
                     /* Add to analysis queue */
                     files_to_analyze = g_list_append(files_to_analyze,
                                                      strdup_to_latin1(fta->fname));

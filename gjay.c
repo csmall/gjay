@@ -1,5 +1,5 @@
 /**
- * GJay, copyright (c) 2002, 2003 Chuck Groom
+ * GJay, copyright (c) 2002-2004 Chuck Groom
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -30,13 +30,10 @@
  * In playlist mode, GJay prints a playlist and exits.
  */
 
-#include <unistd.h>
+#include <sys/signal.h>
 #include <stdlib.h>
 #include <stdio.h> 
-#include <sys/types.h>
 #include <sys/stat.h>
-#include <sys/signal.h>
-#include <sys/unistd.h>
 #include <sys/fcntl.h>
 #include <sys/errno.h>
 #include <pthread.h>
@@ -61,7 +58,8 @@ gjay_mode mode; /* UI, DAEMON, PLAYLIST */
 
 int daemon_pipe_fd;
 int ui_pipe_fd;
-int verbosity;
+gint verbosity;
+gint skip_verify;
 
 
 static gboolean app_exists  ( gchar * app );
@@ -82,7 +80,8 @@ int main( int argc, char *argv[] ) {
     srand(time(NULL));
     
     mode = UI;
-    verbosity = 0;
+    verbosity = 0;    
+    skip_verify = 0;
     m3u_format = FALSE;
     playlist_in_xmms = FALSE;
     load_prefs();
@@ -143,6 +142,10 @@ int main( int argc, char *argv[] ) {
                 }
                 if (argv[i][k] == 'v')
                     verbosity++;
+                if (argv[i][k] == 's') {
+                    printf("Skipping verification for debugging only.\n");
+                    skip_verify = 1; 
+                }
                 if (argv[i][k] == 'u')
                     m3u_format = TRUE;
                 if (argv[i][k] == 'x')
@@ -211,11 +214,11 @@ int main( int argc, char *argv[] ) {
         not_songs = NULL;
         songs_dirty = FALSE;
         song_name_hash    = g_hash_table_new(g_str_hash, g_str_equal);
-        song_inode_hash   = g_hash_table_new(g_int_hash, g_int_equal);
+        song_inode_dev_hash = g_hash_table_new(g_int_hash, g_int_equal);
         not_song_hash     = g_hash_table_new(g_str_hash, g_str_equal);
 
         read_data_file();
-    }
+   }
 
     if (mode == UI) {
         if (!app_exists("xmms")) {
@@ -244,7 +247,16 @@ int main( int argc, char *argv[] ) {
                          write_dirty_song_timeout, NULL);
                          
         send_ipc(ui_pipe_fd, ATTACH);
-        explore_view_set_root(prefs.song_root_dir);
+        if (skip_verify) {
+            GList * llist;
+            for (llist = g_list_first(songs); llist; llist = g_list_next(llist)) {
+                SONG(llist)->in_tree = TRUE;
+                SONG(llist)->access_ok = TRUE;
+            }        
+        } else {
+            explore_view_set_root(prefs.song_root_dir);
+        }        
+
         set_selected_file(NULL, NULL, FALSE);
 
         gtk_main();

@@ -1,5 +1,5 @@
 /**
- * GJay, copyright (c) 2002-2003 Chuck Groom
+ * GJay, copyright (c) 2002-2004 Chuck Groom
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -45,7 +45,7 @@ extern GList      * not_songs;         /*  char *   */
 extern gboolean     songs_dirty;       /* Songs list does not match
                                           disk copy */
 extern GHashTable * song_name_hash;
-extern GHashTable * song_inode_hash;
+extern GHashTable * song_inode_dev_hash;
 extern GHashTable * not_song_hash;
 
 
@@ -83,12 +83,14 @@ struct _song {
     /* How to tell if two songs with different paths are the same
        song (symlinked, most likely) */
     guint32 inode; 
+    guint32 dev; 
+    guint32 inode_dev_hash;
+    
     song * repeat_prev, * repeat_next;    
 
     /* Does the song exist? */
     gboolean access_ok;
 };
-
 
 #define SONG(list) ((song *) list->data)
 
@@ -104,6 +106,7 @@ void        song_set_repeat_attrs  ( song * s);
 void        file_info              ( gchar          * path,
                                      gboolean       * is_song,
                                      guint32        * inode,
+                                     guint32        * dev,
                                      gint           * length,
                                      gchar         ** title,
                                      gchar         ** artist,
@@ -126,8 +129,9 @@ int         write_dirty_song_timeout ( gpointer data );
 int         append_daemon_file     ( song * s );
 
 void        read_data_file         ( void );
-void        read_daemon_file       ( void );
 gboolean    add_from_daemon_file_at_seek ( int seek );
+void        hash_inode_dev         ( song * s,
+                                     gboolean has_dev );
 
 
 #endif /* __SONGS_H__ */
