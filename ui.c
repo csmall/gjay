@@ -163,8 +163,10 @@ gboolean daemon_pipe_input (GIOChannel *source,
                             GIOCondition condition,
                             gpointer data) {
     char buffer[BUFFER_SIZE];
+    gchar * str;
     int len, k, p, l, seek;
     ipc_type ipc, send_ipc;
+    
 
     read(daemon_pipe_fd, &len, sizeof(int));
     assert(len < BUFFER_SIZE);
@@ -191,9 +193,11 @@ gboolean daemon_pipe_input (GIOChannel *source,
         break;
     case STATUS_TEXT:
         buffer[len] = '\0';
-        if (analysis_label && !destroy_window_flag)
-            gtk_label_set_text(GTK_LABEL(analysis_label), 
-            buffer + sizeof(ipc_type));
+        if (analysis_label && !destroy_window_flag) {
+            str = strdup_to_utf8(buffer + sizeof(ipc_type));
+            gtk_label_set_text(GTK_LABEL(analysis_label), str);
+            g_free(str);
+        }
         break;
     case ADDED_FILE:
         memcpy(&seek, buffer + sizeof(ipc_type), sizeof(int));

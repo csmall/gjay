@@ -233,6 +233,7 @@ static int tree_add_idle (gpointer data) {
     GtkTreeIter * parent, * current;
     int pm_type;
     char * display_name,  * str;
+    gchar * utf8 = NULL;
     song * s;
 
     if (g_queue_is_empty(files_to_add_queue)) {
@@ -276,13 +277,14 @@ static int tree_add_idle (gpointer data) {
         }
 
         display_name = fta->fname + 1 + strlen(parent_name_stack->tail->data);
-        
+
         gtk_tree_store_append (store, current, parent);
+        utf8 = strdup_to_utf8(display_name);
         gtk_tree_store_set (store, current,
-                            NAME_COLUMN, display_name,
+                            NAME_COLUMN, utf8,
                             IMAGE_COLUMN, pixbufs[pm_type],
                             -1);
-        
+        g_free(utf8);
         
         str = strdup(fta->fname);
         file_name_in_tree = g_list_append(file_name_in_tree, str);
@@ -304,17 +306,20 @@ static int tree_add_idle (gpointer data) {
             parent = iter_stack->tail->data;  
             display_name = fta->fname + 1 + strlen(parent_name_stack->tail->data);
         }
-
+        
         gtk_tree_store_append (store, current, parent);
+        utf8 = strdup_to_utf8(display_name);
         gtk_tree_store_set (store, current,
-                            NAME_COLUMN, display_name,
+                            NAME_COLUMN, utf8,
                             IMAGE_COLUMN, pixbufs[PM_DIR_CLOSED],
                             -1);
+        g_free(utf8);
         str = strdup(fta->fname);
         file_name_in_tree = g_list_append(file_name_in_tree, str);
         g_hash_table_insert ( file_name_iter_hash,
                               str,
                               current);
+
         
         g_queue_push_tail(iter_stack, current);
         g_queue_push_tail(parent_name_stack, str);
@@ -335,16 +340,18 @@ static int get_iter_path (GtkTreeModel *model,
                           gboolean start) {
     GtkTreeIter parent;
     int len, offset = 0;
-    char * name;
+    char * name, * name_l1;
         
     if (gtk_tree_model_iter_parent(model, &parent, child)) {
         offset = get_iter_path(model, &parent, buffer, FALSE);
     }
 
     gtk_tree_model_get (model, child, NAME_COLUMN, &name, -1);
-    len = strlen(name);
-    memcpy(buffer + offset, name, len); 
+    name_l1 = strdup_to_latin1(name);
     g_free(name);
+    len = strlen(name_l1);
+    memcpy(buffer + offset, name_l1, len); 
+    g_free(name_l1);
 
     buffer[offset + len] = (start ? '\0' : '/');
     
@@ -359,7 +366,7 @@ static void select_row (GtkTreeSelection *selection, gpointer data) {
     char buffer[BUFFER_SIZE];
     GtkTreeIter iter;
     GtkTreeModel *model;
-    gchar * name;
+    gchar * name, * name_l1;
     
     if (gtk_tree_selection_get_selected (selection, &model, &iter)) {
         get_iter_path(model, &iter, buffer, TRUE);
@@ -372,9 +379,11 @@ static void select_row (GtkTreeSelection *selection, gpointer data) {
             (gtk_tree_store_iter_depth(store, &iter) == 0)) {
             return;
         }
-        set_selected_file(buffer, name, 
-                          gtk_tree_model_iter_has_child(model, &iter));
+        name_l1 = strdup_to_latin1(name);
         g_free(name);
+        set_selected_file(buffer, name_l1, 
+                          gtk_tree_model_iter_has_child(model, &iter));
+        g_free(name_l1);
     }
 }
 

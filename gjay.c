@@ -82,7 +82,7 @@ int main( int argc, char *argv[] )
     struct stat stat_buf;
     FILE * f;
     gint i;
-
+    
     /* Use '.' as decimal separator */
     setlocale(LC_NUMERIC, "C");
 
@@ -298,3 +298,26 @@ void read_line ( FILE * f, char * buffer, int buffer_len) {
     return;
 }
 
+
+
+/**
+ * Duplicate a string from one encoding to another
+ */
+gchar * strdup_convert ( const gchar * str, 
+                         const gchar * enc_to, 
+                         const gchar * enc_from ) {
+    gchar * conv;
+    gsize b_read, b_written;
+    conv = g_convert (str,
+                      -1, 
+                      enc_to,
+                      enc_from,
+                      &b_read,
+                      &b_written,
+                      NULL);
+    if (!conv) {
+        printf("Unable to convert from %s charset; perhaps encoded differently?", enc_from);
+        return g_strdup(str);
+    }
+    return conv;
+}

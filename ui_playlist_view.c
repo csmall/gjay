@@ -633,6 +633,8 @@ static void  populate_playlist_list(GtkListStore * list_store,
         song_set_freq_pixbuf(s);
         song_set_color_pixbuf(s);
         gtk_list_store_append (list_store, &iter);
+        title = strdup_to_utf8(title);
+        artist = strdup_to_utf8(artist);
         gtk_list_store_set (list_store, &iter,
                             ARTIST_COLUMN, artist,
                             TITLE_COLUMN, title,
@@ -640,6 +642,8 @@ static void  populate_playlist_list(GtkListStore * list_store,
                             COLOR_COLUMN, s->color_pixbuf,
                             BPM_COLUMN, bpm,
                             -1);
+        g_free(title);
+        g_free(artist);
     }
 }
 

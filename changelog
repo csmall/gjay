@@ -1,3 +1,7 @@
+0.2.3 - November 25, 2002
+- Assume Latin1 encoding for song names such that we can convert them to 
+  UTF8 for user-visible display (prevents Pango from freaking out)
+
 0.2.2 - November 24, 2002
 - Minor fixes
    - Fixed compiler warnings

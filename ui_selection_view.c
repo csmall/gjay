@@ -442,6 +442,8 @@ void populate_selected_list (void) {
         else
             sprintf(bpm, "%3.2f", s->bpm);
         song_set_freq_pixbuf(s);
+        title = strdup_to_utf8(title);
+        artist = strdup_to_utf8(artist);
         gtk_list_store_append (GTK_LIST_STORE(list_store), &iter);
         gtk_list_store_set (GTK_LIST_STORE(list_store), &iter,
                             ARTIST_COLUMN, artist,
@@ -449,6 +451,8 @@ void populate_selected_list (void) {
                             FREQ_COLUMN, s->freq_pixbuf,
                             BPM_COLUMN, bpm,
                             -1);
+        g_free(artist);
+        g_free(title);
     }
     gtk_tree_view_columns_autosize(GTK_TREE_VIEW(tree));
 }

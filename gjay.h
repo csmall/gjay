@@ -39,7 +39,7 @@ typedef enum {
 
 
 /* Default directory for storing app info */
-#define GJAY_VERSION   "0.2"
+#define GJAY_VERSION   "0.2.3"
 #define GJAY_DIR       ".gjay"
 #define GJAY_PREFS     "prefs"
 #define GJAY_QUEUE     "analysis_queue"
@@ -74,7 +74,12 @@ extern gint      xmms_session;
 extern gint      verbosity;
 
 /* utilities */
-void read_line ( FILE * f, char * buffer, int buffer_len);
+void    read_line   ( FILE * f, char * buffer, int buffer_len);
+#define strdup_to_utf8(str) (strdup_convert(str, "UTF8", "LATIN1"))
+#define strdup_to_latin1(str) (strdup_convert(str, "LATIN1", "UTF8"))
+gchar * strdup_convert ( const gchar * str, 
+                         const gchar * enc_to, 
+                         const gchar * enc_from );
 
 /* xmms.c */
 void        init_xmms   ( void );
@@ -82,4 +87,6 @@ void        play_song   ( song * s );
 void        play_songs  ( GList * slist );
 void        play_files  ( GList * list);
 
+
 #endif /* GJAY_H */
+
