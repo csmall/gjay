@@ -87,7 +87,7 @@ static gboolean expose_about_view (GtkWidget *widget,
                       (width - w) / 2, height * 0.5,
                       buffer);
 
-     snprintf(buffer, BUFFER_SIZE, "Copyright (c) 2002, Chuck Groom");
+     snprintf(buffer, BUFFER_SIZE, "Copyright (c) 2003, Chuck Groom");
      w = gdk_text_width(font,
                         buffer,
                         strlen(buffer));

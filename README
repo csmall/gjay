@@ -1,5 +1,5 @@
 GJay v0.2
-(c) Chuck Groom, November 2002
+(c) Chuck Groom, January 2003
 gjay.sourceforge.net
 
 GJay (Gtk+ DJ) generates playlists across a collection of music (mp3,
@@ -7,7 +7,7 @@ ogg, wav) such that each song sounds good following the previous
 song. Matches are based on both automatically analyzed song
 characteristics (BPM, frequency) as well as user-assigned
 categorizations (song 'color' and rating). It is ideal for DJs
-planning a set list or home users who want a non-random way to wander
+planning a set list and home users wanting a non-random way to wander
 large collections.
 
 See http://gjay.sourceforge.net for help and more information.
@@ -19,6 +19,8 @@ http://bpmdj.sourceforge.net/
 
 Frequency analysis code comes from Daniel Franklin's "Spectromatic",
 http://ieee.uow.edu.au/~daniel/software/spectromatic/
+
+I welcome all feedback; cgroom@users.sourceforge.net
 
 
 BUILD

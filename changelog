@@ -1,3 +1,16 @@
+0.2.5 - January 07, 2002
+- Features:
+   - Tweaked UI: removed "select directory contents non-recursively" option
+     for the sake of simplicity. All selection is recursive.
+   - Command-line playlists accept filename starting points (-f option)
+- Bugs:
+   - Did not properly escape all the fields in the XML data file
+   - While I wasn't able to fix a certain class of rare hard-to-diagnose
+     cases having to do with file selection in wacky trees, it now fails
+     gracefully instead of catastrophically.
+   - If a filename has gone bad, remove the file from the GJay data file
+     and don't use it for playlist generation. 
+
 0.2.4 - December 15, 2002
 - Features:
    - Playlists can be generated from the command-line
