@@ -380,6 +380,7 @@ void data_text ( GMarkupParseContext *context,
         break;
     default:
     }
+    *element = PE_LAST;
 }
 
 static int get_element ( gchar * element_name ) {
