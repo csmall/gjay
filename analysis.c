@@ -399,8 +399,7 @@ void analyze(char * fname) {
     wsfile.f = f;
     fread(&wsfile.header, sizeof(waveheaderstruct), 1, f);
     wav_header_swab(&wsfile.header);
-    wsfile.header.data_length = (analyze_song->length - 1) * wsfile.header.byte_p_sec;
-
+    wsfile.header.data_length = (MAX(1, analyze_song->length - 1)) * wsfile.header.byte_p_sec;
     if (verbosity) {
         printf("Analyzing %s\n", fname);
         t = time(NULL);
