@@ -110,12 +110,14 @@ void build_song_list_row ( GtkCList * clist,
             }
             break;
         case SONG_BPM:
-            if (s->flags & BPM_UNK) {
-                snprintf(buffer, BUFFER_SIZE, "?"); 
-            } else if (s->flags & BPM_UNDEF) {
-                snprintf(buffer, BUFFER_SIZE, "Unsure"); 
+            if (s->flags & ANALYZED) {
+                if (s->flags & BPM_UNDEF) {
+                    snprintf(buffer, BUFFER_SIZE, "Unsure"); 
+                } else {
+                    snprintf(buffer, BUFFER_SIZE, "%1.2f", s->bpm);
+                }
             } else {
-                snprintf(buffer, BUFFER_SIZE, "%1.2f", s->bpm);
+                snprintf(buffer, BUFFER_SIZE, "?"); 
             } 
             str = buffer;
             break;
@@ -123,11 +125,11 @@ void build_song_list_row ( GtkCList * clist,
             pm = create_song_rating_pixmap(s);
             break;
         case SONG_FREQ:
-            if (s->flags & FREQ_UNK) {
+            if (s->flags & ANALYZED) {
+                pm = create_song_freq_pixmap(s);
+            } else {
                 snprintf(buffer, BUFFER_SIZE, "?"); 
                 str = buffer;
-            } else {
-                pm = create_song_freq_pixmap(s);
             } 
             break;
         default:
@@ -198,7 +200,10 @@ static GdkPixmap * create_song_freq_pixmap ( song * s) {
     GdkGC * gc; 
     guint k;
     HSV hsv;
+    RGB rgb;
     gint depth, t;
+    GdkPoint triangle[3];
+    gdouble diff;
 
     gdk_window_get_geometry (app_window->window,
                              &t, &t, &t, &t, &depth);
@@ -214,15 +219,38 @@ static GdkPixmap * create_song_freq_pixmap ( song * s) {
                         0, 0, 
                         FREQ_PM_W,
                         FREQ_PM_H);
-    hsv.S = 1.0;
-
+    hsv.S = 0.7;
     for (k = 0; k < NUM_FREQ_SAMPLES; k++) {
-        hsv.V = MIN(1.0,  15 * s->freq[k]);
-        hsv.V = MIN(1.0, MAX(0, hsv.V));
         hsv.H = (M_PI * k) / (double) NUM_FREQ_SAMPLES;
+        hsv.V = MIN(1.0,  MAX(0, 8.0 * s->freq[k]));
         gdk_rgb_gc_set_foreground(gc, rgb_to_hex(hsv_to_rgb (hsv)));
         gdk_draw_line(pm, gc, k + 1, 1, k + 1, FREQ_PM_H - 2);
     }
+
+    rgb.R = rgb.G = rgb.B = 1.0;
+    gdk_rgb_gc_set_foreground(gc, rgb_to_hex(rgb));
+    gdk_draw_line(pm, gc, NUM_FREQ_SAMPLES + 2, 0, 
+                  NUM_FREQ_SAMPLES + 2, FREQ_PM_H);
+
+    /* The percent difference between max and ave vols differ from about 
+       2..7. */
+    diff = MIN(0.5, MAX(0, 0.7 + -0.1 * s->volume_diff));
+    triangle[0].x = NUM_FREQ_SAMPLES + 4;
+    triangle[0].y = 1;
+    triangle[1].x = NUM_FREQ_SAMPLES + 4;
+    triangle[1].y = FREQ_PM_H - 1;
+    triangle[2].x = FREQ_PM_W - 1;
+    triangle[2].y = 1;
+    rgb.R = rgb.G = rgb.B = diff;
+    gdk_rgb_gc_set_foreground(gc, rgb_to_hex(rgb));
+    gdk_draw_polygon  (pm, gc, TRUE, triangle, 3);
+    
+    rgb.R = rgb.G = rgb.B = 1-diff;
+    gdk_rgb_gc_set_foreground(gc, rgb_to_hex(rgb));
+    triangle[0].x = FREQ_PM_W - 1;
+    triangle[0].y = FREQ_PM_H - 1;
+    gdk_draw_polygon  (pm, gc, TRUE, triangle, 3);
+
     gdk_gc_unref(gc);    
     return pm;
 }

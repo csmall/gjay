@@ -55,6 +55,7 @@ int analyze_percent = 0;
 analyze_mode analyze_state = ANALYZE_IDLE;
 gdouble analyze_bpm;
 
+// #define DEBUG
 
 typedef enum {
     OGG = 0,
@@ -107,6 +108,7 @@ FILE *     inflate_to_wav (gchar * path, ftype type);
 
 int           run_analysis     ( wav_file_shared * wsfile,
                                  gdouble * freq_results,
+                                 gdouble * volume_diff,
                                  gdouble * bpm_result );
 unsigned long bpm_phasefit     ( long i );
 int           freq_read_frames ( wav_file_shared * wsfile, 
@@ -119,7 +121,7 @@ int           freq_read_frames ( wav_file_shared * wsfile,
 
 gboolean analyze(song * s) {
     pthread_t thread;
-    if (!(s->flags & ( FREQ_UNK | BPM_UNK)))
+    if (s->flags & ANALYZED)
         return FALSE;
     if (pthread_mutex_trylock(&analyze_mutex)) {
         return FALSE;
@@ -136,14 +138,17 @@ void * analyze_thread(void* arg) {
     guint16 song_len;
     char buffer[BUFFER_SIZE];
     gchar * path;
-    gdouble freq[NUM_FREQ_SAMPLES], analyze_bpm;
+    gdouble freq[NUM_FREQ_SAMPLES], volume_diff, analyze_bpm;
     FILE * f;
     ftype type;
+#ifdef DEBUG
     time_t t;
+#endif
 
     pthread_mutex_lock(&analyze_data_mutex);
     analyze_song = (song *) arg;
     analyze_percent = 0;
+    analyze_state = ANALYZE;
     path = g_strdup(analyze_song->path);
     song_len = analyze_song->length;
     pthread_mutex_unlock(&analyze_data_mutex);
@@ -180,22 +185,23 @@ void * analyze_thread(void* arg) {
         pthread_mutex_unlock(&analyze_mutex);
         return NULL;
     }
-    analyze_percent = 0;
-    analyze_state = ANALYZE;
     f = inflate_to_wav(path, type);
-
     memset(&wsfile, 0x00, sizeof(wav_file_shared));
     wsfile.f = f;
     fread(&wsfile.header, sizeof(waveheaderstruct), 1, f);
     wav_header_swab(&wsfile.header);
     wsfile.header.data_length = (analyze_song->length - 1) * wsfile.header.byte_p_sec;
+#ifdef DEBUG
+    printf("Analyzing %s\n", analyze_song->fname);
+    t = time(NULL);
+#endif
     pthread_mutex_unlock(&analyze_data_mutex);
 
-    t = time(NULL);
+    result = run_analysis(&wsfile, freq, &volume_diff, &analyze_bpm); 
 
-    result = run_analysis(&wsfile, freq, &analyze_bpm); 
-
+#ifdef DEBUG
     printf("Analysis took %ld seconds\n", time(NULL) - t);
+#endif
 
     pthread_mutex_lock(&analyze_data_mutex);
     analyze_percent = 0;
@@ -203,12 +209,12 @@ void * analyze_thread(void* arg) {
     if (result && analyze_song) {
         for (i = 0; i < NUM_FREQ_SAMPLES; i++) 
             analyze_song->freq[i] = freq[i];
-        analyze_song->flags -= FREQ_UNK;
-        analyze_song->flags -= BPM_UNK;
+        analyze_song->flags |= ANALYZED;
         analyze_song->bpm = analyze_bpm;
         if (isinf(analyze_song->bpm) || (analyze_song->bpm < MIN_BPM)) {
             analyze_song->flags |= BPM_UNDEF;
         }
+        analyze_song->volume_diff = volume_diff;
     } 
     pthread_mutex_unlock(&analyze_data_mutex);
 
@@ -312,15 +318,16 @@ int quote_path(char *buf, size_t bufsiz, const char *path) {
  */
 int run_analysis  (wav_file_shared * wsfile,
                    gdouble * freq_results,
+                   gdouble * volume_diff,
                    gdouble * bpm_result ) {
     int16_t *freq_data;
     double *ch1 = NULL, *ch2 = NULL, *mags = NULL;
-    int i, j, k, bin;
+    long i, j, k, bin;
     double ch1max = 0, ch2max = 0;
     double *total_mags;
-    double sum, g_factor, freq, g_freq;
+    double sum, frame_sum, max_frame_sum, g_factor, freq, g_freq;
     signed short buffer[BPM_BUF_SIZE];
-    long count, pos, h, redux, startpos;
+    long count, pos, h, redux, startpos, num_frames;
 
     if (wsfile->header.modus != 1 && wsfile->header.modus != 2) {
         fprintf (stderr, "Error: not a wav file...\n");
@@ -345,7 +352,9 @@ int run_analysis  (wav_file_shared * wsfile,
     ch1 = (double*) malloc (window_size * sizeof (double));
     if (wsfile->header.modus == 2)
         ch2 = (double*) malloc (window_size * sizeof (double));
-    
+    num_frames = 0;
+    max_frame_sum = 0;
+    sum = 0;
 
     /* BPM set-up */
     audiosize = wsfile->header.data_length;
@@ -380,8 +389,8 @@ int run_analysis  (wav_file_shared * wsfile,
             
             /* Update status bar */
             pthread_mutex_lock(&analyze_data_mutex);
-            analyze_percent = (wsfile->seek * 100 ) / 
-                wsfile->header.data_length;
+            analyze_percent = MIN(100, (wsfile->seek * 100 ) / 
+                                  wsfile->header.data_length);
             pthread_mutex_unlock(&analyze_data_mutex);
             
             /* BPM loop */
@@ -435,9 +444,15 @@ int run_analysis  (wav_file_shared * wsfile,
                 if (mags [j] > ch2max)
                     ch2max = mags [j];
             }
-            /* Add magnitudes */
-            for (k = 0; k < window_size / 2; k++) 
+
+            /* Add magnitudes */            
+            for (frame_sum = 0, k = 0; k < window_size / 2; k++) {
                 total_mags[k] += mags[k];
+                frame_sum += mags[k];
+            }
+            max_frame_sum = MAX(frame_sum, max_frame_sum);
+            sum += frame_sum;
+            num_frames++;
         }
     }
     
@@ -445,14 +460,16 @@ int run_analysis  (wav_file_shared * wsfile,
     analyze_state = ANALYZE_FINISH;
     analyze_percent = 0;
     pthread_mutex_unlock(&analyze_data_mutex);
-    
-    sum = 0;
-    for (k = 0; k < window_size / 2; k++) 
-        sum += total_mags[k];
-    
-    for (k = 0; k < window_size / 2; k++) 
-        total_mags[k] = total_mags[k]/sum;
+    *volume_diff =  max_frame_sum / (sum / (gdouble) num_frames);
 
+#ifdef DEBUG
+    printf ("Diff between max and min vols %f\n", 
+            *volume_diff);
+#endif 
+
+    for (k = 0; k < window_size / 2; k++) 
+        total_mags[k] = total_mags[k] / sum;
+    
     g_freq = START_FREQ;
     g_factor = exp( log(MAX_FREQ/START_FREQ) / NUM_FREQ_SAMPLES);
     bin = 0;
@@ -465,7 +482,13 @@ int run_analysis  (wav_file_shared * wsfile,
         }
         freq_results[bin] += total_mags[k];
     }
-    
+
+#ifdef DEBUG
+    for (k = 0; k < NUM_FREQ_SAMPLES; k++) 
+        printf("%f ", freq_results[k]);
+    printf("\n");
+#endif        
+
     /* Complete BPM analysis */
     stopshift=audiorate*60*4/startbpm;
     startshift=audiorate*60*4/stopbpm;
@@ -518,6 +541,9 @@ int run_analysis  (wav_file_shared * wsfile,
             }
         }
         *bpm_result = 4.0*(double)audiorate*60.0/(double)minimumfoutat;
+#ifdef DEBUG
+        printf("BPM: %f\n", *bpm_result);
+#endif
     }
     free (audio);
     free (freq_data);

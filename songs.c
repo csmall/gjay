@@ -63,8 +63,10 @@ void load_songs ( void ) {
     unsigned int n;
     long unsigned int ln;
     gboolean clear_freq;
+    gboolean has_volume_diff;
 
     clear_freq = FALSE;
+    has_volume_diff = TRUE;
 
     snprintf(buffer, BUFFER_SIZE, "%s/%s/%s", getenv("HOME"), 
              GJAY_DIR, GJAY_DATA);
@@ -76,8 +78,10 @@ void load_songs ( void ) {
 
     fscanf(in, "%s", buffer);
     if (strcmp(buffer, GJAY_VERSION)) {
-        if (strcmp(buffer, "0.1") == 0) {
+        if ((strcmp(buffer, "0.1") == 0) ||
+            (strcmp(buffer, "0.1.3") == 0)) {
             clear_freq = TRUE;
+            has_volume_diff = FALSE;
             display_message("This is a newer version of GJay.\nThe frequency analysis has changed.");
         } else {
             fprintf(stderr, "Unknown file format for version %s; this is version %s\n", buffer, GJAY_VERSION);
@@ -119,8 +123,11 @@ void load_songs ( void ) {
         fscanf(in, "%d ", &t);
         s->flags = t;
 
+        if (has_volume_diff) 
+            fscanf(in, "%lg ", &s->volume_diff);
+        
         if (clear_freq)
-            s->flags |= FREQ_UNK;
+            s->flags &= ~ANALYZED;
         songs = g_list_append(songs, s);
     }
     fclose(in);
@@ -173,6 +180,7 @@ void save_songs ( void ) {
         fprintf(out, "%lu ", (long unsigned int) s->checksum);
         fprintf(out, "%u ", (unsigned int) s->length);
         fprintf(out, "%d ", s->flags);
+        fprintf(out, "%f ", s->volume_diff);
         fprintf(out, "\n");
     }
     fclose(out);
@@ -264,8 +272,8 @@ song * new_song ( char * fname ) {
     int i;
     song * s = g_malloc(sizeof(song));
     memset (s, 0x00, sizeof(song));
-    s->flags = COLOR_UNK | BPM_UNK | FREQ_UNK;
-    /* FIXME: get average of other songs by this artist */
+    s->flags = COLOR_UNK;
+    /* TODO: get average of other songs by this artist */
     s->rating = (MIN_RATING + MAX_RATING)/2;
     s->path = g_strdup(fname);
     s->fname = s->path;
@@ -580,12 +588,12 @@ gint sort_bpm ( gconstpointer a, gconstpointer b) {
     }
     if (s_b->flags & BPM_UNDEF)
         return -1;
-    if (s_a->flags & BPM_UNK) {
-        if (s_b->flags & BPM_UNK) 
+    if (!(s_a->flags & ANALYZED)) {
+        if (!(s_b->flags & ANALYZED)) 
             return sort_artist_title(a, b);
         return -1;
     }
-    if (s_b->flags & BPM_UNK)
+    if (!(s_b->flags & ANALYZED))
         return 1;
     
     if (s_a->bpm < s_b->bpm)
@@ -629,12 +637,12 @@ gint sort_freq ( gconstpointer a, gconstpointer b) {
     gdouble a_sum, b_sum, a_val, b_val;
     gint i;
     
-    if (s_a->flags & FREQ_UNK) {
-        if (s_b->flags & FREQ_UNK) 
+    if (!(s_a->flags & ANALYZED)) {
+        if (!(s_b->flags & ANALYZED)) 
             return sort_artist_title(a, b);
         return -1;
     }
-    if (s_b->flags & FREQ_UNK)
+    if (!(s_b->flags & ANALYZED))
         return 1;
 
     for (i = 0, a_sum = 0, b_sum = 0; i < NUM_FREQ_SAMPLES; i++) {

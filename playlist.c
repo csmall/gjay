@@ -29,7 +29,7 @@ static song * first;
 static gdouble distance ( song * s1 );
 /* Used for sorting song list */
 static gint sort_dist ( gconstpointer a, gconstpointer b);
-
+static gint gaussian_rand( gdouble deviation );
 
 /* Generate a playlist no longer than the specified length */
 GList * generate_playlist ( guint minutes ) {
@@ -111,7 +111,7 @@ GList * generate_playlist ( guint minutes ) {
         /* Pick song closest to current song, with some variance. */
         /* Sort list by distance to current song */
         working = g_list_sort (working, sort_dist);
-        i = MIN(g_list_length(working), rand() % prefs.variance);
+        i = MIN(g_list_length(working), gaussian_rand(prefs.variance));
         current = SONG(g_list_nth(working, i));
         time += current->length;
         working = g_list_remove (working, current);
@@ -161,6 +161,10 @@ static gdouble distance ( song * s1 ) {
         }
         d *=  prefs.criteria_hue / (M_PI);
         distance += d;
+    } else {
+        /* Add half a hit against this combo */
+        criteria += prefs.criteria_hue / 2.0;
+        distance += prefs.criteria_hue / 2.0;
     }
 
     s2 = (prefs.hold_brightness ? first : current);
@@ -169,10 +173,14 @@ static gdouble distance ( song * s1 ) {
         d = fabsl(s1->color.B - s2->color.B);
         d *= prefs.criteria_brightness;
         distance += d;
+    } else {
+        /* Add half a hit against this combo */
+        criteria +=  prefs.criteria_brightness / 2;
+        distance +=  prefs.criteria_brightness / 2;
     }
 
     s2 = (prefs.hold_bpm ? first : current);
-    if (!((s1->flags & BPM_UNK) || (s2->flags & BPM_UNK))) {
+    if ((s1->flags & ANALYZED) && (s2->flags & ANALYZED)) {
         criteria += prefs.criteria_bpm;
         if ((s1->flags & BPM_UNDEF) || (s2->flags & BPM_UNDEF)) {
             if ((s1->flags & BPM_UNDEF) && (s2->flags & BPM_UNDEF))
@@ -184,10 +192,14 @@ static gdouble distance ( song * s1 ) {
             d *= prefs.criteria_bpm / ((gdouble) (MAX_BPM - MIN_BPM));
         }
         distance += d;
+    } else {
+        /* Add half a hit against this combo */
+        criteria += prefs.criteria_bpm/2.0;
+        distance += prefs.criteria_bpm/2.0;
     }
 
     s2 = (prefs.hold_freq ? first : current);
-    if (!((s1->flags & FREQ_UNK) || (s2->flags & FREQ_UNK))) {
+    if ((s1->flags & ANALYZED) && (s2->flags & ANALYZED)) {
         criteria += prefs.criteria_freq;
         d = 0;
         for (i = 0; i < NUM_FREQ_SAMPLES; i++) {
@@ -201,8 +213,14 @@ static gdouble distance ( song * s1 ) {
                 d += fabsl(s1->freq[i - 1] - s2->freq[i])/2.0;  
             }
         }
-        d *= prefs.criteria_freq / 4.0;
+        d /= 5.0;
+        d *= 1 + (MAX(s1->volume_diff, s2->volume_diff) - MIN(s1->volume_diff, s2->volume_diff))/10.0;
+        d *= prefs.criteria_freq;
         distance += d;
+    } else {
+        /* Add half a hit against this combo */
+        criteria += prefs.criteria_freq/2.0;
+        distance += prefs.criteria_freq/2.0;
     }
 
     if (criteria == 0) {
@@ -255,4 +273,19 @@ void save_playlist ( GList * list, gchar * fname ) {
         fprintf(f, "%s\n", s->path);
     }
     fclose(f);
+}
+
+
+static gint gaussian_rand( gdouble deviation ) {
+    float x1, x2, w, y1;
+    
+    do {
+        x1 = 2.0 * (rand() / (gdouble) RAND_MAX) - 1.0;
+        x2 = 2.0 * (rand() / (gdouble) RAND_MAX) - 1.0;
+        w = x1 * x1 + x2 * x2;
+    } while ( w >= 1.0 );
+    
+    w = sqrt( (-2.0 * log( w ) ) / w );
+    y1 = fabs(x1 * w);
+    return (int) (y1 * deviation + 1);
 }

@@ -31,7 +31,7 @@
 #define NUM_FREQ_SAMPLES 30
 
 /* Default directory for storing app info */
-#define GJAY_VERSION "0.1.3"
+#define GJAY_VERSION "0.1.4"
 #define GJAY_DIR     ".gjay"
 #define GJAY_DATA    "gjay_data"
 #define GJAY_PREFS   "gjay_prefs"
@@ -41,6 +41,8 @@
 
 /* How frequently, in milliseconds, we check the analyize data */
 #define ANALYZE_TIME 500
+/* How often, in seconds, we checkpoint saves */
+#define SAVE_TIME 60*5 
 
 #define MIN_RATING            0.0
 #define MAX_RATING            5.0
@@ -57,10 +59,9 @@
 #define DEFAULT_CRITERIA      5.0
 
 /* song flags */
+#define ANALYZED   (1 << 1)
 #define RATING_UNK (1 << 2)
-#define BPM_UNK    (1 << 3)
 #define BPM_UNDEF  (1 << 4)
-#define FREQ_UNK   (1 << 5)
 #define COLOR_UNK  (1 << 6)
 #define SONG_ERROR (1 << 7)
 
@@ -71,8 +72,9 @@
 /* Size of colorful pixmaps */
 #define COLOR_SWATCH_W 27
 #define COLOR_SWATCH_H 11
-#define FREQ_PM_W      NUM_FREQ_SAMPLES + 2
 #define FREQ_PM_H      COLOR_SWATCH_H
+#define FREQ_PM_W      NUM_FREQ_SAMPLES + 3 + FREQ_PM_H
+
 
 
 typedef struct _song song;
@@ -163,6 +165,8 @@ struct _song {
     gdouble bpm;
     gdouble freq[NUM_FREQ_SAMPLES];
     gint8   flags; 
+    gdouble volume_diff; /* % difference in volume between loudest and
+                            average frame */
 };
 
 

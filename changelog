@@ -1,5 +1,15 @@
+0.1.4 - September 21, 2002 (Chuck Groom)
+- Analysis is much faster. Single decode and faster BPM and spectrum analysis.
+- In frequency pass, also record difference between max frame
+  vol. and average frame volume. This information is used to nudge
+  frequency matches to improve song matching.
+- We now save periodically (every 5 min)
+- The next song's randomness is now decided from a gaussian instead of 
+  strictly linear random distribution. 
+	
+
 0.1.3 - September 9, 2002
-- Solve frequency endian issues; works on PPC (Devin Carraway)
+- Solve frequency endian issues; won't crash PPC (Devin Carraway)
 - Change to log freq scale, redo freq. matching and dist. algorithms. 
   If you load an older version data file, freq. data will be re-calculated.
   (Chuck Groom)

@@ -60,7 +60,7 @@ GtkWidget * analysis_progress;
 app_tabs    current_tab;
 static GtkWidget * song_list_swin;
 GList     * dialog_list = NULL;
-
+static long save_time_count = 0;
 
 static gint        analyze_timer_callback ( gpointer data );
 static gint        add_files_dialog ( GtkWidget *widget,
@@ -387,9 +387,9 @@ GtkWidget * make_app_ui ( void ) {
                        GTK_EXPAND | GTK_FILL, GTK_EXPAND,
                        2, 2);
 
-    button = gtk_check_button_new_with_label("Maintain");
+    button = gtk_check_button_new_with_label("Wander");
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(button), 
-                                 prefs.hold_hue);
+                                 !prefs.hold_hue);
     gtk_signal_connect (GTK_OBJECT (button),
                         "toggled",
                         (GtkSignalFunc) playlist_toggle,
@@ -424,9 +424,9 @@ GtkWidget * make_app_ui ( void ) {
                        GTK_EXPAND | GTK_FILL, GTK_EXPAND,
                        2, 2);
 
-    button = gtk_check_button_new_with_label("Maintain");
+    button = gtk_check_button_new_with_label("Wander");
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(button), 
-                                 prefs.hold_brightness);
+                                 !prefs.hold_brightness);
     gtk_signal_connect (GTK_OBJECT (button),
                         "toggled",
                         (GtkSignalFunc) playlist_toggle,
@@ -460,9 +460,9 @@ GtkWidget * make_app_ui ( void ) {
                        GTK_EXPAND | GTK_FILL, GTK_EXPAND,
                        2, 2);
 
-    button = gtk_check_button_new_with_label("Maintain");
+    button = gtk_check_button_new_with_label("Wander");
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(button), 
-                                 prefs.hold_bpm);
+                                 !prefs.hold_bpm);
     gtk_signal_connect (GTK_OBJECT (button),
                         "toggled",
                         (GtkSignalFunc) playlist_toggle,
@@ -495,9 +495,9 @@ GtkWidget * make_app_ui ( void ) {
                        3, 4,
                        GTK_EXPAND | GTK_FILL, GTK_EXPAND,
                        2, 2);
-    button = gtk_check_button_new_with_label("Maintain");
+    button = gtk_check_button_new_with_label("Wander");
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(button), 
-                                 prefs.hold_freq);
+                                 !prefs.hold_freq);
     gtk_signal_connect (GTK_OBJECT (button),
                         "toggled",
                         (GtkSignalFunc) playlist_toggle,
@@ -719,13 +719,23 @@ static gint analyze_timer_callback ( gpointer data ) {
     char * analyze_str = "Analyze: ";
     char * analyze_finish_str = "Finishing: ";
 
+    save_time_count += ANALYZE_TIME;
+    
     pthread_mutex_lock(&analyze_data_mutex);
+
+    /* Periodically save */
+    if (save_time_count > SAVE_TIME * ANALYZE_TIME) {
+        save_time_count = 0;
+        save_songs();
+        save_prefs();
+    }
+
     gtk_label_get(GTK_LABEL(analysis_label), &str);
     switch (analyze_state) {
     case ANALYZE:
         gtk_progress_bar_update (GTK_PROGRESS_BAR(analysis_progress),
                                  analyze_percent/100.0); 
-        if (!strstr(str, analyze_str)) {
+        if (analyze_song && !strstr(str, analyze_str)) {
             snprintf(buffer, 120, "%s%s",
                      analyze_str,
                      (strcmp(analyze_song->title, "?") ? analyze_song->title :
@@ -736,7 +746,7 @@ static gint analyze_timer_callback ( gpointer data ) {
     case ANALYZE_FINISH:
         gtk_progress_bar_update (GTK_PROGRESS_BAR(analysis_progress),
                                  analyze_percent/100.0); 
-        if (!strstr(str, analyze_finish_str)) {
+        if (analyze_song && !strstr(str, analyze_finish_str)) {
             snprintf(buffer, 120, "%s%s",
                      analyze_finish_str,
                      (strcmp(analyze_song->title, "?") ? analyze_song->title :
@@ -759,8 +769,7 @@ static gint analyze_timer_callback ( gpointer data ) {
         /* FIXME: stop timer if there aren't more songs to analyze */
         for (current = songs; current; current = g_list_next(current)) {
             s = SONG(current);
-            if (((s->flags & BPM_UNK) ||  (s->flags & FREQ_UNK)) && 
-                !(s->flags & SONG_ERROR)) {
+            if (!(s->flags & ANALYZED) && !(s->flags & SONG_ERROR)) {
                 analyze(s);
                 break;
             }
