@@ -59,13 +59,16 @@ static void save_playlist_selector (GtkWidget * file_selector);
 GtkWidget * make_playlist_view ( void ) {
     GtkWidget * hbox1, * vbox1, * vbox2, * vbox3;
     char buffer[BUFFER_SIZE];
-    GtkWidget * button, * label, * frame, * range;
+    GtkWidget * button, * label, * frame, * range, * event_box;
     GtkWidget * colorwheel;
 
     vbox1 = gtk_vbox_new(FALSE, 2);
     
     button_sel_songs = gtk_check_button_new_with_label(
         "Only from selected songs");
+    gtk_tooltips_set_tip (tips, button_sel_songs,
+                          "Limit the playlist to the selected songs",
+                          "");
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(button_sel_songs), 
                                  prefs.use_selected_songs);
     g_signal_connect (G_OBJECT (button_sel_songs), "toggled",
@@ -73,6 +76,9 @@ GtkWidget * make_playlist_view ( void ) {
     gtk_box_pack_start(GTK_BOX(vbox1), button_sel_songs, FALSE, FALSE, 2);
     button_sel_dir = gtk_check_button_new_with_label(
         "Only within selected directory");
+    gtk_tooltips_set_tip (tips, button_sel_dir,
+                          "Limit the playlist to songs within this directory",
+                          "");
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(button_sel_dir), 
                                  prefs.use_selected_dir);
     g_signal_connect (G_OBJECT (button_sel_dir), "toggled",
@@ -81,6 +87,9 @@ GtkWidget * make_playlist_view ( void ) {
     
     button_start_song = gtk_check_button_new_with_label(
         "Start at selected song");
+    gtk_tooltips_set_tip (tips, button_start_song,
+                          "Use the selected song as the start of the playlist",
+                          "");
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(button_start_song), 
                                  prefs.start_selected);
     g_signal_connect (G_OBJECT (button_start_song), "toggled",
@@ -90,6 +99,9 @@ GtkWidget * make_playlist_view ( void ) {
     hbox1 = gtk_hbox_new(FALSE, 0);    
     gtk_box_pack_start(GTK_BOX(vbox1), hbox1, FALSE, FALSE, 0);
     button_start_color = gtk_check_button_new_with_label("Start at color");
+    gtk_tooltips_set_tip (tips, button_start_color,
+                          "Specify a target color for starting the playlist",
+                          "");
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(button_start_color), 
                                  prefs.start_color);
     g_signal_connect (G_OBJECT (button_start_color), "toggled",
@@ -111,64 +123,94 @@ GtkWidget * make_playlist_view ( void ) {
     vbox3 = gtk_vbox_new(FALSE, 2);
     gtk_box_pack_start(GTK_BOX(hbox1), vbox3, TRUE, TRUE, 2);
     label = gtk_label_new("Freq.");
+    event_box = gtk_event_box_new();
+    gtk_container_add (GTK_CONTAINER(event_box), label);
     range = gtk_vscale_new_with_range (MIN_CRITERIA, MAX_CRITERIA, .1);
     gtk_range_set_value(GTK_RANGE(range), prefs.freq);
     g_signal_connect (G_OBJECT (range), "value-changed",
                       G_CALLBACK (value_changed), &prefs.freq);
     gtk_scale_set_draw_value(GTK_SCALE(range), FALSE);
     gtk_range_set_inverted(GTK_RANGE(range), TRUE);
-    gtk_box_pack_start(GTK_BOX(vbox3), label, FALSE, FALSE, 2);
+    gtk_box_pack_start(GTK_BOX(vbox3), event_box, FALSE, FALSE, 2);
     gtk_box_pack_start(GTK_BOX(vbox3), range, TRUE, TRUE, 2);
+    gtk_tooltips_set_tip (tips, event_box,
+                          "Frequency: Match songs by their spectrum \"fingerprint\"",
+                          "");
 
     vbox3 = gtk_vbox_new(FALSE, 2);
     gtk_box_pack_start(GTK_BOX(hbox1), vbox3, TRUE, TRUE, 2);
     label = gtk_label_new("BPM");
+    event_box = gtk_event_box_new();
+    gtk_container_add (GTK_CONTAINER(event_box), label);
     range = gtk_vscale_new_with_range (MIN_CRITERIA, MAX_CRITERIA, .1);
     gtk_range_set_value(GTK_RANGE(range), prefs.bpm);
     g_signal_connect (G_OBJECT (range), "value-changed",
                       G_CALLBACK (value_changed), &prefs.bpm);
     gtk_range_set_inverted(GTK_RANGE(range), TRUE);
     gtk_scale_set_draw_value(GTK_SCALE(range), FALSE);
-    gtk_box_pack_start(GTK_BOX(vbox3), label, FALSE, FALSE, 2);
+    gtk_box_pack_start(GTK_BOX(vbox3), event_box, FALSE, FALSE, 2);
     gtk_box_pack_start(GTK_BOX(vbox3), range, TRUE, TRUE, 2);
+    gtk_tooltips_set_tip (tips, event_box,
+                          "Beats Per Minute: Match songs by their beat. Note that this may be an unreliable criteria across genres",
+                          "");
+
 
     vbox3 = gtk_vbox_new(FALSE, 2);
     gtk_box_pack_start(GTK_BOX(hbox1), vbox3, TRUE, TRUE, 2);
     label = gtk_label_new("Hue");
+    event_box = gtk_event_box_new();
+    gtk_container_add (GTK_CONTAINER(event_box), label);
     range = gtk_vscale_new_with_range (MIN_CRITERIA, MAX_CRITERIA, .1);
     gtk_scale_set_draw_value(GTK_SCALE(range), FALSE);
     gtk_range_set_value(GTK_RANGE(range), prefs.hue);
     g_signal_connect (G_OBJECT (range), "value-changed",
                       G_CALLBACK (value_changed), &prefs.hue);
     gtk_range_set_inverted(GTK_RANGE(range), TRUE);
-    gtk_box_pack_start(GTK_BOX(vbox3), label, FALSE, FALSE, 2);
+    gtk_box_pack_start(GTK_BOX(vbox3), event_box, FALSE, FALSE, 2);
     gtk_box_pack_start(GTK_BOX(vbox3), range, TRUE, TRUE, 2);
+    gtk_tooltips_set_tip (tips, event_box,
+                          "Hue: Match songs by the color you assigned them, disregarding the saturation/brightness component",
+                          "");
 
     vbox3 = gtk_vbox_new(FALSE, 2);
     gtk_box_pack_start(GTK_BOX(hbox1), vbox3, TRUE, TRUE, 2);
     label = gtk_label_new("Brightness");
+    event_box = gtk_event_box_new();
+    gtk_container_add (GTK_CONTAINER(event_box), label);
     range = gtk_vscale_new_with_range (MIN_CRITERIA, MAX_CRITERIA, .1);
     gtk_range_set_value(GTK_RANGE(range), prefs.brightness);
     g_signal_connect (G_OBJECT (range), "value-changed",
                       G_CALLBACK (value_changed), &prefs.brightness);
     gtk_scale_set_draw_value(GTK_SCALE(range), FALSE);
     gtk_range_set_inverted(GTK_RANGE(range), TRUE);
-    gtk_box_pack_start(GTK_BOX(vbox3), label, FALSE, FALSE, 2);
+    gtk_box_pack_start(GTK_BOX(vbox3), event_box, FALSE, FALSE, 2);
     gtk_box_pack_start(GTK_BOX(vbox3), range, TRUE, TRUE, 2);
+    gtk_tooltips_set_tip (tips, event_box,
+                          "Brightness: Match songs by the brightness portion of the color you assigned them",
+                          "");
 
     vbox3 = gtk_vbox_new(FALSE, 2);
     gtk_box_pack_start(GTK_BOX(hbox1), vbox3, TRUE, TRUE, 2);
     label = gtk_label_new("File Loc.");
+    event_box = gtk_event_box_new();
+    gtk_container_add (GTK_CONTAINER(event_box), label);
     range = gtk_vscale_new_with_range (MIN_CRITERIA, MAX_CRITERIA, .1);
     gtk_range_set_value(GTK_RANGE(range), prefs.path_weight);
     g_signal_connect (G_OBJECT (range), "value-changed",
                       G_CALLBACK (value_changed), &prefs.path_weight);
     gtk_range_set_inverted(GTK_RANGE(range), TRUE);
     gtk_scale_set_draw_value(GTK_SCALE(range), FALSE);
-    gtk_box_pack_start(GTK_BOX(vbox3), label, FALSE, FALSE, 2);
+    gtk_box_pack_start(GTK_BOX(vbox3), event_box, FALSE, FALSE, 2);
     gtk_box_pack_start(GTK_BOX(vbox3), range, TRUE, TRUE, 2);
+    gtk_tooltips_set_tip (tips, event_box,
+                          "File Location: Match songs by their nearness in the file system. Two songs in the same directory are closer than two songs in different directories.",
+                          "");
 
     button = gtk_check_button_new_with_label("Wander");
+    gtk_tooltips_set_tip (tips, button,
+                          "If wander is set, each song is matched to the previous song. Otherwise, each song is matched to the first song",
+                          "");
+
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(button),
                                  prefs.wander);
     g_signal_connect (G_OBJECT (button), "toggled",
@@ -178,6 +220,9 @@ GtkWidget * make_playlist_view ( void ) {
     hbox1 = gtk_hbox_new(FALSE, 0);
     gtk_box_pack_start(GTK_BOX(vbox2), hbox1, FALSE, FALSE, 0);
     button = gtk_check_button_new_with_label("Rating cut-off");
+    gtk_tooltips_set_tip (tips, button,
+                          "Ignore all songs below a particular rating",
+                          "");
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(button),
                                  prefs.rating_cutoff);
     g_signal_connect (G_OBJECT (button), "toggled",
@@ -192,16 +237,21 @@ GtkWidget * make_playlist_view ( void ) {
     hbox1 = gtk_hbox_new(FALSE, 2);
     gtk_box_pack_start(GTK_BOX(vbox1), hbox1, FALSE, FALSE, 2);
     label = gtk_label_new("Randomness (little)");
+    event_box = gtk_event_box_new();
+    gtk_container_add (GTK_CONTAINER(event_box), label);
     range = gtk_hscale_new_with_range (MIN_CRITERIA, MAX_CRITERIA, .1);
     gtk_range_set_inverted(GTK_RANGE(range), TRUE);
     gtk_range_set_value(GTK_RANGE(range), prefs.variance);
     g_signal_connect (G_OBJECT (range), "value-changed",
                       G_CALLBACK (value_changed), &prefs.variance);
     gtk_scale_set_draw_value(GTK_SCALE(range), FALSE);
-    gtk_box_pack_start(GTK_BOX(hbox1), label, FALSE, FALSE, 2);
+    gtk_box_pack_start(GTK_BOX(hbox1), event_box, FALSE, FALSE, 2);
     gtk_box_pack_start(GTK_BOX(hbox1), range, TRUE, TRUE, 2);
     label = gtk_label_new("(very)");
     gtk_box_pack_start(GTK_BOX(hbox1), label, FALSE, FALSE, 2);
+    gtk_tooltips_set_tip (tips, event_box,
+                          "Randomness: how tightly focused each song pick should be. Too little randomness, and your playlists will not wander your collection. Too much randomness, and you may as well just shuffle your CDs.",
+                          "");
 
     hbox1 = gtk_hbox_new(FALSE, 2);
     gtk_box_pack_start(GTK_BOX(vbox1), hbox1, FALSE, FALSE, 2);
@@ -209,9 +259,15 @@ GtkWidget * make_playlist_view ( void ) {
     time_entry = gtk_entry_new_with_max_length (3);
     snprintf(buffer, BUFFER_SIZE, "%d", prefs.time);
     gtk_entry_set_text(GTK_ENTRY(time_entry), buffer);
+    gtk_tooltips_set_tip (tips, time_entry,
+                          "Time: a target time for how long the playlist should be. The actual playlist length may be +/- a few minutes. CDs tend to be 45-80 minutes long, for what it's worth.",
+                          "");
 
     gtk_widget_set_size_request(time_entry, 35, -1);
     button = gtk_button_new_with_label("Make Playlist");
+    gtk_tooltips_set_tip (tips, button,
+                          "Generate the playlist using your criteria",
+                          "");
     g_signal_connect (G_OBJECT (button), "clicked",
                       G_CALLBACK (playlist_button_clicked), NULL);
     gtk_box_pack_start(GTK_BOX(hbox1), label, FALSE, FALSE, 2);

@@ -55,10 +55,12 @@ extern GdkPixbuf * pixbufs[PM_LAST];
 
 extern GtkWidget * window;
 extern GtkWidget * notebook;
+extern GtkTooltips * tips;
 extern GtkWidget * explore_view, * selection_view, * playlist_view,
                  * no_root_view, * prefs_view, * about_view;
 extern GList     * selected_songs, * selected_files; 
 extern int         tree_depth;
+
 
 /* UI utils */
 GtkWidget * new_button_label_pixbuf      ( char * label_text, 

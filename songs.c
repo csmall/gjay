@@ -280,7 +280,8 @@ gboolean read_data (FILE * f) {
                 if (explore_update_file_pm(s->path, PM_FILE_SONG))
                     s->marked = TRUE;
             } else {
-                printf("TOSSING!\n");
+                if (verbosity)
+                    printf("Tossing song -- already in list\n");
                 /* Already in list */
                 delete_song(s);
                 return FALSE;

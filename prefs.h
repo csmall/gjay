@@ -21,6 +21,9 @@ typedef struct {
     gint daemon_action;
     gboolean detach; /* Override set in UI session; not read from prefs file */
 
+    /* Enable tooltips? */
+    gboolean hide_tips;
+
     /* Below is for playlist generation */
     gboolean use_selected_songs;
     gboolean use_selected_dir;

@@ -29,12 +29,14 @@ static void parent_set_callback (GtkWidget *widget,
                                  gpointer user_data);
 static void radio_toggled ( GtkToggleButton *togglebutton,
                             gpointer user_data );
+static void tooltips_toggled ( GtkToggleButton *togglebutton,
+                               gpointer user_data );
 
 
 GtkWidget * make_prefs_view ( void ) {
     GtkWidget * vbox1, * vbox2, * alignment, * button, *label;
     GtkWidget * radio1, * radio2, * radio3;
-
+    
     vbox1 = gtk_vbox_new (FALSE, 2);
     alignment = gtk_alignment_new(0.5, 0.5, 0, 0);
     gtk_box_pack_start(GTK_BOX(vbox1), alignment, TRUE, TRUE, 2);
@@ -94,6 +96,15 @@ GtkWidget * make_prefs_view ( void ) {
     g_signal_connect (G_OBJECT (radio3), "toggled",
                       G_CALLBACK (radio_toggled), 
                       (void *) PREF_DAEMON_ASK);
+
+    alignment = gtk_alignment_new(0.5, 0.3, 0.1, 0.1);
+    gtk_box_pack_start(GTK_BOX(vbox1), alignment, TRUE, TRUE, 2);
+    button = gtk_check_button_new_with_label("Show popup tips");
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(button),
+                                 !prefs.hide_tips);
+    g_signal_connect (G_OBJECT (button), "toggled",
+                      G_CALLBACK (tooltips_toggled), NULL);
+    gtk_container_add(GTK_CONTAINER(alignment), button);
     return vbox1;
 }
 
@@ -241,4 +252,13 @@ static void radio_toggled ( GtkToggleButton *togglebutton,
     if (gtk_toggle_button_get_active(togglebutton)) {
         prefs.daemon_action = state;
     }
+}
+
+static void tooltips_toggled ( GtkToggleButton *togglebutton,
+                               gpointer user_data ) {
+    prefs.hide_tips = !gtk_toggle_button_get_active(togglebutton);
+    if (prefs.hide_tips) 
+        gtk_tooltips_disable(tips);  
+    else
+        gtk_tooltips_enable(tips);
 }

@@ -19,6 +19,7 @@ GtkWidget        * window;
 GtkWidget        * notebook;
 GtkWidget        * explore_view, * selection_view, * playlist_view,
                  * prefs_view, * no_root_view, * about_view;
+GtkTooltips      * tips;
 static tab_val     current_tab;
 static GtkWidget * analysis_label, * analysis_progress;
 static GtkWidget * explore_hbox, * playlist_hbox, * prefs_hbox, * about_hbox;
@@ -70,6 +71,12 @@ GtkWidget * make_app_ui ( void ) {
     GtkWidget * hbox1;
     GtkWidget * vbox1;
     GtkWidget * alignment;
+    
+    tips = gtk_tooltips_new();
+    if (prefs.hide_tips) 
+        gtk_tooltips_disable(tips);
+    else
+        gtk_tooltips_enable(tips);
 
     gdk_rgb_init();
 
@@ -95,6 +102,7 @@ GtkWidget * make_app_ui ( void ) {
     gtk_box_pack_end(GTK_BOX(vbox1), hbox1, FALSE, FALSE, 5);
 
     analysis_label = gtk_label_new("Idle");
+    
     gtk_box_pack_start(GTK_BOX(hbox1), analysis_label, FALSE, FALSE, 5);
     analysis_progress = gtk_progress_bar_new();
     alignment = gtk_alignment_new(0.1, 1, 1, 0);
@@ -242,11 +250,12 @@ void display_message ( gchar * msg ) {
                                   G_OBJECT (msg_window));
     }
     
-    gtk_widget_show_all (GTK_WIDGET(msg_window));
     buffer = gtk_text_view_get_buffer (GTK_TEXT_VIEW (msg_text_view));
     gtk_text_buffer_insert_at_cursor(buffer, 
                                      msg, 
                                      strlen(msg));
+    gtk_text_buffer_insert_at_cursor(buffer, "\n", 1);
+    gtk_widget_show_all (GTK_WIDGET(msg_window));
 }
 
 
@@ -256,7 +265,7 @@ void switch_page (GtkNotebook *notebook,
                   gpointer user_data) {
     if (destroy_window_flag)
         return;
-
+    
     if (explore_view->parent) {
         g_object_ref(G_OBJECT(explore_view));
         gtk_container_remove(GTK_CONTAINER(explore_view->parent), 
@@ -426,6 +435,7 @@ static void respond_quit_analysis (GtkDialog *dialog,
 static void quit_app (void) {
     
     destroy_window_flag = TRUE;
+    gtk_object_sink(GTK_OBJECT(tips));
     gtk_widget_destroy(explore_view);
     gtk_widget_destroy(playlist_view);
     gtk_widget_destroy(selection_view);
