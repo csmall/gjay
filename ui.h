@@ -53,6 +53,8 @@ typedef enum {
     PM_FILE_SONG,
     PM_DIR_OPEN,
     PM_DIR_CLOSED,
+    PM_DIR_OPEN_NEW,
+    PM_DIR_CLOSED_NEW,
     PM_ICON_PENDING,
     PM_ICON_NOSONG,
     PM_ICON_SONG,
@@ -103,14 +105,16 @@ void        set_add_files_progress         ( char * str,
 /* Explore files pane  */
 void        explore_view_set_root        ( char * root_dir );
 gint        explore_view_set_root_idle   ( gpointer data );
-gboolean    explore_update_file_pm       ( char * file, 
+gboolean    explore_update_path_pm       ( char * path,
                                            int type );
 GList *     explore_files_in_dir         ( char * dir, 
                                            gboolean recursive );
+GList *     explore_dirs_in_dir          ( char * dir );
 gint        explore_files_depth_distance ( char * file1, 
                                            char * file2 );
 void        explore_animate_pending      ( char * file );
 void        explore_animate_stop         ( void );
+void        explore_unmark_dirs_containing ( char * file );
 
 /* Select file pane */
 void        set_selected_file             ( char * file, 

@@ -40,6 +40,8 @@ static char * pixbuf_files[] = {
     "file_song.png",
     "dir_open.png",
     "dir_closed.png",
+    "dir_open_new.png",
+    "dir_closed_new.png",
     "icon_pending.png",
     "icon_nosong.png",
     "icon_song.png",
@@ -223,7 +225,7 @@ gboolean daemon_pipe_input (GIOChannel *source,
             if (s->marked && !s->no_data) {
                 /* Change the tree view icon and selection view, if 
                  * necessary. Note that song paths are latin-1 */
-                explore_update_file_pm(s->path, PM_FILE_SONG);
+                explore_update_path_pm(s->path, PM_FILE_SONG);
                 if (!update && g_list_find(selected_songs, s)) {
                     update_selection_area();
                     update = TRUE;

@@ -46,8 +46,8 @@ GQueue       * parent_name_stack = NULL; /* Stack of file name (one level
                                             down from parent_stack) */
 gint           tree_depth;               /* How deep does the tree go */
 
-/* We hash each file name to the corresponding GtkCTreeNode */
-static GHashTable * file_name_iter_hash = NULL;
+/* We hash each file and directory name to the corresponding GtkCTreeNode */
+static GHashTable * name_iter_hash = NULL;
 static GList      * file_name_in_tree = NULL;
 static GQueue     * files_to_add_queue = NULL; 
 static GList      * files_to_analyze = NULL;
@@ -73,14 +73,17 @@ static int    get_iter_path   ( GtkTreeModel *tree_model,
                                 GtkTreeIter *child,
                                 char * buffer,
                                 gboolean is_start );
+static int    file_iter_depth ( char * file );
 static int    file_depth      ( char * file );
 static gint   explore_animate ( gpointer data );
+static void   explore_mark_new_dirs ( char * dir );
 static gint   iter_sort_strcmp ( GtkTreeModel *model,
                                  GtkTreeIter *a,
                                  GtkTreeIter *b,
                                  gpointer user_data);
 gint          compare_str     ( gconstpointer a,
                                 gconstpointer b );
+
 
 GtkWidget * make_explore_view ( void ) {
     GtkWidget * swin;
@@ -164,9 +167,9 @@ void explore_view_set_root ( char * root_dir ) {
         files_to_add_queue  = g_queue_new();
     }
     
-    if (file_name_iter_hash)
-        g_hash_table_destroy(file_name_iter_hash);
-    file_name_iter_hash = g_hash_table_new(g_str_hash, g_str_equal);
+    if (name_iter_hash)
+        g_hash_table_destroy(name_iter_hash);
+    name_iter_hash = g_hash_table_new(g_str_hash, g_str_equal);
 
     for (llist = g_list_first(file_name_in_tree); 
          llist;
@@ -296,6 +299,12 @@ static int tree_add_idle (gpointer data) {
             fclose(f);
             send_ipc_text(ui_pipe_fd, QUEUE_FILE, buffer);
         } 
+
+        /* If an entire directory contains songs which have not 
+         * been ranked/colored, set its icon to show that its contents
+         * are new */
+        explore_mark_new_dirs(prefs.song_root_dir);
+
         set_add_files_progress_visible(FALSE);
         set_analysis_progress_visible(TRUE);
         return FALSE;
@@ -310,10 +319,10 @@ static int tree_add_idle (gpointer data) {
     if (fta->is_file) {
         assert(parent_name_stack);
         assert(iter_stack);
-
+        
         while (strncmp(parent_name_stack->tail->data,
-                       fta->fname,
-                       strlen(parent_name_stack->tail->data)) != 0) {
+                      fta->fname,
+                      strlen(parent_name_stack->tail->data)) != 0) {
             g_queue_pop_tail(parent_name_stack);
             g_queue_pop_tail(iter_stack);
         }
@@ -341,6 +350,7 @@ static int tree_add_idle (gpointer data) {
         } else if (g_hash_table_lookup(not_song_hash, fta->fname)) {
             pm_type = PM_FILE_NOSONG;
         }  else {
+            printf("HERE %s\n", fta->fname);
             set_add_files_progress(fta->fname, 
                                    (file_to_add_count * 100) / 
                                    total_files_to_add);
@@ -371,6 +381,7 @@ static int tree_add_idle (gpointer data) {
                                                      strdup_to_latin1(fta->fname));
                     pm_type = PM_FILE_PENDING;
                 }
+                printf("Add to songs list %s\n", s->path);
                 songs = g_list_append(songs, s);
                 g_hash_table_insert(song_name_hash, s->path, s);
                 s->in_tree = TRUE;
@@ -392,7 +403,7 @@ static int tree_add_idle (gpointer data) {
         
         str = strdup(fta->fname);
         file_name_in_tree = g_list_append(file_name_in_tree, str);
-        g_hash_table_insert ( file_name_iter_hash,
+        g_hash_table_insert ( name_iter_hash,
                               str,
                               current); 
     } else {
@@ -401,9 +412,8 @@ static int tree_add_idle (gpointer data) {
             parent = NULL;
         } else {
             assert(parent_name_stack->tail);
-            while (strncmp(parent_name_stack->tail->data,
-                           fta->fname,
-                           strlen(parent_name_stack->tail->data)) != 0) {
+            while (file_depth((char *) fta->fname) <= 
+                   file_depth((char *) parent_name_stack->tail->data)) {
                 g_queue_pop_tail(parent_name_stack);
                 g_queue_pop_tail(iter_stack);
             }
@@ -418,7 +428,7 @@ static int tree_add_idle (gpointer data) {
                             -1);
         str = strdup(fta->fname);
         file_name_in_tree = g_list_append(file_name_in_tree, str);
-        g_hash_table_insert ( file_name_iter_hash,
+        g_hash_table_insert ( name_iter_hash,
                               str,
                               current);
         
@@ -497,13 +507,13 @@ static void select_row (GtkTreeSelection *selection, gpointer data) {
  * Redraw the icon next to the corresponding file in the tree. Return TRUE
  * if file was found in tree, FALSE if not.
  */
-gboolean explore_update_file_pm ( char * file, int type ) {
+gboolean explore_update_path_pm ( char * path, int type ) {
     GtkTreeIter  * iter;
 
-    if (!file_name_iter_hash)
+    if (!name_iter_hash)
         return FALSE;
     
-    iter = g_hash_table_lookup(file_name_iter_hash, file);
+    iter = g_hash_table_lookup(name_iter_hash, path);
     if (iter) {
         gtk_tree_store_set (store, 
                             iter,
@@ -526,7 +536,7 @@ GList * explore_files_in_dir ( char * dir, gboolean recursive) {
     gboolean has_child;
     GList * list = NULL;
 
-    iter = g_hash_table_lookup(file_name_iter_hash, dir);
+    iter = g_hash_table_lookup(name_iter_hash, dir);
     if (!iter)
         return NULL;
     has_child = gtk_tree_model_iter_children (GTK_TREE_MODEL (store), 
@@ -554,12 +564,44 @@ GList * explore_files_in_dir ( char * dir, gboolean recursive) {
 }
 
 
-static int file_depth ( char * file ) {
+/**
+ * Get a glist of directories in a directory
+ */
+GList * explore_dirs_in_dir ( char * dir) {
+    GtkTreeIter *iter, child;
+    char buffer[BUFFER_SIZE];
+    GList * list = NULL;
+    gboolean has_child;
+
+    iter = g_hash_table_lookup(name_iter_hash, dir);
+    if (!iter)
+        return NULL;
+    
+    has_child = gtk_tree_model_iter_children (GTK_TREE_MODEL (store), 
+                                              &child, iter);
+    
+    if (has_child) {
+        do {
+            if (gtk_tree_model_iter_has_child(GTK_TREE_MODEL (store), 
+                                              &child)) {
+                get_iter_path ( GTK_TREE_MODEL (store),
+                                &child,
+                                buffer, 
+                                TRUE); 
+                list = g_list_append(list, g_strdup(buffer));
+            } 
+        } while (gtk_tree_model_iter_next(GTK_TREE_MODEL (store), &child));
+    }
+    return list;
+}
+
+
+static int file_iter_depth ( char * file ) {
     GtkTreeIter *iter;
     GtkTreeIter child, parent;
     int depth;
 
-    iter = g_hash_table_lookup(file_name_iter_hash, file);
+    iter = g_hash_table_lookup(name_iter_hash, file);
     if (!iter) 
         return -1;
     memcpy(&child, iter, sizeof(GtkTreeIter));
@@ -567,6 +609,20 @@ static int file_depth ( char * file ) {
          gtk_tree_model_iter_parent(GTK_TREE_MODEL (store), &parent, &child); 
          depth++) {
         memcpy(&child, &parent, sizeof(GtkTreeIter));
+    }
+    return depth;
+}
+
+/* Get the depth by counting the number of non-terminal '/' in the path */
+static int file_depth ( char * file ) {
+    int len, kk, depth;
+    
+    len = strlen(file);
+    if (len)
+        len--; // Avoid ending '/'
+    for (kk = 0, depth = 0; kk < len; kk++) {
+        if (file[kk] == '/')
+            depth++;
     }
     return depth;
 }
@@ -587,9 +643,9 @@ gint explore_files_depth_distance ( char * file1,
         k--;
     /* Replace slash with null termination */
     buffer[k] = '\0';
-    f1 = file_depth(file1);
-    f2 = file_depth(file2);
-    shared = file_depth(buffer) + 1;
+    f1 = file_iter_depth(file1);
+    f2 = file_iter_depth(file2);
+    shared = file_iter_depth(buffer) + 1;
 
     if (f1 && f2 && shared) 
         return ((f1 - shared) + (f2 - shared));
@@ -617,7 +673,7 @@ void explore_animate_stop ( void ) {
 
 
 static gint explore_animate ( gpointer data ) {
-    explore_update_file_pm( animate_file,
+    explore_update_path_pm( animate_file,
                             PM_FILE_PENDING + animate_frame);
     animate_frame = (animate_frame + 1) % 4;
     return TRUE;
@@ -636,6 +692,51 @@ gint iter_sort_strcmp  (GtkTreeModel *model,
     g_free(a_str);
     g_free(b_str);
     return result;
+}
+
+
+static void explore_mark_new_dirs ( char * dir ) {
+    GList * list;
+    gboolean mark;
+    song * s;
+    int len;
+    char buffer[BUFFER_SIZE];
+
+    strncpy(buffer, dir, BUFFER_SIZE);
+    len = strlen(buffer);
+    if (len && (buffer[len - 1] == '/'))
+        buffer[len - 1] = '\0';
+    
+    if (strcmp(dir, prefs.song_root_dir) != 0) {
+        list = explore_files_in_dir(buffer, TRUE);
+        if (!list)
+            mark = FALSE;
+        else
+            mark = TRUE;
+        for (; list; list = g_list_next(list)) {
+            if (mark) {
+                s = g_hash_table_lookup(song_name_hash, list->data);
+                if (s) {
+                    if (!(s->no_data && s->no_color)) {
+                        mark = FALSE;
+                    }
+                } else {
+                    printf("complain bitterly\n");
+                }
+            }
+            g_free(list->data);
+        }
+        g_list_free(list);
+        if (mark) {
+            explore_update_path_pm(dir, PM_DIR_CLOSED_NEW);
+        }
+    }
+    
+    for (list = explore_dirs_in_dir(buffer); list; list = g_list_next(list)) {
+        explore_mark_new_dirs(list->data);
+        g_free(list->data);
+    }
+    g_list_free(list);
 }
 
 gint compare_str ( gconstpointer a, gconstpointer b) {
@@ -699,3 +800,5 @@ static int gjay_ftw(const char *dir,
     closedir(d);
     return retval;
 }
+
+

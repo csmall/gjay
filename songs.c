@@ -133,6 +133,7 @@ song * create_song ( void ) {
     s->no_color = TRUE;
     s->no_rating = TRUE;
     s->no_data = TRUE;
+    s->access_ok = TRUE;
     s->rating = (MIN_RATING + MAX_RATING)/2;
     return s;
 }
