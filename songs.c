@@ -498,9 +498,12 @@ static void write_song_data (FILE * f, song * s) {
 
 
 static void write_not_song_data (FILE * f, gchar * path) {
-    fprintf(f, "<file path=\"%s\" not_song=\"t\"></file>\n", path);
+    gchar * escape; /* Escape XML elements from text */
+    assert(path);
+    escape = g_markup_escape_text(path, strlen(path));
+    fprintf(f, "<file path=\"%s\" not_song=\"t\"></file>\n", escape);
+    g_free(escape); 
 }
-
 
 
 /**
