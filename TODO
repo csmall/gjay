@@ -2,7 +2,6 @@ This is a list of the features I know GJay needs, and am focusing on.
 Input is always appreciated!
 
 - Expand range of GJay command-line options to support:
-   - Playlist generation
    - Add files to analysis queue 
 
 - Color categorization should allow an optional mechanism for naming colors,
