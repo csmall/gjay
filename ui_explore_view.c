@@ -800,7 +800,7 @@ static int gjay_ftw(const char *dir,
     }
     
     if (! (d = opendir(dir))) {
-        return -1;[A
+        return -1;
     }
 
     while ((retval == 0) && (ent = readdir(d))) {
