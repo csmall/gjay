@@ -48,8 +48,6 @@ static char * pixbuf_files[] = {
     "button_dir.png",
     "button_all.png",
     "button_all_recursive.png",
-    "star.png",
-    "star_small.png",
     "about.png",
     "color_sel.png",
     "not_set.png"
