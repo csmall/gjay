@@ -34,8 +34,6 @@
 #include <errno.h>
 #include <string.h>
 #include <sys/poll.h>
-#include <vorbis/vorbisfile.h>
-#include <vorbis/codec.h>
 #include <endian.h>
 #include <math.h>
 #include <time.h>

@@ -22,14 +22,13 @@
 #include <unistd.h> 
 #include <stdlib.h>
 #include <string.h>
-#include <vorbis/vorbisfile.h>
-#include <vorbis/codec.h>
 #include <endian.h>
 #include <errno.h>
 #include <math.h> 
 #include <ctype.h>
 #include "gjay.h"
 #include "analysis.h"
+#include "vorbis.h"
 
 
 typedef enum {
@@ -791,7 +790,7 @@ static gboolean read_song_file_type ( char         * path,
                                       gchar       ** album) {
     FILE * f; 
     int i;
-    OggVorbis_File vf;
+    char * vf; // OggVorbis_File
     vorbis_comment * vc;
     struct stat buf;
     waveheaderstruct header;
@@ -799,12 +798,16 @@ static gboolean read_song_file_type ( char         * path,
 
     switch (type) {
     case OGG:
+        if (!gjay_vorbis_available()) 
+            return FALSE;
         f = fopen(path, "r");
         if (!f) 
             return FALSE;
-        if(ov_open(f, &vf, NULL, 0) == 0) {
-            vc = ov_comment(&vf, -1);
-            *length = ov_time_total(&vf, -1);
+        vf = malloc(2048); /* Much larger than OggVorbis_File struct on
+                              64 bit system */
+        if(gj_ov_open(f, vf, NULL, 0) == 0) {
+            vc = gj_ov_comment(vf, -1);
+            *length = gj_ov_time_total(vf, -1);
             for (i = 0; i < vc->comments; i++) {
                 if (strncasecmp(vc->user_comments[i], "title=", 
                                 strlen("title=")) == 0) {
@@ -820,7 +823,8 @@ static gboolean read_song_file_type ( char         * path,
                         vc->user_comments[i] + strlen("album="));
                 }
             }
-            ov_clear(&vf);
+            gj_ov_clear(vf);
+            free(vf);
             return TRUE;
         }
         fclose(f);

@@ -2,7 +2,7 @@ PREFIX = /usr/local
 CC = gcc
 LINK = $(CC)
 CFLAGS = -g -Wall `pkg-config --cflags gtk+-2.0`
-LFLAGS = `pkg-config --libs gtk+-2.0` -lxmms -lgsl -lgslcblas -lm -lpthread -lvorbis -lvorbisfile
+LFLAGS = `pkg-config --libs gtk+-2.0` -lxmms -lgsl -lgslcblas -lm -lpthread
 TARGET = gjay
 
 HEADERS = \
@@ -14,7 +14,8 @@ HEADERS = \
 	analysis.h \
 	playlist.h \
 	ipc.h \
-	constants.h 
+	constants.h \
+	vorbis.h 
 OBJECTS = \
 	gjay.o \
 	ipc.o \
@@ -30,7 +31,8 @@ OBJECTS = \
 	ui_colorwheel.o \
 	gjay_xmms.o \
 	analysis.o \
-	playlist.o 
+	playlist.o \
+	vorbis.o 
 
 
 INSTALL = /usr/bin/install -o root -g root -m

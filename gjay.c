@@ -46,6 +46,8 @@
 #include "analysis.h"
 #include "ipc.h"
 #include "playlist.h"
+#include "vorbis.h"
+
 
 #define NUM_APPS 2
 static gchar * apps[NUM_APPS] = {
@@ -148,7 +150,6 @@ int main( int argc, char *argv[] ) {
             }
         }
     }
-
     
     /* Make sure there is a "~/.gjay" directory */
     snprintf(buffer, BUFFER_SIZE, "%s/%s", getenv("HOME"), GJAY_DIR);
@@ -168,7 +169,11 @@ int main( int argc, char *argv[] ) {
         ui_pipe_fd = open_pipe(UI_PIPE);
     }
 
-
+    /* Try to load libvorbis; this is a soft dependancy */
+    if (gjay_vorbis_dlopen() == 0) {
+        printf("Ogg not supported; %s", gjay_vorbis_error());
+    }
+   
     if(mode == UI) {
         /* Make sure a daemon is running. If not, fork. */
         gboolean fork_daemon = FALSE;
