@@ -66,15 +66,16 @@ int spectrum (FILE * wav_file,
         fprintf (stderr, "Error - file not open for reading\n");
         _exit (-1);
     }
+
+    fread (&header, 1, sizeof(waveheaderstruct), wav_file);
+    wav_header_swab(&header);
+    header.data_length = (song_len - 1) * header.byte_p_sec;
     
-    read_buffer_size = sizeof (waveheaderstruct) + window_size*4;
+    read_buffer_size = window_size*4;
     read_buffer = malloc(read_buffer_size);
     read_buffer_start = 0;
     read_buffer_end = read_buffer_size;
     fread (read_buffer, 1, read_buffer_size, wav_file);
-    memcpy(&header, read_buffer, sizeof (waveheaderstruct));
-    wav_header_swab(&header);
-    header.data_length = (song_len - 1) * header.byte_p_sec;
     
     if (header.modus != 1 && header.modus != 2) {
         fprintf (stderr, "Error: not a wav file...\n");
@@ -210,7 +211,7 @@ int read_frames (FILE *f,
 		memset (data, 0, reallength * header->byte_p_spl);
 	}
 
-        seek = sizeof (waveheaderstruct) + ((realstart + offset) * header->byte_p_spl);
+        seek = ((realstart + offset) * header->byte_p_spl);
         len = header->byte_p_spl * reallength;
         if (seek + len <= read_buffer_size) {
             memcpy(data + offset * header->byte_p_spl,

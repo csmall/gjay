@@ -62,7 +62,7 @@ double bpm (FILE * wav_file,
             guint16 song_len ) {
     char d[500];
     signed short buffer[bufsiz];
-    long count,pos,i,redux,startpos,startpercent=0,stoppercent=100;
+    long count,pos,i,redux,startpos;
     int segment_percent;
     waveheaderstruct header;
     
@@ -71,16 +71,10 @@ double bpm (FILE * wav_file,
     fread (&header, 1, sizeof(waveheaderstruct), wav_file);
     wav_header_swab(&header);
     audiosize = (song_len - 1) * header.byte_p_sec;
-
-    startpercent=(long)((long long)audiosize*(long long)startpercent/(long long)100);
-    stoppercent=(long)((long long)audiosize*(long long)stoppercent/(long long)100);
-    audiosize=stoppercent-startpercent;
     audiosize/=(4*(44100/audiorate));
     audio=malloc(audiosize+1);
     assert(audio);
     pos=0;
-    /* YIKES! Fixme! */
-    fseek(wav_file,startpercent,SEEK_SET);
     startpos = pos;
     while(pos<audiosize)
     {
