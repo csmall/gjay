@@ -6,10 +6,20 @@
 #define MAX_CRITERIA          10.0
 #define DEFAULT_CRITERIA      5.0
 
+typedef enum {
+    PREF_DAEMON_QUIT,
+    PREF_DAEMON_DETACH,
+    PREF_DAEMON_ASK
+} pref_daemon_action;
+
 typedef struct {
     /* Root directory */
     gchar   * song_root_dir;
     gboolean  extension_filter; /* Do we only get *.{mp3,ogg,wav} files */
+
+    /* What to do with daemon on quit */
+    gint daemon_action;
+    gboolean detach; /* Override set in UI session; not read from prefs file */
 
     /* Below is for playlist generation */
     gboolean use_selected_songs;

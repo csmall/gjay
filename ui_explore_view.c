@@ -160,7 +160,7 @@ void explore_view_set_root ( char * root_dir ) {
      * analysis
      */
     snprintf(buffer, BUFFER_SIZE, "%s/%s/", getenv("HOME"), GJAY_DIR);
-    temp_append = tempnam(buffer, NULL);
+    temp_append = tempnam(buffer, "temp_");
     f_temp = fopen(temp_append, "w");
         
     /* Recurse through the directory tree, adding file names to 

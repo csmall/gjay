@@ -16,11 +16,11 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
  * USA
  *
- * USAGE: gjay [--help] [-h] [-d [-a]]
+ * USAGE: gjay [--help] [-h] [-d] [-v [-v]]
  *
  *  --help, -h  :  Display help
- *  -d          :  Run as daemon
- *  -a          :  Run daemon in attached mode
+ *  -d          :  Run as daemon (unattched)
+ *  -v          :  Run in verbose mode. -v -v for lots more info.
  *
  * Explanation: 
  *
@@ -70,6 +70,9 @@ static int open_pipe(const char* filepath);
 int daemon_pipe_fd;
 int ui_pipe_fd;
 
+int verbosity;
+
+
 int main( int argc, char *argv[] ) 
 {
     char buffer[BUFFER_SIZE];
@@ -79,21 +82,22 @@ int main( int argc, char *argv[] )
     gint i;
 
     mode = UI;
+    verbosity = 0;
     
     for (i = 0; i < argc; i++) {
         if ((strncmp(argv[i], "-h", 2) == 0) || 
             (strncmp(argv[i], "--help", 6) == 0)) {
-            printf("USAGE: gjay [--help] [-h] [-d [-a]]\n" \
+            printf("USAGE: gjay [--help] [-h] [-d] [-v [-v]]\n" \
                    "\t--help, -h  :  Display this help message\n" \
                    "\t-d          :  Run as daemon\n" \
-                   "\t-a          :  Run daemon in attached mode\n");
+                   "\t-v -v       :  Verbose mode. Repeat for way too much text\n");
             return 0;
         }
         if (strncmp(argv[i], "-d", 2) == 0) {
-            mode = DAEMON;
+            mode = DAEMON_DETACHED;
         }
-        if (strncmp(argv[i], "-a", 2) == 0) {
-            mode = DAEMON_ATTACHED;
+        if (strncmp(argv[i], "-v", 2) == 0) {
+            verbosity++;
         }
     }
 
@@ -122,8 +126,8 @@ int main( int argc, char *argv[] )
             fscanf(f, "%d", &i);
             fclose(f);
             snprintf(buffer, BUFFER_SIZE, "/proc/%d/stat", i);
-            if (stat(buffer, &stat_buf) != 0) 
-                fork_daemon = TRUE;
+            if (access(buffer, R_OK))
+                fork_daemon = TRUE; 
         } else {
             fork_daemon = TRUE;
         }
@@ -133,7 +137,7 @@ int main( int argc, char *argv[] )
                 fprintf(stderr, "Unable to fork daemon.\n");
             } else if (pid == 0) {
                 /* Daemon */
-                mode = DAEMON_ATTACHED;
+                mode = DAEMON_INIT;
             }
         }
     }
@@ -170,16 +174,20 @@ int main( int argc, char *argv[] )
         widget = make_app_ui();
         gtk_widget_show_all(widget);
         set_selected_file(NULL, NULL, FALSE);
+        send_ipc(ui_pipe_fd, ATTACH);
 
         gtk_main();
 
-        /* FIXME; race condition if daemon writes a file out now */
-        
         save_prefs();
         write_data_file();
         write_attr_file();
-        send_ipc(ui_pipe_fd, UNLINK_DAEMON_FILE);
-        send_ipc(ui_pipe_fd, QUIT_IF_ATTACHED);
+        if (prefs.detach || (prefs.daemon_action == PREF_DAEMON_DETACH)) {
+            send_ipc(ui_pipe_fd, DETACH);
+            send_ipc(ui_pipe_fd, UNLINK_DAEMON_FILE);
+        } else {
+            send_ipc(ui_pipe_fd, UNLINK_DAEMON_FILE);
+            send_ipc(ui_pipe_fd, QUIT_IF_ATTACHED);
+        }
     } else {
         /* Daemon process */
         /* Write pid to ~/.gjay/gjay.pid */

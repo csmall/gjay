@@ -44,7 +44,8 @@ typedef enum {
     TOKEN_RATING,
     TOKEN_PATH_WEIGHT,
     TOKEN_COLOR, 
-    TOKEN_PREFS_LAST
+    TOKEN_DAEMON_ACTION,
+    TOKEN_PREFS_LAST,
 } pref_tokens;
 
 char * pref_token[TOKEN_PREFS_LAST] = {
@@ -65,7 +66,8 @@ char * pref_token[TOKEN_PREFS_LAST] = {
     "DEPTH",
     "RATING",
     "PATH_WEIGHT",
-    "COLOR"
+    "COLOR",
+    "DAEMON_ACTION"
 };
 
 
@@ -92,7 +94,7 @@ app_prefs prefs;
      prefs.extension_filter = TRUE;
      prefs.color.H = 0;
      prefs.color.B = 0.5;
-
+     prefs.daemon_action = PREF_DAEMON_QUIT;
      snprintf(buffer, BUFFER_SIZE, "%s/%s/%s", getenv("HOME"), 
               GJAY_DIR, GJAY_PREFS);
      f = fopen(buffer, "r");
@@ -133,6 +135,9 @@ app_prefs prefs;
                  break;
              case TOKEN_TIME:
                  fscanf(f, " %ud", (unsigned int *) &prefs.time);
+                 break;    
+             case TOKEN_DAEMON_ACTION:
+                 fscanf(f, " %d", &prefs.daemon_action);
                  break;    
              case TOKEN_VARIANCE:
                  fscanf(f, " %f", &prefs.variance);
@@ -207,6 +212,8 @@ void save_prefs ( void ) {
         fprintf(f, "%s %f\n", pref_token[TOKEN_PATH_WEIGHT], prefs.path_weight);
 
         fprintf(f, "%s %d\n", pref_token[TOKEN_TIME], prefs.time);
+        fprintf(f, "%s %d\n", pref_token[TOKEN_DAEMON_ACTION], 
+                prefs.daemon_action);
 
         fprintf(f, "%s %f %f\n", pref_token[TOKEN_COLOR], prefs.color.H,
                 prefs.color.B);

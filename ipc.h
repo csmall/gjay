@@ -13,6 +13,8 @@ typedef enum {
     UNLINK_DAEMON_FILE, /* no arg */
     QUEUE_FILE,       /* str arg */
     QUIT_IF_ATTACHED, /* no arg */
+    ATTACH,           /* no arg */
+    DETACH,           /* no arg */
 
     /* Daemon process sends... */ 
     STATUS_PERCENT,   /* int arg */

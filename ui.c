@@ -25,6 +25,7 @@ static GtkWidget * explore_hbox, * playlist_hbox, * prefs_hbox, * about_hbox;
 static GtkWidget * paned;
 static GtkWidget * msg_window = NULL;
 static GtkWidget * msg_text_view = NULL;
+static gboolean    destroy_window_flag = FALSE;
 
 GdkPixbuf * pixbufs[PM_LAST];
 
@@ -54,12 +55,22 @@ static char * pixbuf_files[] = {
 };
 
 
-void load_pixbufs(void);
+static void     load_pixbufs(void);
+static gboolean delete_window (GtkWidget *widget,
+                               GdkEvent *event,
+                               gpointer user_data);
+static void     respond_quit_analysis (GtkDialog *dialog,
+                                       gint arg1,
+                                       gpointer user_data);
+static void     quit_app (void);    
+
+
 
 GtkWidget * make_app_ui ( void ) {
     GtkWidget * hbox1;
     GtkWidget * vbox1;
-        
+    GtkWidget * alignment;
+
     gdk_rgb_init();
 
     current_tab = TAB_EXPLORE;
@@ -69,7 +80,7 @@ GtkWidget * make_app_ui ( void ) {
     gtk_widget_set_size_request (window, APP_WIDTH, APP_HEIGHT);
     gtk_widget_realize(window);
     gtk_signal_connect (GTK_OBJECT (window), "delete_event",
-			GTK_SIGNAL_FUNC (gtk_main_quit), NULL);
+			GTK_SIGNAL_FUNC (delete_window), NULL);
     gtk_container_set_border_width (GTK_CONTAINER (window), 2);
     gtk_widget_realize(window);
 
@@ -80,13 +91,15 @@ GtkWidget * make_app_ui ( void ) {
     notebook = gtk_notebook_new(); 
     gtk_box_pack_start(GTK_BOX(vbox1), notebook, TRUE, TRUE, 5);
        
-    hbox1 = gtk_hbox_new(TRUE, 2);
+    hbox1 = gtk_hbox_new(FALSE, 2);
     gtk_box_pack_end(GTK_BOX(vbox1), hbox1, FALSE, FALSE, 5);
 
     analysis_label = gtk_label_new("Idle");
-    gtk_box_pack_start(GTK_BOX(hbox1), analysis_label, TRUE, TRUE, 5);
+    gtk_box_pack_start(GTK_BOX(hbox1), analysis_label, FALSE, FALSE, 5);
     analysis_progress = gtk_progress_bar_new();
-    gtk_box_pack_end(GTK_BOX(hbox1), analysis_progress, TRUE, TRUE, 5);
+    alignment = gtk_alignment_new(0.1, 1, 1, 0);
+    gtk_container_add(GTK_CONTAINER(alignment), analysis_progress);
+    gtk_box_pack_end(GTK_BOX(hbox1), alignment, FALSE, FALSE, 5);
     gtk_progress_bar_update (GTK_PROGRESS_BAR(analysis_progress),
                              0.0);
 
@@ -130,7 +143,7 @@ GtkWidget * make_app_ui ( void ) {
                         "switch-page",
                         (GtkSignalFunc) switch_page,
                         NULL);
-    
+  
     gtk_notebook_set_page(GTK_NOTEBOOK(notebook), TAB_EXPLORE);
     return window;
 }
@@ -165,15 +178,15 @@ gboolean daemon_pipe_input (GIOChannel *source,
         break;
     case STATUS_PERCENT:
         memcpy(&p, buffer + sizeof(ipc_type), sizeof(int));
-        if (analysis_progress) 
+        if (analysis_progress && !destroy_window_flag) 
             gtk_progress_bar_update (GTK_PROGRESS_BAR(analysis_progress),
                                      p/100.0);
         break;
     case STATUS_TEXT:
         buffer[len] = '\0';
-        if (analysis_label)
+        if (analysis_label && !destroy_window_flag)
             gtk_label_set_text(GTK_LABEL(analysis_label), 
-                               buffer + sizeof(ipc_type));
+            buffer + sizeof(ipc_type));
         break;
     case ADDED_FILE:
         memcpy(&seek, buffer + sizeof(ipc_type), sizeof(int));
@@ -181,7 +194,8 @@ gboolean daemon_pipe_input (GIOChannel *source,
         break;
     case ANIMATE_START:
         buffer[len] = '\0';
-        explore_animate_pending(buffer + sizeof(ipc_type));
+        if (!destroy_window_flag)
+            explore_animate_pending(buffer + sizeof(ipc_type));
         break;
     case ANIMATE_STOP:
         explore_animate_stop();
@@ -240,7 +254,9 @@ void switch_page (GtkNotebook *notebook,
                   GtkNotebookPage *page,
                   gint page_num,
                   gpointer user_data) {
-    /* Unparent panes */
+    if (destroy_window_flag)
+        return;
+
     if (explore_view->parent) {
         g_object_ref(G_OBJECT(explore_view));
         gtk_container_remove(GTK_CONTAINER(explore_view->parent), 
@@ -350,6 +366,7 @@ void load_pixbufs(void) {
 } 
 
 
+
 GtkWidget * new_button_label_pixbuf ( char * label_text, 
                                       int type) {
     GtkWidget * button, * hbox, * label, * image;
@@ -368,3 +385,53 @@ GtkWidget * new_button_label_pixbuf ( char * label_text,
 }
 
 
+gboolean delete_window (GtkWidget *widget,
+                         GdkEvent *event,
+                         gpointer user_data) {
+    GtkWidget * dialog;
+
+    if (prefs.daemon_action == PREF_DAEMON_ASK) {
+        dialog = gtk_message_dialog_new(GTK_WINDOW(widget),
+                                        GTK_DIALOG_DESTROY_WITH_PARENT,
+                                        GTK_MESSAGE_QUESTION,
+                                        GTK_BUTTONS_YES_NO,
+                                        "Continue analysis in background?");
+        g_signal_connect (GTK_OBJECT (dialog), 
+                          "response",
+                          G_CALLBACK (respond_quit_analysis),
+                          NULL);
+        gtk_widget_show(dialog);
+        prefs.detach = FALSE;
+        return TRUE;
+    } else {
+        quit_app();
+    }
+    return FALSE;
+}
+
+
+static void respond_quit_analysis (GtkDialog *dialog,
+                                   gint arg1,
+                                   gpointer user_data) {
+    if (arg1 == GTK_RESPONSE_YES) {
+        prefs.detach = TRUE;
+    } else {
+        prefs.detach = FALSE;
+    }
+    quit_app();
+}
+
+
+
+static void quit_app (void) {
+    
+    destroy_window_flag = TRUE;
+    gtk_widget_destroy(explore_view);
+    gtk_widget_destroy(playlist_view);
+    gtk_widget_destroy(selection_view);
+    gtk_widget_destroy(prefs_view);
+    gtk_widget_destroy(no_root_view);
+    gtk_widget_destroy(about_view);
+    gtk_widget_destroy(paned);
+    gtk_main_quit();
+}

@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <math.h>
+#include <string.h>
 #include "gjay.h"
 #include "ui.h"
 #include "rgbhsv.h"
@@ -35,6 +36,8 @@ static void     rating_changed ( GtkRange *range,
 static void     populate_selected_list (void);
 static void     redraw_rating (void);
 
+/* How many chars should we truncate displayed file names to? */
+#define TRUNC_NAME 18
 
 GtkWidget * make_selection_view ( void ) {
     GtkWidget * vbox1, * vbox2, * vbox3, * hbox1, * hbox2;
@@ -177,6 +180,7 @@ GtkWidget * make_selection_view ( void ) {
 void set_selected_file ( char * file, 
                          char * short_name, 
                          gboolean is_dir ) {
+    char short_name_trunc[BUFFER_SIZE];
     GList * llist;
     int pm_type;
     song * s;
@@ -204,8 +208,13 @@ void set_selected_file ( char * file,
     gtk_widget_show(icon);   
     strcmp(file, file);
 
+    assert(short_name);
+    strncpy(short_name_trunc, short_name, BUFFER_SIZE);
+    if (strlen(short_name) > TRUNC_NAME)
+        memcpy(short_name_trunc + TRUNC_NAME, "...\0", 4);
+    
     if (is_dir) {
-        gtk_label_set_text(GTK_LABEL(label_name), short_name);
+        gtk_label_set_text(GTK_LABEL(label_name), short_name_trunc);
         gtk_image_set_from_pixbuf (GTK_IMAGE(icon), 
                                    pixbufs[PM_ICON_CLOSED]);
         gtk_label_set_text(GTK_LABEL(label_type), "");
@@ -219,7 +228,7 @@ void set_selected_file ( char * file,
         gtk_widget_hide(select_all_recursive);
         
         if (g_hash_table_lookup(files_not_song_hash, file)) {
-            gtk_label_set_text(GTK_LABEL(label_name), short_name);
+            gtk_label_set_text(GTK_LABEL(label_name), short_name_trunc);
             pm_type = PM_ICON_NOSONG;
             gtk_widget_hide(play);
             gtk_widget_hide(vbox_lower);
@@ -437,7 +446,7 @@ void redraw_rating (void) {
         gtk_label_set_text (GTK_LABEL(label_rating), "Rating");
     } else {
         gtk_range_set_value (GTK_RANGE(rating), total / k);
-        gtk_label_set_text (GTK_LABEL(label_rating), "Ave. rating");
+        gtk_label_set_text (GTK_LABEL(label_rating), "Avg. rating");
     }
 }
 
@@ -457,25 +466,4 @@ static void rating_changed ( GtkRange *range,
     }
     gtk_label_set_text (GTK_LABEL(label_rating), "Rating");
 }
-
-#if 0
-void redraw_bpm (void) {
-    char buffer[BUFFER_SIZE];
-    song * s;
-    
-    gtk_widget_hide(label_bpm);
-    if (g_list_length(selected_songs) == 1) {
-        s = (song *) selected_songs->data;
-        if (!s->no_data) {
-            gtk_widget_show(label_bpm);
-            if (s->bpm_undef) {
-                gtk_label_set_text(GTK_LABEL(label_bpm), "Unsure BPM");
-            } else {
-                snprintf(buffer, BUFFER_SIZE, "%3.2f BPM", s->bpm);
-                gtk_label_set_text(GTK_LABEL(label_bpm), buffer);
-            }
-        }
-    } 
-}
-#endif 
 

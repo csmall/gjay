@@ -83,15 +83,15 @@ unsigned long stopshift=0;
 typedef unsigned long ulongT;
 typedef unsigned short ushortT;
 
-static char * read_buffer;
-static int read_buffer_size;
-static long read_buffer_start;
-static long read_buffer_end; /* same as file position */
-static int window_size = 1024;
-static int step_size = 1024;
-static gboolean in_analysis = FALSE;  /* Are we currently analyizing a
+static char       * read_buffer;
+static int          read_buffer_size;
+static long         read_buffer_start;
+static long         read_buffer_end; /* same as file position */
+static int          window_size = 1024;
+static int          step_size = 1024;
+static gboolean     in_analysis = FALSE;  /* Are we currently analyizing a
                                          song? */
-
+static song       * analyze_song = NULL;
 static GList      * queue = NULL; 
 static GHashTable * queue_hash = NULL;
 
@@ -108,7 +108,8 @@ int           freq_read_frames ( wav_file * wsfile,
                                  int start, 
                                  int length, 
                                  void *data );
-void          send_ui_percent   ( int percent );
+void          send_ui_percent        ( int percent );
+void          send_analyze_song_name ( void );
 gboolean      daemon_idle       ( gpointer data );
 static void   write_queue       ( void );
 
@@ -145,6 +146,7 @@ void analysis_daemon(void) {
                     G_IO_IN,
                     ui_pipe_input,
                     loop);
+
     g_idle_add (daemon_idle, loop);
     // FIXME: add G_IO_HUP watcher
 
@@ -154,6 +156,11 @@ void analysis_daemon(void) {
 
 gboolean daemon_idle (gpointer data) {
     gchar * file;
+
+    if (mode == DAEMON_INIT) {
+        usleep(200);
+        return TRUE;
+    }
 
     if (in_analysis)
         return TRUE;
@@ -171,8 +178,9 @@ gboolean daemon_idle (gpointer data) {
     if (queue)
         return TRUE;
 
-    if (mode == DAEMON) {
-        printf("Analysis daemon done.\n");
+    if (mode == DAEMON_DETACHED) {
+        if (verbosity)
+            printf("Analysis daemon done.\n");
         g_main_quit((GMainLoop *) data);
     }
     return FALSE;
@@ -255,6 +263,8 @@ gboolean ui_pipe_input (GIOChannel *source,
         // No need for action
         break;
     case UNLINK_DAEMON_FILE:
+        if (verbosity > 1)
+            printf("Deleting daemon pid file\n");
         snprintf(buffer, BUFFER_SIZE, "%s/%s/%s", 
                  getenv("HOME"), GJAY_DIR, GJAY_DAEMON_DATA);
         unlink(buffer);
@@ -267,9 +277,31 @@ gboolean ui_pipe_input (GIOChannel *source,
         add_file_to_queue(file);
         g_idle_add (daemon_idle, data);
         break;
+    case DETACH: 
+        if (mode == DAEMON) {
+            if (verbosity)
+                printf("Detaching daemon\n");
+            mode = DAEMON_DETACHED;
+            g_idle_add (daemon_idle, (GMainLoop * ) data);
+        }
+        break;
+    case ATTACH:
+        if (mode != DAEMON) {
+            if (verbosity)
+                printf("Attaching to daemon\n");
+            mode = DAEMON;
+            if(in_analysis && analyze_song)
+                send_analyze_song_name();
+        }
+        
+        break;
     case QUIT_IF_ATTACHED:
-        fprintf(stderr, "Daemon Quitting\n");
-        g_main_quit ((GMainLoop * ) data);
+        if (mode != DAEMON_DETACHED) {
+            if (verbosity)
+                printf("Daemon Quitting\n");
+            g_main_quit ((GMainLoop * ) data);
+            exit(0);
+        }
         break;
     default:
         // Do nothing
@@ -288,12 +320,10 @@ void analyze(char * fname) {
     gdouble freq[NUM_FREQ_SAMPLES], volume_diff, analyze_bpm;
     FILE * f;
     ftype type;
-    song * analyze_song = NULL;
     struct stat stat_buf;
-#ifdef DEBUG
     time_t t;
-#endif
 
+    analyze_song = NULL;
     in_analysis = TRUE;
     send_ui_percent(0);
     
@@ -314,10 +344,7 @@ void analyze(char * fname) {
         return;
     }
 
-    if (analyze_song->title)
-        send_ipc_text(daemon_pipe_fd, STATUS_TEXT, analyze_song->title);
-    else
-        send_ipc_text(daemon_pipe_fd, STATUS_TEXT, analyze_song->fname);
+    send_analyze_song_name();
     send_ipc_text(daemon_pipe_fd, ANIMATE_START, analyze_song->path);
 
     /* Determine file type */
@@ -344,16 +371,18 @@ void analyze(char * fname) {
     fread(&wsfile.header, sizeof(waveheaderstruct), 1, f);
     wav_header_swab(&wsfile.header);
     wsfile.header.data_length = (analyze_song->length - 1) * wsfile.header.byte_p_sec;
-#ifdef DEBUG
-    printf("Analyzing %s\n", fname);
-    t = time(NULL);
-#endif
+
+    if (verbosity) {
+        printf("Analyzing %s\n", fname);
+        t = time(NULL);
+    }
 
     result = run_analysis(&wsfile, freq, &volume_diff, &analyze_bpm); 
 
-#ifdef DEBUG
-    printf("Analysis took %ld seconds\n", time(NULL) - t);
-#endif
+
+    if (verbosity) {
+        printf("Analysis took %ld seconds\n", time(NULL) - t);
+    }
 
     send_ui_percent(0);
 
@@ -382,6 +411,7 @@ void analyze(char * fname) {
         send_ipc_int(daemon_pipe_fd, ADDED_FILE, result);
     delete_song(analyze_song);
     in_analysis = FALSE;
+    analyze_song = NULL;
     return;
 }
 
@@ -602,11 +632,6 @@ int run_analysis  (wav_file * wsfile,
     /* Finish analysis... */
     *volume_diff =  max_frame_sum / (sum / (gdouble) num_frames);
 
-#ifdef DEBUG
-    printf ("Diff between max and min vols %f\n", 
-            *volume_diff);
-#endif 
-
     for (k = 0; k < window_size / 2; k++) 
         total_mags[k] = total_mags[k] / sum;
     
@@ -623,11 +648,12 @@ int run_analysis  (wav_file * wsfile,
         freq_results[bin] += total_mags[k];
     }
 
-#ifdef DEBUG
-    for (k = 0; k < NUM_FREQ_SAMPLES; k++) 
-        printf("%f ", freq_results[k]);
-    printf("\n");
-#endif        
+    if (verbosity > 1) {
+        printf("Frequencies: \n");
+        for (k = 0; k < NUM_FREQ_SAMPLES; k++) 
+            printf("%f ", freq_results[k]);
+        printf("\n");
+    }
 
     /* Complete BPM analysis */
     stopshift=audiorate*60*4/startbpm;
@@ -678,9 +704,8 @@ int run_analysis  (wav_file * wsfile,
             }
         }
         *bpm_result = 4.0*(double)audiorate*60.0/(double)minimumfoutat;
-#ifdef DEBUG
-        printf("BPM: %f\n", *bpm_result);
-#endif
+        if (verbosity > 1) 
+            printf("BPM: %f\n", *bpm_result);
     }
     free (audio);
     free (freq_data);
@@ -787,3 +812,16 @@ void send_ui_percent (int percent) {
 }
 
 
+
+void send_analyze_song_name ( void ) {
+    char buffer[BUFFER_SIZE];
+    if (!analyze_song)
+        return;
+    if (analyze_song->title) {
+        snprintf(buffer, BUFFER_SIZE, "%s : %s", analyze_song->artist, analyze_song->title);
+    } else {
+        snprintf(buffer, BUFFER_SIZE, "%s", analyze_song->fname);
+    }
+    memcpy(buffer + 60, "...\0", 4);
+    send_ipc_text(daemon_pipe_fd, STATUS_TEXT, buffer);
+}

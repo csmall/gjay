@@ -30,6 +30,13 @@
 #include "prefs.h"
 #include "ui.h"
 
+typedef enum {
+    UI = 0,
+    DAEMON_INIT,    /* Pre-daemon mode, waiting for UI process activation */
+    DAEMON,
+    DAEMON_DETACHED
+} gjay_mode;
+
 
 /* Default directory for storing app info */
 #define GJAY_VERSION   "0.2"
@@ -53,32 +60,17 @@
 /* We use fixed-size buffers for labels and filenames */
 #define BUFFER_SIZE     FILENAME_MAX
 
-
-#define MIN_PLAYLIST_TIME     10
-#define MAX_PLAYLIST_TIME     10000
-
 /* Color wheel size */
 #define CATEGORIZE_DIAMETER   200   
 #define SELECT_RADIUS         3
-
-/* Size of colorful pixmaps */
-#define COLOR_SWATCH_W 27
-#define COLOR_SWATCH_H 11
-#define FREQ_PM_H      COLOR_SWATCH_H
-#define FREQ_PM_W      NUM_FREQ_SAMPLES + 3 + FREQ_PM_H
-
-
-
-typedef enum {
-    UI = 0,
-    DAEMON,
-    DAEMON_ATTACHED
-} gjay_mode;
 
 
 /* State */
 extern gjay_mode mode;
 extern gint      xmms_session;
+
+/* User option */
+extern gint      verbosity;
 
 /* utilities */
 void read_line ( FILE * f, char * buffer, int buffer_len);

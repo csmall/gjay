@@ -146,7 +146,7 @@ GtkWidget * make_playlist_view ( void ) {
 
     vbox3 = gtk_vbox_new(FALSE, 2);
     gtk_box_pack_start(GTK_BOX(hbox1), vbox3, TRUE, TRUE, 2);
-    label = gtk_label_new("Light");
+    label = gtk_label_new("Brightness");
     range = gtk_vscale_new_with_range (MIN_CRITERIA, MAX_CRITERIA, .1);
     gtk_range_set_value(GTK_RANGE(range), prefs.brightness);
     g_signal_connect (G_OBJECT (range), "value-changed",
@@ -158,7 +158,7 @@ GtkWidget * make_playlist_view ( void ) {
 
     vbox3 = gtk_vbox_new(FALSE, 2);
     gtk_box_pack_start(GTK_BOX(hbox1), vbox3, TRUE, TRUE, 2);
-    label = gtk_label_new("File Path");
+    label = gtk_label_new("File Loc.");
     range = gtk_vscale_new_with_range (MIN_CRITERIA, MAX_CRITERIA, .1);
     gtk_range_set_value(GTK_RANGE(range), prefs.path_weight);
     g_signal_connect (G_OBJECT (range), "value-changed",
