@@ -16,7 +16,8 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
  * USA
  */
-
+#include <sys/types.h>
+#include <dirent.h>
 #include <stdlib.h>
 #include <ftw.h> 
 #include <string.h>
@@ -56,6 +57,11 @@ static gint         animate_frame = 0;
 static gchar      * animate_file = NULL;
 static gint         total_files_to_add, file_to_add_count;
 
+static int    gjay_ftw(const char *dir, 
+                       int (*fn)(const char *file, 
+                                 const struct stat *sb, 
+                                 int flag), 
+                       int depth);
 
 static int    tree_walk       ( const char *file, 
                                 const struct stat *sb, 
@@ -191,7 +197,7 @@ void explore_view_set_root ( char * root_dir ) {
     /* Recurse through the directory tree, adding file names to 
      * a stack. In spare cycles, we'll process these files properly for
      * list display and requesting daemon processing */
-    ftw(root_dir, tree_walk, 10);
+    gjay_ftw(root_dir, tree_walk, 10);
     
     gtk_idle_add(tree_add_idle, NULL);
 
@@ -228,7 +234,7 @@ static int tree_walk (const char *file,
                       int flag ) {
     file_to_add * fta;
     int len;
-    
+
     if ((flag != FTW_F) && (flag != FTW_D))
         return 0;
     
@@ -460,6 +466,7 @@ static void select_row (GtkTreeSelection *selection, gpointer data) {
     GtkTreeIter iter;
     GtkTreeModel *model;
     gchar * name;
+    gboolean has_child;
     
     if (gtk_tree_selection_get_selected (selection, &model, &iter)) {
         /* Very special and quite annoying case. If we have changed root
@@ -473,8 +480,12 @@ static void select_row (GtkTreeSelection *selection, gpointer data) {
 
         get_iter_path(model, &iter, buffer, TRUE);
         gtk_tree_model_get (model, &iter, NAME_COLUMN, &name, -1);
-        set_selected_file(buffer, name, 
-                          gtk_tree_model_iter_has_child(model, &iter));
+        has_child = gtk_tree_model_iter_has_child(model, &iter);
+        if (has_child) {
+            set_selected_file(buffer, name, TRUE);
+        } else if (!has_child && g_hash_table_lookup(song_name_hash, buffer)) {
+            set_selected_file(buffer, name, FALSE);
+        }
         g_free(name);
     }
 }
@@ -630,3 +641,60 @@ gint compare_str ( gconstpointer a, gconstpointer b) {
     return g_strcasecmp((gchar *) a, (gchar *) b);
 }
 
+
+
+static int gjay_ftw(const char *dir, 
+                    int (*fn)(const char *file, 
+                              const struct stat *sb, 
+                              int flag), 
+                    int depth) {
+    DIR * d;
+    int retval = 0, flag, len, d_name_len;
+    struct dirent * ent;
+    struct stat buf;
+    char buffer[BUFFER_SIZE];
+
+    /* Sanity check */
+    if (depth == 0)
+        return 0;
+    
+    /* Call fn on this directory */
+    len = strlen(dir);
+    strncpy(buffer, dir, BUFFER_SIZE);
+    if (len && (buffer[len - 1] == '/'))
+        buffer[len - 1] = '\0';
+    if (stat(buffer, &buf) == 0) {
+        fn(buffer, &buf, FTW_D);
+    } else {
+        return -1;
+    }
+
+    d = opendir(dir);
+    while ((retval == 0) && (ent = readdir(d))) {
+        d_name_len = strlen(ent->d_name);
+        flag = 0;
+        if ((d_name_len == 1) && (strncmp(ent->d_name, ".", 1) == 0))
+            continue;
+        if ((d_name_len == 2) && (strncmp(ent->d_name, "..", 2) == 0))
+            continue;
+        snprintf(buffer, BUFFER_SIZE, "%s%s%s", 
+                 dir, 
+                 (len && (dir[len - 1] == '/')) ? "" : "/",
+                 ent->d_name);
+        if (stat(buffer, &buf) == 0) {
+            if (S_ISDIR(buf.st_mode))
+                flag = FTW_D;
+            else if (S_ISREG(buf.st_mode))
+                flag = FTW_F;
+            else
+                flag = FTW_NS;
+            if (flag & FTW_D) {
+                retval = gjay_ftw(buffer, fn, depth - 1);
+            } else {
+                retval = fn(buffer, &buf, flag);
+            }
+        }
+    }
+    closedir(d);
+    return retval;
+}
