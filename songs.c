@@ -24,6 +24,7 @@
 #include <string.h>
 #include <vorbis/vorbisfile.h>
 #include <vorbis/codec.h>
+#include <errno.h>
 #include "gjay.h"
 #include "analysis.h"
 
@@ -126,10 +127,11 @@ void save_songs ( void ) {
 
     snprintf(buffer, BUFFER_SIZE, "%s/%s", getenv("HOME"), GJAY_DIR);
     if (stat(buffer, &stat_buf) < 0) {
-        if (mkdir (GJAY_DIR, 
+        if (mkdir (buffer, 
                    S_IXUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IXGRP | 
                    S_IROTH | S_IXOTH) < 0) {
             fprintf (stderr, "Could not create %s\n", buffer);
+            perror(NULL);
             return;
         }
     }
