@@ -47,6 +47,7 @@ static char * pixbuf_files[] = {
     "icon_song.png",
     "icon_open.png",
     "icon_closed.png",
+    "icon_closed_new.png",
     "button_play.png",
     "button_dir.png",
     "button_all.png",

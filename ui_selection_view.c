@@ -53,8 +53,8 @@ static void     rating_changed ( GtkRange *range,
                                  gpointer user_data );
 static void     populate_selected_list (void);
 static void     redraw_rating (void);
-static void     update_selected_songs_directory_marked ( gchar * dir, 
-                                                         gboolean was_marked);
+static void     update_song_has_rating_color ( song * s );
+static void     update_dir_has_rating_color  ( gchar * dir );
 
 /* How many chars should we truncate displayed file names to? */
 #define TRUNC_NAME 18
@@ -246,10 +246,17 @@ void set_selected_file ( char * file,
     
     if (is_dir) {
         gtk_label_set_text(GTK_LABEL(label_name), short_name_trunc);
-        gtk_image_set_from_pixbuf (GTK_IMAGE(icon), 
-                                   pixbufs[PM_ICON_CLOSED]);
-        gtk_label_set_text(GTK_LABEL(label_type), "");
+        if (g_hash_table_lookup(new_song_dirs_hash, file)) {
+            gtk_image_set_from_pixbuf (GTK_IMAGE(icon), 
+                                       pixbufs[PM_ICON_CLOSED_NEW]);
+            gtk_label_set_text(GTK_LABEL(label_type), "Has new songs");
+        } else {
+            gtk_image_set_from_pixbuf (GTK_IMAGE(icon), 
+                                       pixbufs[PM_ICON_CLOSED]);
+            gtk_label_set_text(GTK_LABEL(label_type), "");
+        }
         gtk_widget_hide(play);
+
         gtk_widget_show(select_all_recursive);
         gtk_widget_hide(vbox_lower);
         selected_files = g_list_append(selected_files, g_strdup(file));
@@ -417,7 +424,7 @@ void update_selected_songs_color ( gdouble angle,
                                    gdouble radius ) {
     GList * llist;
     song * s;
-    gboolean was_marked;
+    gboolean had_color_rating;
     gchar * dir = NULL;
 
     if (!selected_songs)
@@ -432,20 +439,22 @@ void update_selected_songs_color ( gdouble angle,
         s = (song *) llist->data;
 
         if (s->no_color | s->no_rating) {
-            dir = parent_dir(s->path);
-            was_marked = TRUE;
+            had_color_rating = FALSE;
+        } else {
+            had_color_rating = TRUE;
         }
         
         s->no_color = FALSE;
         s->color.H = (float) angle;
         s->color.B = (float) radius;
+        
         /* If other songs mirror this one, pass on the change */
         song_set_repeat_attrs(s);
 
-        if (was_marked) {
-            update_selected_songs_directory_marked(dir, TRUE);
-            g_free(dir);
-        }
+        /* If this song was not previously assigned a color or rating,
+           update how it is displayed */
+        if (!had_color_rating) 
+            update_song_has_rating_color(s);
     }
 
     songs_dirty = TRUE;
@@ -490,16 +499,31 @@ static void rating_changed ( GtkRange *range,
                              gpointer user_data ) {
     GList * llist;
     song * s;
-    
-    gdouble val = gtk_range_get_value(range);
+    gboolean had_color_rating;
+    gdouble val;
+
+    val = gtk_range_get_value(range);
 
     for (llist = g_list_first(selected_songs); llist; 
          llist = g_list_next(llist)) {
         s = (song *) llist->data;
+
+        if (s->no_color | s->no_rating) {
+            had_color_rating = FALSE;
+        } else {
+            had_color_rating = TRUE;
+        }
+
         s->no_rating = FALSE;
         s->rating = val;
         /* If other songs mirror this one, pass on the change */
         song_set_repeat_attrs(s);
+
+        /* If this song was not previously assigned a color or rating,
+           update how it is displayed */
+        if (!had_color_rating) {
+            update_song_has_rating_color(s);
+        }
     }
     gtk_label_set_text (GTK_LABEL(label_rating), "Rating");
 
@@ -507,29 +531,42 @@ static void rating_changed ( GtkRange *range,
 }
 
 
-static void update_selected_songs_directory_marked ( gchar * dir, 
-                                                     gboolean was_marked) {
-    gchar * parent;
-    gboolean is_marked;
+
+static void update_song_has_rating_color ( song * s ) {
+    gchar * dir;
     
-    if (!dir)
-        return;
-    if (!was_marked)
+    for (; s->repeat_prev; s = s->repeat_prev)
+        ;
+    for (; s; s = s->repeat_next) {
+        dir = parent_dir(s->path);
+        update_dir_has_rating_color(dir);
+        g_free(dir);
+    }
+}
+
+
+static void update_dir_has_rating_color ( gchar * dir ) {
+    gchar * parent;
+    gchar * str;
+    
+    str = g_hash_table_lookup(new_song_dirs_hash, dir);
+    if (!str) 
         return;
 
-    is_marked = explore_dir_has_new_songs(dir);
-   
-    if (is_marked)
+    if (explore_dir_has_new_songs(dir))
         return;
 
     /* This directory used to be marked, but no longer is. Change its
-       icon */
+       icon, remove info */
     explore_update_path_pm(dir, PM_DIR_CLOSED);
     
-    /* Check the parent directory (which we know by induction
-       WAS marked */
+    g_hash_table_remove(new_song_dirs_hash, str);
+    new_song_dirs = g_list_remove(new_song_dirs, str);
+    g_free(str);
+    
+    /* Check the parent directory */
     parent = parent_dir (dir);
-    update_selected_songs_directory_marked(parent, TRUE);
+    update_dir_has_rating_color(parent);
     g_free(parent);
 } 
 

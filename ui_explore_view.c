@@ -46,6 +46,12 @@ GQueue       * parent_name_stack = NULL; /* Stack of file name (one level
                                             down from parent_stack) */
 gint           tree_depth;               /* How deep does the tree go */
 
+/* We store a list of the directories which contain new songs (ie. lack
+ * rating/color info */
+GList        * new_song_dirs = NULL;
+GHashTable   * new_song_dirs_hash = NULL;
+
+
 /* We hash each file and directory name to the corresponding GtkCTreeNode */
 static GHashTable * name_iter_hash = NULL;
 static GList      * file_name_in_tree = NULL;
@@ -81,7 +87,7 @@ static gint   iter_sort_strcmp ( GtkTreeModel *model,
                                  GtkTreeIter *a,
                                  GtkTreeIter *b,
                                  gpointer user_data);
-gint          compare_str     ( gconstpointer a,
+static gint   compare_str     ( gconstpointer a,
                                 gconstpointer b );
 
 
@@ -167,6 +173,14 @@ void explore_view_set_root ( char * root_dir ) {
         files_to_add_queue  = g_queue_new();
     }
     
+    for (llist = new_song_dirs; llist; llist = g_list_next(llist))
+        g_free(llist->data);
+    g_list_free(new_song_dirs);
+    new_song_dirs = NULL;
+    if (new_song_dirs_hash)
+        g_hash_table_destroy(new_song_dirs_hash);
+    new_song_dirs_hash = g_hash_table_new(g_str_hash, g_str_equal);
+
     if (name_iter_hash)
         g_hash_table_destroy(name_iter_hash);
     name_iter_hash = g_hash_table_new(g_str_hash, g_str_equal);
@@ -707,7 +721,7 @@ gboolean explore_dir_has_new_songs ( char * dir ) {
         if (result == FALSE) {
             s = g_hash_table_lookup(song_name_hash, list->data);
             if (s) {
-                if (s->no_data && s->no_color) {
+                if (s->no_rating && s->no_color) {
                     result = TRUE;
                 }
             } else if (verbosity) {
@@ -728,6 +742,7 @@ gboolean explore_dir_has_new_songs ( char * dir ) {
  */ 
 static void explore_mark_new_dirs ( char * dir ) {
     GList * list;
+    gchar * str;
     char buffer[BUFFER_SIZE];
     int len;
 
@@ -737,8 +752,12 @@ static void explore_mark_new_dirs ( char * dir ) {
         buffer[len - 1] = '\0';
     
     if (strcmp(dir, prefs.song_root_dir) != 0) {
-        if (explore_dir_has_new_songs(dir))
+        if (explore_dir_has_new_songs(dir)) {
+            str = g_strdup(dir); 
+            new_song_dirs = g_list_append(new_song_dirs, str);
+            g_hash_table_insert(new_song_dirs_hash, str, str);
             explore_update_path_pm(dir, PM_DIR_CLOSED_NEW);
+        }
     }
     
     for (list = explore_dirs_in_dir(buffer); list; list = g_list_next(list)) {
@@ -748,10 +767,10 @@ static void explore_mark_new_dirs ( char * dir ) {
     g_list_free(list);
 }
 
-gint compare_str ( gconstpointer a, gconstpointer b) {
+
+static gint compare_str ( gconstpointer a, gconstpointer b) {
     return g_strcasecmp((gchar *) a, (gchar *) b);
 }
-
 
 
 static int gjay_ftw(const char *dir, 

@@ -60,6 +60,7 @@ typedef enum {
     PM_ICON_SONG,
     PM_ICON_OPEN,
     PM_ICON_CLOSED,
+    PM_ICON_CLOSED_NEW,
     PM_BUTTON_PLAY,
     PM_BUTTON_DIR,
     PM_BUTTON_ALL,
@@ -69,15 +70,17 @@ typedef enum {
     PM_LAST
 } pm;
 
-extern GdkPixbuf * pixbufs[PM_LAST];
+extern GdkPixbuf   * pixbufs[PM_LAST];
 
-extern GtkWidget * window;
-extern GtkWidget * notebook;
+extern GtkWidget   * window;
+extern GtkWidget   * notebook;
 extern GtkTooltips * tips;
-extern GtkWidget * explore_view, * selection_view, * playlist_view,
-                 * no_root_view, * prefs_view, * about_view;
-extern GList     * selected_songs, * selected_files; 
-extern int         tree_depth;
+extern GtkWidget   * explore_view, * selection_view, * playlist_view,
+                   * no_root_view, * prefs_view, * about_view;
+extern GList       * selected_songs, * selected_files; 
+extern GList       * new_song_dirs;
+extern GHashTable  * new_song_dirs_hash;
+extern int           tree_depth;
 
 
 /* UI utils */
@@ -115,6 +118,7 @@ gint        explore_files_depth_distance ( char * file1,
 void        explore_animate_pending      ( char * file );
 void        explore_animate_stop         ( void );
 gboolean    explore_dir_has_new_songs    ( char * dir );
+
 
 /* Select file pane */
 void        set_selected_file             ( char * file, 
