@@ -1,5 +1,5 @@
 /**
- * GJay, copyright (c) 2002 Chuck Groom
+ * GJay, copyright (c) 2002, 2003 Chuck Groom
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -35,14 +35,14 @@ enum {
    LAST_COLUMN
 };
 
-GList               * selected_songs = NULL; /* Songs which have been
-                                                selected */
-GList               * selected_files = NULL; /* List of selected file names */
+GList             * selected_songs = NULL; /* Songs which have been
+                                              selected */
+GList             * selected_files = NULL; /* List of selected file names */
 static GtkListStore * list_store;
 static GtkWidget    * icon, * play, * select_all_recursive;
-static GtkWidget    * label_name, * label_type, * label_rating;
-static GtkWidget    * tree, * vbox_lower, * cwheel, * rating;
-
+static GtkWidget    * label_name, * label_type;
+static GtkWidget    * tree, * vbox_lower, * cwheel;
+static GtkWidget    * rating, * label_rating, * rating_vbox;
 static void     set_selected_files (GList * files);
 static gboolean play_selected (GtkWidget *widget,
                                GdkEventButton *event,
@@ -61,7 +61,7 @@ static void     update_dir_has_rating_color  ( gchar * dir );
 #define TRUNC_NAME 18
 
 GtkWidget * make_selection_view ( void ) {
-    GtkWidget * vbox1, * vbox2, * vbox3, * hbox1, * hbox2;
+    GtkWidget * vbox1, * vbox2, * hbox1, * hbox2;
     GtkWidget * alignment, * event_box, * swin;
     GtkCellRenderer * text_renderer, * pixbuf_renderer;
     GtkTreeViewColumn *column;
@@ -166,12 +166,12 @@ GtkWidget * make_selection_view ( void ) {
                                NULL);
     gtk_box_pack_start(GTK_BOX(hbox2), cwheel, FALSE, FALSE, 2);
     
-    vbox3 = gtk_vbox_new (FALSE, 2);
-    gtk_box_pack_start(GTK_BOX(hbox2), vbox3, TRUE, FALSE, 2);    
+    rating_vbox = gtk_vbox_new (FALSE, 2);
+    gtk_box_pack_start(GTK_BOX(hbox2), rating_vbox, TRUE, FALSE, 2);    
     label_rating = gtk_label_new("Rating");
-    gtk_box_pack_start(GTK_BOX(vbox3), label_rating, FALSE, FALSE, 2);
+    gtk_box_pack_start(GTK_BOX(rating_vbox), label_rating, FALSE, FALSE, 2);
     
-    rating=  gtk_vscale_new_with_range  (MIN_RATING,
+    rating = gtk_vscale_new_with_range  (MIN_RATING,
                                          MAX_RATING,
                                          0.2);
     gtk_signal_connect (GTK_OBJECT(rating),
@@ -183,7 +183,7 @@ GtkWidget * make_selection_view ( void ) {
     alignment = gtk_alignment_new (0.5, 0, 
                                    0.5, 1);
     gtk_container_add(GTK_CONTAINER(alignment), rating);
-    gtk_box_pack_start(GTK_BOX(vbox3), alignment, TRUE, TRUE, 2);
+    gtk_box_pack_start(GTK_BOX(rating_vbox), alignment, TRUE, TRUE, 2);
 
     return vbox1;
 }
@@ -572,3 +572,11 @@ static void update_dir_has_rating_color ( gchar * dir ) {
     g_free(parent);
 } 
 
+
+void set_selected_rating_visible ( gboolean is_visible ) {
+    if (is_visible) {
+        gtk_widget_show(rating_vbox);
+    } else {
+        gtk_widget_hide(rating_vbox);
+    }
+}

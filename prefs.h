@@ -34,10 +34,14 @@ typedef struct {
 
     /* What to do with daemon on quit */
     gint daemon_action;
-    gboolean detach; /* Override set in UI session; not read from prefs file */
+    gboolean detach; /* Override set in UI session; not read 
+                        from prefs file */
 
     /* Enable tooltips? */
     gboolean hide_tips;
+
+    /* Use and show song rating? */
+    gboolean use_ratings;
 
     /* Below is for playlist generation */
     gboolean use_selected_songs;

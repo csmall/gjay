@@ -54,6 +54,8 @@ static void radio_toggled ( GtkToggleButton *togglebutton,
                             gpointer user_data );
 static void tooltips_toggled ( GtkToggleButton *togglebutton,
                                gpointer user_data );
+static void useratings_toggled ( GtkToggleButton *togglebutton,
+                                 gpointer user_data );
 
 GtkWidget * make_prefs_view ( void ) {
     GtkWidget * vbox1, * vbox2, * alignment, * button, *label;
@@ -135,6 +137,21 @@ GtkWidget * make_prefs_view ( void ) {
     g_signal_connect (G_OBJECT (button), "toggled",
                       G_CALLBACK (tooltips_toggled), NULL);
     gtk_container_add(GTK_CONTAINER(alignment), button);
+
+
+    hseparator = gtk_hseparator_new();
+    gtk_box_pack_start(GTK_BOX(vbox1), hseparator, TRUE, TRUE, 2);
+
+    alignment = gtk_alignment_new(0, 0, 0, 0);
+    gtk_box_pack_start(GTK_BOX(vbox1), alignment, TRUE, TRUE, 0);
+
+    button = gtk_check_button_new_with_label("Use song ratings");
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(button),
+                                 prefs.use_ratings);
+    g_signal_connect (G_OBJECT (button), "toggled",
+                      G_CALLBACK (useratings_toggled), NULL);
+    gtk_container_add(GTK_CONTAINER(alignment), button);
+
 
     hseparator = gtk_hseparator_new();
     gtk_box_pack_start(GTK_BOX(vbox1), hseparator, TRUE, TRUE, 2);
@@ -325,6 +342,7 @@ static void radio_toggled ( GtkToggleButton *togglebutton,
     }
 }
 
+
 static void tooltips_toggled ( GtkToggleButton *togglebutton,
                                gpointer user_data ) {
     prefs.hide_tips = !gtk_toggle_button_get_active(togglebutton);
@@ -332,5 +350,14 @@ static void tooltips_toggled ( GtkToggleButton *togglebutton,
         gtk_tooltips_disable(tips);  
     else
         gtk_tooltips_enable(tips);
+    save_prefs();
+}
+
+
+static void useratings_toggled ( GtkToggleButton *togglebutton,
+                               gpointer user_data ) {
+    prefs.use_ratings = gtk_toggle_button_get_active(togglebutton);
+    set_selected_rating_visible ( prefs.use_ratings );
+    set_playlist_rating_visible ( prefs.use_ratings );
     save_prefs();
 }

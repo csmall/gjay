@@ -235,6 +235,8 @@ int main( int argc, char *argv[] ) {
         
         widget = make_app_ui();
         gtk_widget_show_all(widget);
+        set_selected_rating_visible(prefs.use_ratings);
+        set_playlist_rating_visible(prefs.use_ratings);
         set_add_files_progress_visible(FALSE);
 
         /* Periodically write song data to disk, if it has changed */

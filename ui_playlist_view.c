@@ -40,6 +40,7 @@ enum {
 
 GtkWidget * button_sel_songs, * button_start_song, * button_sel_dir;
 GtkWidget * button_start_color, * time_entry;
+GtkWidget * rating_hbox;
 
 static void parent_set_callback (GtkWidget *widget,
                                  gpointer user_data);
@@ -238,8 +239,8 @@ GtkWidget * make_playlist_view ( void ) {
                       G_CALLBACK (toggled), &prefs.wander);
     gtk_box_pack_start(GTK_BOX(vbox2), button, FALSE, FALSE, 2);
 
-    hbox1 = gtk_hbox_new(FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(vbox2), hbox1, FALSE, FALSE, 0);
+    rating_hbox = gtk_hbox_new(FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(vbox2), rating_hbox, FALSE, FALSE, 0);
     button = gtk_check_button_new_with_label("Rating cut-off");
     gtk_tooltips_set_tip (tips, button,
                           "Ignore all songs below a particular rating",
@@ -252,8 +253,8 @@ GtkWidget * make_playlist_view ( void ) {
     gtk_range_set_value(GTK_RANGE(range), prefs.rating);
     g_signal_connect (G_OBJECT (range), "value-changed",
                       G_CALLBACK (value_changed), &prefs.rating);
-    gtk_box_pack_start(GTK_BOX(hbox1), button, FALSE, FALSE, 2);
-    gtk_box_pack_start(GTK_BOX(hbox1), range, TRUE, TRUE, 2);
+    gtk_box_pack_start(GTK_BOX(rating_hbox), button, FALSE, FALSE, 2);
+    gtk_box_pack_start(GTK_BOX(rating_hbox), range, TRUE, TRUE, 2);
 
     hbox1 = gtk_hbox_new(FALSE, 2);
     gtk_box_pack_start(GTK_BOX(vbox1), hbox1, FALSE, FALSE, 2);
@@ -658,4 +659,13 @@ static void save_playlist_selector(GtkWidget * file_selector) {
     
     save_playlist(list, (char *) selected_filename);
     gtk_widget_destroy(file_selector);
+}
+
+
+void set_playlist_rating_visible ( gboolean is_visible ) {
+    if (is_visible) {
+        gtk_widget_show(rating_hbox);
+    } else {
+        gtk_widget_hide(rating_hbox);
+    }
 }

@@ -138,6 +138,10 @@ void        update_selected_songs_color   ( gdouble angle,
 GtkWidget * create_colorwheel             ( gint diameter,
                                             GList ** list,
                                             HB * color );
+void        set_selected_rating_visible   ( gboolean is_visible );
+
+/* Playlist */
+void        set_playlist_rating_visible   ( gboolean is_visible );
 
 /* Menu */
 GtkWidget * make_menubar                ( void );

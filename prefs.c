@@ -64,6 +64,7 @@ typedef enum {
     PE_WANDER,
     PE_CUTOFF,
     PE_VERSION,
+    PE_USE_RATINGS,
     /* values */
     PE_RANDOM,
     PE_SELECTED,
@@ -94,6 +95,7 @@ char * pref_element_strs[PE_LAST] = {
     "wander",
     "cutoff",
     "version",
+    "use_ratings",
     "random",
     "selected",
     "songs",
@@ -102,7 +104,6 @@ char * pref_element_strs[PE_LAST] = {
 
 
 app_prefs prefs;
-
 static void     data_start_element  ( GMarkupParseContext *context,
                                       const gchar         *element_name,
                                       const gchar        **attribute_names,
@@ -130,6 +131,7 @@ void load_prefs ( void ) {
     /* Set default values */
     memset(&prefs, 0x00, sizeof(app_prefs));
     prefs.rating = DEFAULT_RATING;
+    prefs.use_ratings = FALSE;
     prefs.time = DEFAULT_PLAYLIST_TIME;
     prefs.variance =
         prefs.hue = 
@@ -193,6 +195,8 @@ void save_prefs ( void ) {
             fprintf(f, " %s=\"t\"", pref_element_strs[PE_HIDE_TIP]);
         if (prefs.wander)
             fprintf(f, " %s=\"t\"", pref_element_strs[PE_WANDER]);
+        if (prefs.use_ratings)
+            fprintf(f, " %s=\"t\"", pref_element_strs[PE_USE_RATINGS]);
         fprintf(f, "></%s>\n", pref_element_strs[PE_FLAGS]);
         
         fprintf(f, "<%s>%d</%s>\n", 
@@ -302,6 +306,10 @@ void data_start_element  (GMarkupParseContext *context,
         case PE_WANDER:
             if (*element == PE_FLAGS)
                 prefs.wander = TRUE;
+            break;
+        case PE_USE_RATINGS:
+            if (*element == PE_FLAGS)
+                prefs.use_ratings = TRUE;
             break;
         case PE_CUTOFF:
             if (*element == PE_RATING)
