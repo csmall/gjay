@@ -114,7 +114,7 @@ gint        explore_files_depth_distance ( char * file1,
                                            char * file2 );
 void        explore_animate_pending      ( char * file );
 void        explore_animate_stop         ( void );
-void        explore_unmark_dirs_containing ( char * file );
+gboolean    explore_dir_has_new_songs    ( char * dir );
 
 /* Select file pane */
 void        set_selected_file             ( char * file, 

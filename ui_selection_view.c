@@ -53,7 +53,8 @@ static void     rating_changed ( GtkRange *range,
                                  gpointer user_data );
 static void     populate_selected_list (void);
 static void     redraw_rating (void);
-
+static void     update_selected_songs_directory_marked ( gchar * dir, 
+                                                         gboolean was_marked);
 
 /* How many chars should we truncate displayed file names to? */
 #define TRUNC_NAME 18
@@ -416,17 +417,37 @@ void update_selected_songs_color ( gdouble angle,
                                    gdouble radius ) {
     GList * llist;
     song * s;
+    gboolean was_marked;
+    gchar * dir = NULL;
 
+    if (!selected_songs)
+        return;
+
+    s = SONG(selected_songs);
+    dir = parent_dir(s->path);
+
+    
     for (llist = g_list_first(selected_songs); llist; 
          llist = g_list_next(llist)) {
         s = (song *) llist->data;
+
+        if (s->no_color | s->no_rating) {
+            dir = parent_dir(s->path);
+            was_marked = TRUE;
+        }
+        
         s->no_color = FALSE;
         s->color.H = (float) angle;
         s->color.B = (float) radius;
         /* If other songs mirror this one, pass on the change */
         song_set_repeat_attrs(s);
+
+        if (was_marked) {
+            update_selected_songs_directory_marked(dir, TRUE);
+            g_free(dir);
+        }
     }
-    
+
     songs_dirty = TRUE;
 }
 
@@ -484,4 +505,31 @@ static void rating_changed ( GtkRange *range,
 
     songs_dirty = TRUE;
 }
+
+
+static void update_selected_songs_directory_marked ( gchar * dir, 
+                                                     gboolean was_marked) {
+    gchar * parent;
+    gboolean is_marked;
+    
+    if (!dir)
+        return;
+    if (!was_marked)
+        return;
+
+    is_marked = explore_dir_has_new_songs(dir);
+   
+    if (is_marked)
+        return;
+
+    /* This directory used to be marked, but no longer is. Change its
+       icon */
+    explore_update_path_pm(dir, PM_DIR_CLOSED);
+    
+    /* Check the parent directory (which we know by induction
+       WAS marked */
+    parent = parent_dir (dir);
+    update_selected_songs_directory_marked(parent, TRUE);
+    g_free(parent);
+} 
 

@@ -55,8 +55,8 @@ void    read_line   ( FILE * f, char * buffer, int buffer_len);
 gchar * strdup_convert ( const gchar * str, 
                          const gchar * enc_to, 
                          const gchar * enc_from );
-float   strtof_gjay    ( const char *nptr, char **endptr);
-
+float   strtof_gjay    ( const char * nptr, char ** endptr);
+gchar * parent_dir     ( const char * path );
 
 /* xmms.c */
 void        init_xmms   ( void );

@@ -350,7 +350,6 @@ static int tree_add_idle (gpointer data) {
         } else if (g_hash_table_lookup(not_song_hash, fta->fname)) {
             pm_type = PM_FILE_NOSONG;
         }  else {
-            printf("HERE %s\n", fta->fname);
             set_add_files_progress(fta->fname, 
                                    (file_to_add_count * 100) / 
                                    total_files_to_add);
@@ -381,7 +380,6 @@ static int tree_add_idle (gpointer data) {
                                                      strdup_to_latin1(fta->fname));
                     pm_type = PM_FILE_PENDING;
                 }
-                printf("Add to songs list %s\n", s->path);
                 songs = g_list_append(songs, s);
                 g_hash_table_insert(song_name_hash, s->path, s);
                 s->in_tree = TRUE;
@@ -431,7 +429,7 @@ static int tree_add_idle (gpointer data) {
         g_hash_table_insert ( name_iter_hash,
                               str,
                               current);
-        
+                
         g_queue_push_tail(iter_stack, current);
         g_queue_push_tail(parent_name_stack, str);
         tree_depth = MAX(tree_depth, g_list_length(parent_name_stack->head));
@@ -695,12 +693,43 @@ gint iter_sort_strcmp  (GtkTreeModel *model,
 }
 
 
+/**
+ * Return TRUE if the directory contains at least one song which
+ * has not been rated or color-categorized
+ */
+gboolean explore_dir_has_new_songs ( char * dir ) {
+    gboolean result = FALSE;
+    GList * list;
+    song * s;
+    
+    list = explore_files_in_dir(dir, TRUE);
+    for (; list; list = g_list_next(list)) {
+        if (result == FALSE) {
+            s = g_hash_table_lookup(song_name_hash, list->data);
+            if (s) {
+                if (s->no_data && s->no_color) {
+                    result = TRUE;
+                }
+            } else if (verbosity) {
+                fprintf(stderr, "Explore_dir_has_new_songs: missing dir %s\n",
+                        dir);
+            }
+        }
+        g_free(list->data);
+    }
+    g_list_free(list);
+    return result;
+}
+
+
+/**
+ * Mark all directories containing at least one file which requires
+ * rating/color classification
+ */ 
 static void explore_mark_new_dirs ( char * dir ) {
     GList * list;
-    gboolean mark;
-    song * s;
-    int len;
     char buffer[BUFFER_SIZE];
+    int len;
 
     strncpy(buffer, dir, BUFFER_SIZE);
     len = strlen(buffer);
@@ -708,28 +737,8 @@ static void explore_mark_new_dirs ( char * dir ) {
         buffer[len - 1] = '\0';
     
     if (strcmp(dir, prefs.song_root_dir) != 0) {
-        list = explore_files_in_dir(buffer, TRUE);
-        if (!list)
-            mark = FALSE;
-        else
-            mark = TRUE;
-        for (; list; list = g_list_next(list)) {
-            if (mark) {
-                s = g_hash_table_lookup(song_name_hash, list->data);
-                if (s) {
-                    if (!(s->no_data && s->no_color)) {
-                        mark = FALSE;
-                    }
-                } else {
-                    printf("complain bitterly\n");
-                }
-            }
-            g_free(list->data);
-        }
-        g_list_free(list);
-        if (mark) {
+        if (explore_dir_has_new_songs(dir))
             explore_update_path_pm(dir, PM_DIR_CLOSED_NEW);
-        }
     }
     
     for (list = explore_dirs_in_dir(buffer); list; list = g_list_next(list)) {

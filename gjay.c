@@ -431,3 +431,27 @@ float strtof_gjay ( const char *nptr, char **endptr) {
         *endptr = end;
     return result;
 }
+
+
+/**
+ * Get the parent directory of path. The returned value should be freed.
+ * If the parent is above root, return NULL.
+ */
+gchar * parent_dir ( const char * path ) {
+    int len, rootlen;
+    
+    len = strlen(path);
+    rootlen = strlen(prefs.song_root_dir);
+    if (len <= rootlen)
+        return NULL;
+    if (!len)
+        return NULL;
+    for (; len > rootlen; len--) {
+        if (path[len] == '/') {
+            return g_strndup(path, len);
+        }
+    }
+    if (path[len - 1] == '/')
+        len--;
+    return g_strndup(path, len);
+}
