@@ -329,14 +329,20 @@ static void set_selected_files (GList * files) {
             g_free(llist->data);
         } else {
             s = g_hash_table_lookup(song_name_hash, llist->data);
-            assert(s);
-            if (s->freq_pixbuf) {
-                gdk_pixbuf_unref(s->freq_pixbuf);
-                s->freq_pixbuf = NULL;
-            }
-            selected_songs = g_list_append(selected_songs, s);
-            selected_files = g_list_append(selected_files, llist->data);
-        } 
+            if (!s) {
+                /* This may happen a directory contains an empty directory, 
+                   so the file list includes a directory path and not
+                   a song path. */
+                g_free(llist->data);
+            } else {
+                if (s->freq_pixbuf) {
+                    gdk_pixbuf_unref(s->freq_pixbuf);
+                    s->freq_pixbuf = NULL;
+                }
+                selected_songs = g_list_append(selected_songs, s);
+                selected_files = g_list_append(selected_files, llist->data);
+            } 
+        }
     }
     
     gtk_widget_show(play);

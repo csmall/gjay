@@ -514,6 +514,8 @@ GList * explore_files_in_dir ( char * dir, gboolean recursive) {
     GList * list = NULL;
 
     iter = g_hash_table_lookup(file_name_iter_hash, dir);
+    if (!iter)
+        return NULL;
     has_child = gtk_tree_model_iter_children (GTK_TREE_MODEL (store), 
                                               &child, iter);
     
