@@ -326,6 +326,10 @@ void file_info ( gchar    * path,
     *title = NULL;
     *album = NULL;
 
+    if (verbosity > 1) {
+        printf("Scanning %s...\n", path);
+    }
+
     latin1_path = strdup_to_latin1(path);
     if (stat(latin1_path, &buf)) {
         g_free(latin1_path);
@@ -759,11 +763,6 @@ void data_text ( GMarkupParseContext *context,
 }
 
 
-
-
-
-
-
 static gboolean read_song_file_type ( char         * path, 
                                       song_file_type type,
                                       gint        * length,
@@ -782,7 +781,7 @@ static gboolean read_song_file_type ( char         * path,
     *artist = NULL;
     *album = NULL;
     *title = NULL;
-
+    
     switch (type) {
     case OGG:
         if (!gjay_vorbis_available()) 
@@ -836,7 +835,7 @@ static gboolean read_song_file_type ( char         * path,
             }
         }
         fclose(mp3.file);
-        if (result == 0) 
+        if (mp3.header_isvalid) 
             return TRUE;
         else
             return FALSE;
