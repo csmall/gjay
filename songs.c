@@ -933,8 +933,9 @@ static gboolean get_mp3_info ( char * path,
             }
         }
     } else {
-        fseek(fp, 128, SEEK_END);
+        fseek(fp, -128, SEEK_END);
         fread(buffer, 1, 128, fp);
+
         if (strncmp(buffer, "TAG", 3) == 0) {
             is_mp3 = TRUE;
             if (title) {

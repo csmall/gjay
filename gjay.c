@@ -218,7 +218,6 @@ int main( int argc, char *argv[] ) {
             fprintf(stderr, "GJay strongly suggests xmms\n"); 
         } 
 
-        init_xmms();
         gtk_init (&argc, &argv);
         
         g_io_add_watch (g_io_channel_unix_new (daemon_pipe_fd),
