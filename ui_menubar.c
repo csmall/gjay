@@ -22,82 +22,33 @@
 #include "ui.h"
 
 
-static gboolean menuitem_xmms (GtkWidget *widget,
-                               GdkEvent *event,
-                               gpointer user_data);
-static gboolean menuitem_prefs (GtkWidget *widget,
-                                GdkEvent *event,
-                                gpointer user_data);
-static gboolean menuitem_about (GtkWidget *widget,
-                                GdkEvent *event,
-                                gpointer user_data);
+static void menuitem_xmms (void);
+static void menuitem_quit (void);
 
+static GtkItemFactoryEntry menu_items[] = {
+    { "/_Application", NULL, NULL, 0, "<Branch>" },
+    { "/Application/_Go to current XMMS song", "<control>G", menuitem_xmms, 
+      0, "<Item>" },
+    { "/Application/_About...", NULL, show_about_window, 0, "<Item>" },
+    { "/Application/_Preferences...", NULL, show_prefs_window, 0, "<Item>" },
+    { "/Application/Quit", "<control>Q", menuitem_quit, 0, "<Item>" }
+};
+static gint nmenu_items = sizeof(menu_items) / sizeof(GtkItemFactoryEntry);
 
 GtkWidget * make_menubar ( void ) {
-    GtkWidget * menu_bar, * app_menu;
-    GtkWidget * app_item, * xmms_item, 
-        * prefs_item, * about_item, * quit_item;
+    GtkItemFactory * factory;
+    GtkAccelGroup * accel_group;
     
-    menu_bar = gtk_menu_bar_new();
- 
-    app_item = gtk_menu_item_new_with_label ("Application");
-    gtk_menu_bar_append(GTK_MENU_BAR(menu_bar), app_item);
+    accel_group = gtk_accel_group_new();
+    factory = gtk_item_factory_new(GTK_TYPE_MENU_BAR, "<main>", accel_group);
+    gtk_item_factory_create_items(factory, nmenu_items, menu_items, NULL);
+    gtk_window_add_accel_group(GTK_WINDOW(window), accel_group);
     
-    app_menu = gtk_menu_new ();    
-
-    gtk_menu_item_set_submenu(GTK_MENU_ITEM(app_item), app_menu);
-
-    /* Create the menu items */
-    xmms_item = gtk_menu_item_new_with_label ("Select current XMMS song");
-    prefs_item = gtk_menu_item_new_with_label ("Preferences...");
-    about_item = gtk_menu_item_new_with_label ("About...");
-    quit_item  = gtk_menu_item_new_with_label ("Quit");
-    
-    /* Add them to the menu */
-    gtk_menu_shell_append (GTK_MENU_SHELL (app_menu), xmms_item);
-    gtk_menu_shell_append (GTK_MENU_SHELL (app_menu), prefs_item);
-    gtk_menu_shell_append (GTK_MENU_SHELL (app_menu), about_item);
-    gtk_menu_shell_append (GTK_MENU_SHELL (app_menu), quit_item);
-    
-    /* Attach the callback functions to the activate signal */
-    g_signal_connect (G_OBJECT (xmms_item), "activate",
-                      G_CALLBACK (menuitem_xmms),
-                      NULL);
-    g_signal_connect (G_OBJECT (prefs_item), "activate",
-                      G_CALLBACK (menuitem_prefs),
-                      NULL);
-    g_signal_connect (G_OBJECT (about_item), "activate",
-                      G_CALLBACK (menuitem_about),
-                      NULL);
-    g_signal_connect (G_OBJECT (quit_item), "activate",
-                      G_CALLBACK (quit_app),
-                      NULL);
-
-    gtk_widget_show_all(menu_bar);
-    return menu_bar;
+    return gtk_item_factory_get_widget(factory, "<main>");
 }
 
 
-
-gboolean menuitem_about (GtkWidget *widget,
-                         GdkEvent *event,
-                         gpointer user_data) {
-    show_about_window();
-    return TRUE;
-}
-
-
-gboolean menuitem_prefs (GtkWidget *widget,
-                         GdkEvent *event,
-                         gpointer user_data) {
-    show_prefs_window();
-    return TRUE;
-}
-
-
-gboolean menuitem_xmms (GtkWidget *widget,
-                        GdkEvent *event,
-                        gpointer user_data) {
+void menuitem_xmms (void) {
     song * s;
     gchar * msg; 
     GtkWidget * dialog;
@@ -109,7 +60,7 @@ gboolean menuitem_xmms (GtkWidget *widget,
         if (xmms_is_running()) {
             msg = "Sorry, GJay doesn't appear to know that song";
         } else {
-            msg = "Sorry, unable to find XMMS";
+            msg = "Sorry, unable to connect to XMMS.\nIs XMMS running?";
         }
         dialog = gtk_message_dialog_new(
             GTK_WINDOW(window),
@@ -123,5 +74,8 @@ gboolean menuitem_xmms (GtkWidget *widget,
                                  GTK_OBJECT(dialog));
         gtk_widget_show_all(dialog);
     }
-    return TRUE;
+}
+
+static void menuitem_quit (void) {
+    quit_app(NULL, NULL, NULL);
 }
