@@ -48,7 +48,7 @@ install: build
 	dh_clean -XMakefile.orig -Xspectrum.c.orig -k
 	dh_installdirs
 
-	$(MAKE) install DESTDIR=$(CURDIR)/debian/gjay
+	$(MAKE) install PREFIX=$(CURDIR)/debian/gjay/usr
 
 binary-indep: build install
 
