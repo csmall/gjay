@@ -10,20 +10,19 @@
 
 static char * tabs[TAB_LAST] = {
     "Explore",
-    "Make Playlist",
-    "Prefs",
-    "About"
+    "Make Playlist"
 };
 
 GtkWidget        * window;
 GtkWidget        * notebook;
 GtkWidget        * explore_view, * selection_view, * playlist_view,
-                 * prefs_view, * no_root_view, * about_view;
+                 * no_root_view;
 GtkTooltips      * tips;
 static tab_val     current_tab;
 static GtkWidget * analysis_label, * analysis_progress;
 static GtkWidget * add_files_label, * add_files_progress;
-static GtkWidget * explore_hbox, * playlist_hbox, * prefs_hbox, * about_hbox;
+static GtkWidget * explore_hbox, * playlist_hbox;
+static GtkWidget * prefs_window, * about_window;
 static GtkWidget * paned;
 static GtkWidget * msg_window = NULL;
 static GtkWidget * msg_text_view = NULL;
@@ -58,19 +57,16 @@ static char * pixbuf_files[] = {
 
 
 static void     load_pixbufs          ( void );
-static gboolean delete_window         ( GtkWidget *widget,
-                                        GdkEvent *event,
-                                        gpointer user_data );
 static void     respond_quit_analysis ( GtkDialog *dialog,
                                         gint arg1,
                                         gpointer user_data );
-static void     quit_app              ( void);    
+static void     destroy_app           ( void);    
 static gint     ping_daemon           ( gpointer data );
 
 
 GtkWidget * make_app_ui ( void ) {
     GtkWidget * vbox1, * hbox1, * hbox2;
-    GtkWidget * alignment;
+    GtkWidget * alignment, * menubar, * view;
     
     tips = gtk_tooltips_new();
     if (prefs.hide_tips) 
@@ -86,7 +82,7 @@ GtkWidget * make_app_ui ( void ) {
     gtk_widget_set_size_request (window, APP_WIDTH, APP_HEIGHT);
     gtk_widget_realize(window);
     gtk_signal_connect (GTK_OBJECT (window), "delete_event",
-			GTK_SIGNAL_FUNC (delete_window), NULL);
+			GTK_SIGNAL_FUNC (quit_app), NULL);
     gtk_container_set_border_width (GTK_CONTAINER (window), 2);
     gtk_widget_realize(window);
 
@@ -94,11 +90,15 @@ GtkWidget * make_app_ui ( void ) {
 
     vbox1 = gtk_vbox_new(FALSE, 2);
     gtk_container_add (GTK_CONTAINER (window), vbox1);
+
+    menubar = make_menubar();
+    gtk_box_pack_start(GTK_BOX(vbox1), menubar, FALSE, FALSE, 1);
+
     notebook = gtk_notebook_new(); 
-    gtk_box_pack_start(GTK_BOX(vbox1), notebook, TRUE, TRUE, 5);
+    gtk_box_pack_start(GTK_BOX(vbox1), notebook, TRUE, TRUE, 3);
        
     hbox1 = gtk_hbox_new(FALSE, 2);
-    gtk_box_pack_end(GTK_BOX(vbox1), hbox1, FALSE, FALSE, 5);
+    gtk_box_pack_end(GTK_BOX(vbox1), hbox1, FALSE, FALSE, 2);
 
     analysis_label = gtk_label_new("Idle");    
     gtk_box_pack_start(GTK_BOX(hbox1), analysis_label, FALSE, FALSE, 5);
@@ -130,31 +130,17 @@ GtkWidget * make_app_ui ( void ) {
                              playlist_hbox,
                              gtk_label_new(tabs[TAB_PLAYLIST]));
 
-    prefs_hbox = gtk_hbox_new(FALSE, 2);
-    gtk_notebook_append_page(GTK_NOTEBOOK(notebook), 
-                             prefs_hbox,
-                             gtk_label_new(tabs[TAB_PREFS]));
-
-    about_hbox = gtk_hbox_new(FALSE, 2);
-    gtk_notebook_append_page(GTK_NOTEBOOK(notebook), 
-                             about_hbox,
-                             gtk_label_new(tabs[TAB_ABOUT]));
-
     explore_view = make_explore_view();
     playlist_view = make_playlist_view();
     selection_view = make_selection_view();
-    prefs_view = make_prefs_view();
     no_root_view = make_no_root_view();
-    about_view = make_about_view();
 
     paned = gtk_hpaned_new();
     
     gtk_widget_show_all(explore_view);
     gtk_widget_show_all(playlist_view);
     gtk_widget_show_all(selection_view);
-    gtk_widget_show_all(prefs_view);
     gtk_widget_show_all(no_root_view);
-    gtk_widget_show_all(about_view);
     
     gtk_signal_connect (GTK_OBJECT (notebook),
                         "switch-page",
@@ -163,6 +149,26 @@ GtkWidget * make_app_ui ( void ) {
   
     gtk_notebook_set_page(GTK_NOTEBOOK(notebook), TAB_EXPLORE);
     
+
+    prefs_window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
+    gtk_window_set_title(GTK_WINDOW(prefs_window), "GJay Preferences");
+    gtk_container_set_border_width (GTK_CONTAINER (prefs_window), 5);
+    view = make_prefs_view();
+    gtk_widget_show_all(view);
+    gtk_signal_connect (GTK_OBJECT (prefs_window), "delete_event",
+			GTK_SIGNAL_FUNC (gtk_widget_hide), NULL);
+    gtk_container_add (GTK_CONTAINER (prefs_window), view);
+
+    about_window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
+    gtk_window_set_title(GTK_WINDOW(about_window), "About GJay");
+    view = make_about_view();
+    gtk_widget_show_all(view);
+    gtk_container_add (GTK_CONTAINER (about_window), view);
+    gtk_signal_connect (GTK_OBJECT (about_window), "delete_event",
+			GTK_SIGNAL_FUNC (gtk_widget_hide), NULL);
+
+    /* Ping the daemon ocassionally to let it know that the UI 
+     * process is still around */
     gtk_timeout_add( UI_PING, ping_daemon, NULL);
     
     return window;
@@ -323,20 +329,10 @@ void switch_page (GtkNotebook *notebook,
         gtk_container_remove(GTK_CONTAINER(selection_view->parent),
                              selection_view);
     }
-    if (about_view->parent) {
-        gtk_object_ref(GTK_OBJECT(about_view));
-        gtk_container_remove(GTK_CONTAINER(about_view->parent),
-                             about_view);
-    }
     if (playlist_view->parent) {
         gtk_object_ref(GTK_OBJECT(playlist_view));
         gtk_container_remove(GTK_CONTAINER(playlist_view->parent),
                              playlist_view);
-    }
-    if (prefs_view->parent) {
-        gtk_object_ref(GTK_OBJECT(prefs_view));
-        gtk_container_remove(GTK_CONTAINER(prefs_view->parent),
-                             prefs_view);
     }
     if (no_root_view->parent) {
         gtk_object_ref(GTK_OBJECT(no_root_view));
@@ -370,14 +366,6 @@ void switch_page (GtkNotebook *notebook,
         set_selected_in_playlist_view(TRUE);
         gtk_widget_show(paned);
         gtk_widget_show(playlist_hbox);
-        break;
-    case TAB_PREFS:
-        gtk_box_pack_start(GTK_BOX(prefs_hbox), prefs_view, TRUE, TRUE, 5);
-        gtk_widget_show(prefs_hbox);
-        break;
-    case TAB_ABOUT:
-        gtk_box_pack_start(GTK_BOX(about_hbox), about_view, TRUE, TRUE, 0);
-        gtk_widget_show(about_hbox);
         break;
     }
 }
@@ -443,11 +431,11 @@ GtkWidget * new_button_label_pixbuf ( char * label_text,
 }
 
 
-gboolean delete_window (GtkWidget *widget,
-                         GdkEvent *event,
-                         gpointer user_data) {
+gboolean quit_app (GtkWidget *widget,
+                   GdkEvent *event,
+                   gpointer user_data) {
     GtkWidget * dialog;
-
+    
     if (prefs.daemon_action == PREF_DAEMON_ASK) {
         dialog = gtk_message_dialog_new(GTK_WINDOW(widget),
                                         GTK_DIALOG_DESTROY_WITH_PARENT,
@@ -462,7 +450,7 @@ gboolean delete_window (GtkWidget *widget,
         prefs.detach = FALSE;
         return TRUE;
     } else {
-        quit_app();
+        destroy_app();
     }
     return FALSE;
 }
@@ -476,20 +464,20 @@ static void respond_quit_analysis (GtkDialog *dialog,
     } else {
         prefs.detach = FALSE;
     }
-    quit_app();
+    destroy_app();
 }
 
 
 
-static void quit_app (void) {    
+static void destroy_app (void) {    
     destroy_window_flag = TRUE;
     gtk_object_sink(GTK_OBJECT(tips));
     gtk_widget_destroy(explore_view);
     gtk_widget_destroy(playlist_view);
     gtk_widget_destroy(selection_view);
-    gtk_widget_destroy(prefs_view);
+    gtk_widget_destroy(prefs_window);
     gtk_widget_destroy(no_root_view);
-    gtk_widget_destroy(about_view);
+    gtk_widget_destroy(about_window);
     gtk_widget_destroy(paned);
     gtk_main_quit();
 }
@@ -548,4 +536,12 @@ void set_add_files_progress ( char * str,
     }
     gtk_progress_bar_update (GTK_PROGRESS_BAR(add_files_progress),
                              percent/100.0);
+}
+
+void show_about_window( void ) {
+    gtk_window_present(GTK_WINDOW(about_window));
+}
+
+void show_prefs_window( void ) {
+    gtk_window_present(GTK_WINDOW(prefs_window));
 }

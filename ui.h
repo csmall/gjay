@@ -23,7 +23,7 @@
 #include "gjay.h"
 
 #define APP_WIDTH  600
-#define APP_HEIGHT 420
+#define APP_HEIGHT 440
 #define PLAYLIST_WIDTH  500
 #define PLAYLIST_HEIGHT 250
 #define MSG_WIDTH  250
@@ -39,8 +39,6 @@
 typedef enum {
     TAB_EXPLORE = 0,
     TAB_PLAYLIST,
-    TAB_PREFS,
-    TAB_ABOUT,
     TAB_LAST
 } tab_val;
 
@@ -100,10 +98,16 @@ GtkWidget * make_no_root_view ( void );
 GtkWidget * make_selection_view ( void );
 GtkWidget * make_prefs_view ( void );
 GtkWidget * make_about_view ( void );
+void        show_about_window (void );
+void        show_prefs_window (void );
 void        set_analysis_progress_visible  ( gboolean visible );
 void        set_add_files_progress_visible ( gboolean visible );
 void        set_add_files_progress         ( char * str,
                                              gint percent );
+
+gboolean    quit_app                      ( GtkWidget *widget,
+                                            GdkEvent *event,
+                                            gpointer user_data );
 
 /* Explore files pane  */
 void        explore_view_set_root        ( char * root_dir );
@@ -131,6 +135,10 @@ void        update_selected_songs_color   ( gdouble angle,
 GtkWidget * create_colorwheel             ( gint diameter,
                                             GList ** list,
                                             HB * color );
+
+/* Menu */
+GtkWidget * make_menubar                ( void );
+
 #endif /* __UI_H__ */
 
 

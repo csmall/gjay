@@ -24,6 +24,9 @@
 #include "gjay.h"
 #include "ui.h"
 
+#define ABOUT_WIDTH  240
+#define ABOUT_HEIGHT 180
+
 static gboolean expose_about_view (GtkWidget *widget, 
                                    GdkEventExpose *event, 
                                    gpointer data);
@@ -32,6 +35,7 @@ GtkWidget * make_about_view ( void ) {
     GtkWidget * widget;
     
     widget = gtk_drawing_area_new();
+    gtk_widget_set_usize(widget, ABOUT_WIDTH, ABOUT_HEIGHT);
     gtk_signal_connect (GTK_OBJECT (widget),
                         "expose_event",
                         (GtkSignalFunc) expose_about_view,
