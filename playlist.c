@@ -69,11 +69,13 @@ GList * generate_playlist ( guint minutes ) {
         current = SONG(list);
         /* OK, hold your breath. We exclude songs which:
          * 1. Are not in the current file tree
-         * 2. Are below the rating cutoff, if applied by the user
-         * 3. Are not in the currently selected directory, if the user
+         * 2. Are no longer present
+         * 3. Are below the rating cutoff, if applied by the user
+         * 4. Are not in the currently selected directory, if the user
          *    specified that s/he wanted to limit the playlist to the 
          *    current dir. */
         if ((!current->in_tree) || 
+            (!current->access_ok) ||
             (prefs.rating_cutoff && (current->rating < prefs.rating)) ||
             (prefs.use_selected_dir && 
              selected_files && 

@@ -61,7 +61,6 @@ typedef enum {
     PM_BUTTON_PLAY,
     PM_BUTTON_DIR,
     PM_BUTTON_ALL,
-    PM_BUTTON_ALL_RECURSIVE,
     PM_ABOUT,
     PM_COLOR_SEL,
     PM_NOT_SET,

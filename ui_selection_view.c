@@ -38,7 +38,7 @@ GList               * selected_songs = NULL; /* Songs which have been
                                                 selected */
 GList               * selected_files = NULL; /* List of selected file names */
 static GtkListStore * list_store;
-static GtkWidget    * icon, * play, * select_all, * select_all_recursive;
+static GtkWidget    * icon, * play, * select_all_recursive;
 static GtkWidget    * label_name, * label_type, * label_rating;
 static GtkWidget    * tree, * vbox_lower, * cwheel, * rating;
 
@@ -84,9 +84,6 @@ GtkWidget * make_selection_view ( void ) {
     gtk_container_add(GTK_CONTAINER(alignment), label_type);
     gtk_box_pack_start(GTK_BOX(vbox2), alignment, FALSE, FALSE, 2);
 
-    
-    select_all_recursive = gtk_image_new_from_pixbuf(pixbufs[PM_BUTTON_ALL_RECURSIVE]);
-    
     alignment = gtk_alignment_new (1, 0.5, 0, 0);
     gtk_box_pack_start(GTK_BOX(hbox1), alignment, TRUE, TRUE, 2);
 
@@ -109,21 +106,11 @@ GtkWidget * make_selection_view ( void ) {
     event_box = gtk_event_box_new ();
     gtk_box_pack_start(GTK_BOX(hbox2), event_box, FALSE, FALSE, 2);
     
-    select_all = gtk_image_new_from_pixbuf(pixbufs[PM_BUTTON_ALL]);
-    gtk_tooltips_set_tip (tips, event_box,
-                          "Select all songs in this directory (but not its sub-directories)", "");
-    gtk_container_add (GTK_CONTAINER(event_box), select_all);
-    gtk_widget_set_events (event_box, GDK_BUTTON_PRESS_MASK);
-    gtk_signal_connect (GTK_OBJECT(event_box), 
-                        "button_press_event",
-			GTK_SIGNAL_FUNC (select_all_selected), 
-                        (gpointer *) FALSE);
-
     event_box = gtk_event_box_new ();
     gtk_box_pack_start(GTK_BOX(hbox2), event_box, FALSE, FALSE, 2);
-    select_all_recursive = gtk_image_new_from_pixbuf(pixbufs[PM_BUTTON_ALL_RECURSIVE]);
+    select_all_recursive = gtk_image_new_from_pixbuf(pixbufs[PM_BUTTON_ALL]);
     gtk_tooltips_set_tip (tips, event_box,
-                          "Select all songs in this directory and its sub-directories", "");
+                          "Select all songs in this directory", "");
     gtk_container_add (GTK_CONTAINER(event_box), select_all_recursive);
     gtk_widget_set_events (event_box, GDK_BUTTON_PRESS_MASK);
     gtk_signal_connect (GTK_OBJECT(event_box), 
@@ -216,10 +203,8 @@ void set_selected_in_playlist_view ( gboolean in_view ) {
          g_hash_table_lookup(not_song_hash, fname))
         return;
     if (in_view) {
-        gtk_widget_hide(select_all);
         gtk_widget_hide(select_all_recursive);
     } else {
-        gtk_widget_show(select_all);
         gtk_widget_show(select_all_recursive);
     }
 }
@@ -246,7 +231,6 @@ void set_selected_file ( char * file,
         /* Hide everything */
         gtk_widget_hide(icon);
         gtk_widget_hide(play);
-        gtk_widget_hide(select_all);
         gtk_widget_hide(select_all_recursive);
         gtk_widget_hide(vbox_lower);
         gtk_label_set_text(GTK_LABEL(label_name), "Nothing selected");
@@ -265,12 +249,10 @@ void set_selected_file ( char * file,
                                    pixbufs[PM_ICON_CLOSED]);
         gtk_label_set_text(GTK_LABEL(label_type), "");
         gtk_widget_hide(play);
-        gtk_widget_show(select_all);
         gtk_widget_show(select_all_recursive);
         gtk_widget_hide(vbox_lower);
         selected_files = g_list_append(selected_files, g_strdup(file));
     } else {
-        gtk_widget_hide(select_all);
         gtk_widget_hide(select_all_recursive);
     
         if (g_hash_table_lookup(not_song_hash, file)) {
@@ -346,7 +328,6 @@ static void set_selected_files (GList * files) {
     }
     
     gtk_widget_show(play);
-    gtk_widget_hide(select_all);
     gtk_widget_hide(select_all_recursive);
     gtk_widget_show(icon);
     gtk_widget_show(vbox_lower);

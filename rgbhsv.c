@@ -18,6 +18,7 @@
  */
 
 #include <math.h>
+#include <stdio.h>
 #include "rgbhsv.h"
 #include "string.h"
 

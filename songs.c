@@ -82,7 +82,7 @@ typedef struct {
 
 
 
-GList      * songs;       /* List of song *  */
+GList      * songs;       /* List of song ptrs  */
 GList      * not_songs;   /* List of char *, UTF8 encoded */
 gboolean     songs_dirty;
 
@@ -346,17 +346,31 @@ void file_info ( gchar    * path,
 void write_data_file(void) {
     char buffer[BUFFER_SIZE], buffer_temp[BUFFER_SIZE];
     FILE * f;
-    GList * llist;
+    GList * llist, * w_songs = NULL;
+    song * s;
 
     snprintf(buffer, BUFFER_SIZE, "%s/%s/%s", getenv("HOME"), 
              GJAY_DIR, GJAY_FILE_DATA);
     snprintf(buffer_temp, BUFFER_SIZE, "%s_temp", buffer);
+
+    /* Cull songs which are no longer there */
+    for (llist = g_list_first(songs); llist; llist = g_list_next(llist)) {
+        s = SONG(llist);
+        if (!s->access_ok) {
+            if (s->repeat_prev)
+                s->repeat_prev->repeat_next = s->repeat_next;
+            if (s->repeat_next)
+                s->repeat_next->repeat_prev = s->repeat_prev;
+        } else {
+            w_songs = g_list_append(w_songs, s);
+        }
+    }
     
     f = fopen(buffer_temp, "w");
     if (f) {
         fprintf(f, "<gjay_data>\n");
-        for (llist = g_list_first(songs); llist; llist = g_list_next(llist))
-            write_song_data(f, (song *) llist->data);
+        for (llist = g_list_first(w_songs); llist; llist = g_list_next(llist))
+            write_song_data(f, SONG(llist));
         for (llist = g_list_first(not_songs); 
              llist; llist = g_list_next(llist))
             write_not_song_data(f, (char *) llist->data);
@@ -367,6 +381,8 @@ void write_data_file(void) {
     } else {
         fprintf(stderr, "Unable to write song data %s\n", buffer_temp);
     }
+
+    g_list_free(w_songs);
 }
 
 
@@ -587,11 +603,14 @@ void data_start_element  (GMarkupParseContext *context,
         if (state->not_song) {
             if (!g_hash_table_lookup(not_song_hash, path)) {
                 state->new = TRUE;
-                path = g_strdup(path);
-                not_songs = g_list_append(not_songs, path);
-                g_hash_table_insert ( not_song_hash,
-                                      path, 
-                                      (gpointer) TRUE);
+                /* Only keep track of files which still exist */
+                if (!access(path, R_OK)) {
+                    path = g_strdup(path);
+                    not_songs = g_list_append(not_songs, path);
+                    g_hash_table_insert ( not_song_hash,
+                                          path, 
+                                          (gpointer) TRUE);
+                } 
             }
             return;
         }
@@ -636,9 +655,19 @@ void data_end_element (GMarkupParseContext *context,
                        const gchar         *element_name,
                        gpointer             user_data,
                        GError             **error) {
+    gchar * latin1_path;
     song_parse_state * state = (song_parse_state *) user_data;
     if (get_element((char *) element_name) == E_FILE) {
         if (state->new && state->s) {
+            /* Check to see if the song is still there */
+            latin1_path = strdup_to_latin1(state->s->path);
+            state->s->access_ok = !access(latin1_path, R_OK);
+            if (!state->s->access_ok) {
+                songs_dirty = TRUE;
+            }
+            g_free(latin1_path);
+
+            /* Add song to song list and hash table */
             songs = g_list_append(songs, state->s);
             g_hash_table_insert (song_name_hash,
                                  state->s->path, 

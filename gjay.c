@@ -16,20 +16,9 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
  * USA
  *
- * USAGE: gjay [--help] [-h] [-d] [-v] [-p] [-l len] [-c color]
+ * Overview:
  *
- *  --help, -h  :  Display help
- *  -d          :  Run as daemon (unattched)
- *  -v          :  Run in verbose mode. -vv for lots more info.
- *  -p          :  Generate a playlist
- *  -l len      :  Playlist length (in minutes)
- *  -c color    :  Start at color. Color may be named or hex value
- *  -u          :  Use M3U playlist format
- *  -x          :  Play playlist in XMMS
- *
- * Explanation: 
- *
- * GJay runs in, interactive (UI), daemon, or playlist-generatio mode.
+ * GJay runs in interactive (UI), daemon, or playlist-generating mode.
  *
  * In UI mode, GJay creates playlists, displays analyzed
  * songs, and requests new songs for analysis.
@@ -66,18 +55,17 @@ static gchar * apps[NUM_APPS] = {
 };
 
 
-/* Application mode -- UI, DAEMON... */
-gjay_mode mode;
+gjay_mode mode; /* UI, DAEMON, PLAYLIST */
+
+int daemon_pipe_fd;
+int ui_pipe_fd;
+int verbosity;
 
 
 static gboolean app_exists (gchar * app);
 static void kill_signal(int sig);
 static int open_pipe(const char* filepath);
 
-int daemon_pipe_fd;
-int ui_pipe_fd;
-
-int verbosity;
 
 
 int main( int argc, char *argv[] ) 
@@ -259,7 +247,8 @@ int main( int argc, char *argv[] )
         gtk_main();
 
         save_prefs();
-        write_data_file();
+        if (songs_dirty)
+            write_data_file();
 
         if (prefs.detach || (prefs.daemon_action == PREF_DAEMON_DETACH)) {
             send_ipc(ui_pipe_fd, DETACH);

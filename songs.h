@@ -94,6 +94,9 @@ struct _song {
        song (symlinked, most likely) */
     guint32 inode; 
     song * repeat_prev, * repeat_next;    
+
+    /* Does the song exist? */
+    gboolean access_ok;
 };
 
 

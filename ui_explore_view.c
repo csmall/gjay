@@ -356,16 +356,17 @@ static int tree_add_idle (gpointer data) {
                                                &s->inode);
                 if (original) { 
                     song_set_repeats(s, original);
+                    pm_type = PM_FILE_SONG;
                 } else { 
                     g_hash_table_insert(song_inode_hash, 
                                         &s->inode, s);
                     /* Add to analysis queue */
                     files_to_analyze = g_list_append(files_to_analyze,
                                                      strdup_to_latin1(fta->fname));
+                    pm_type = PM_FILE_PENDING;
                 }
                 songs = g_list_append(songs, s);
                 g_hash_table_insert(song_name_hash, s->path, s);
-                pm_type = PM_FILE_PENDING;
                 s->in_tree = TRUE;
             } else {
                 delete_song(s);

@@ -40,7 +40,7 @@ typedef enum {
 
 
 /* Default directory for storing app info */
-#define GJAY_VERSION     "0.2.4"
+#define GJAY_VERSION     "0.2.5"
 #define GJAY_DIR         ".gjay"
 #define GJAY_PREFS       "prefs.xml"
 #define GJAY_FILE_DATA   "data.xml"
