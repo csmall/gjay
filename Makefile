@@ -35,7 +35,7 @@ $(TARGET): $(OBJECTS)
 	$(LINK) $(LFLAGS) -o $(TARGET) $(OBJECTS)
 
 install: $(TARGET)
-        $(INSTALL) gjay $(DESTDIR)/usr/bin/gjay
-	
+	$(INSTALL) gjay $(DESTDIR)/usr/bin/gjay
+
 clean:
 	-rm -f *.a *.o *~ data/*~ core $(TARGET) 
