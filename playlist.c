@@ -30,6 +30,7 @@
 static song * current;
 static song * first;
 static gdouble distance      ( song * s1 );
+static void remove_repeats   ( song * s, GList * list);
 
 /* How much does brightness factor into matching two songs? */
 #define BRIGHTNESS_FACTOR .8
@@ -140,7 +141,10 @@ GList * generate_playlist ( guint minutes ) {
     final = g_list_append(final, first);    
     working = g_list_remove (working, first);
     current = first;
-
+    
+    /* If the song had any duplicates (symlinks) in the working
+     * list, remove them from the working list, too */
+    remove_repeats(current, working);
 
     /* Regretably, we must winnow the working set to something reasonable.
        If there were 10,000 songs, this would take ~20 seconds on a fast
@@ -179,15 +183,10 @@ GList * generate_playlist ( guint minutes ) {
         final = g_list_append(final, current);
         rand_list = g_list_remove(rand_list, current);
         working = g_list_concat(working, rand_list);
- 
+        
        /* If the song had any duplicates (symlinks) in the working
         * list, remove them from the working list, too */
-        for (repeat = current->repeat_prev; repeat; 
-             repeat = repeat->repeat_prev) 
-            working = g_list_remove(working, repeat);
-        for (repeat = current->repeat_next; repeat; 
-             repeat = repeat->repeat_next) 
-            working = g_list_remove(working, repeat);
+        remove_repeats(current, working);
     }
     if (final && (list_time > minutes * 60)) {
         list_time -= SONG(g_list_last(final))->length;
@@ -349,3 +348,14 @@ void write_playlist ( GList * list, FILE * f, gboolean m3u_format) {
 }
 
 
+static void remove_repeats ( song * s, GList * list) {
+    song * repeat;
+    for (repeat = s->repeat_prev; repeat; 
+         repeat = repeat->repeat_prev) {
+        list = g_list_remove(list, repeat);
+    }
+    for (repeat = s->repeat_next; repeat; 
+         repeat = repeat->repeat_next) {
+        list = g_list_remove(list, repeat);
+    }
+}
