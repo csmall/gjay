@@ -483,7 +483,8 @@ static void select_row (GtkTreeSelection *selection, gpointer data) {
         has_child = gtk_tree_model_iter_has_child(model, &iter);
         if (has_child) {
             set_selected_file(buffer, name, TRUE);
-        } else if (!has_child && g_hash_table_lookup(song_name_hash, buffer)) {
+        } else {
+//if (!has_child && g_hash_table_lookup(song_name_hash, buffer)) {
             set_selected_file(buffer, name, FALSE);
         }
         g_free(name);

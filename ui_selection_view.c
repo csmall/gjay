@@ -255,15 +255,9 @@ void set_selected_file ( char * file,
     } else {
         gtk_widget_hide(select_all_recursive);
     
-        if (g_hash_table_lookup(not_song_hash, file)) {
-            gtk_label_set_text(GTK_LABEL(label_name), short_name_trunc);
-            pm_type = PM_ICON_NOSONG;
-            gtk_widget_hide(play);
-            gtk_widget_hide(vbox_lower);
-            gtk_label_set_text(GTK_LABEL(label_type), "Not a song");
-        } else {
-            s = g_hash_table_lookup(song_name_hash, file);
-            assert(s);
+        s = g_hash_table_lookup(song_name_hash, file);
+        
+        if (s) {
             gtk_label_set_text(GTK_LABEL(label_name), "");
 
             gtk_widget_show(play);
@@ -276,6 +270,18 @@ void set_selected_file ( char * file,
             }
             selected_songs = g_list_append(selected_songs, s);
             gtk_widget_show(vbox_lower);
+        } else {
+            gtk_label_set_text(GTK_LABEL(label_name), short_name_trunc);
+            gtk_widget_hide(play);
+            gtk_widget_hide(vbox_lower);
+
+            if (g_hash_table_lookup(not_song_hash, file)) {
+                pm_type = PM_ICON_NOSONG;
+                gtk_label_set_text(GTK_LABEL(label_type), "Not a song");
+            } else {
+                pm_type = PM_ICON_CLOSED;
+                gtk_label_set_text(GTK_LABEL(label_type), "Empty");
+            }
         }
         
         gtk_image_set_from_pixbuf (GTK_IMAGE(icon), 
