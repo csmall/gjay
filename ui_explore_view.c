@@ -284,7 +284,7 @@ static int tree_add_idle (gpointer data) {
     song_file_type type;
     
     if (g_queue_is_empty(files_to_add_queue)) {
-        /* We are done with analysis!*/
+        /* We are done with analysis! */
         FILE  * f;    
         GList * ll;
         gchar buffer[BUFFER_SIZE];
@@ -314,7 +314,7 @@ static int tree_add_idle (gpointer data) {
             send_ipc_text(ui_pipe_fd, QUEUE_FILE, buffer);
         } 
 
-        /* If an entire directory contains songs which have not 
+        /* If an entire directory contains any songs which have not 
          * been ranked/colored, set its icon to show that its contents
          * are new */
         explore_mark_new_dirs(prefs.song_root_dir);

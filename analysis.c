@@ -526,12 +526,12 @@ int run_analysis  (wav_file * wsfile,
     long count, pos, h, redux, startpos, num_frames;
 
     if (wsfile->header.modus != 1 && wsfile->header.modus != 2) {
-        fprintf (stderr, "Error: not a wav file...\n");
+        // Not a wav file
         return FALSE;
     }
     
     if (wsfile->header.byte_p_spl / wsfile->header.modus != 2) {
-        fprintf (stderr, "Error: not 16-bit...\n");
+        // Not 16-bit
         return FALSE;
     }
 

@@ -250,7 +250,8 @@ void set_selected_file ( char * file,
         if (g_hash_table_lookup(new_song_dirs_hash, file)) {
             gtk_image_set_from_pixbuf (GTK_IMAGE(icon), 
                                        pixbufs[PM_ICON_CLOSED_NEW]);
-            gtk_label_set_text(GTK_LABEL(label_type), "Has new songs");
+            gtk_label_set_text(GTK_LABEL(label_type), 
+                               "Has uncategorized songs");
         } else {
             gtk_image_set_from_pixbuf (GTK_IMAGE(icon), 
                                        pixbufs[PM_ICON_CLOSED]);

@@ -88,7 +88,7 @@ static gboolean expose_about_view (GtkWidget *widget,
      gdk_draw_string (widget->window,
                       font,
                       gc, 
-                      (width - w) / 2, height * 0.5,
+                      (width - w) / 2, height * 0.55,
                       buffer);
 
      snprintf(buffer, BUFFER_SIZE, "Copyright (c) 2003, Chuck Groom");
@@ -98,7 +98,7 @@ static gboolean expose_about_view (GtkWidget *widget,
      gdk_draw_string (widget->window,
                       font,
                       gc, 
-                      (width - w) / 2, height * 0.65,
+                      (width - w) / 2, height * 0.70,
                       buffer);
      gdk_rgb_gc_set_foreground(gc, 0xCC00CC);
      snprintf(buffer, BUFFER_SIZE, "http://gjay.sourceforge.net");

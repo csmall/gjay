@@ -55,7 +55,6 @@ static void radio_toggled ( GtkToggleButton *togglebutton,
 static void tooltips_toggled ( GtkToggleButton *togglebutton,
                                gpointer user_data );
 
-
 GtkWidget * make_prefs_view ( void ) {
     GtkWidget * vbox1, * vbox2, * alignment, * button, *label;
     GtkWidget * radio1, * radio2, * radio3;
@@ -205,54 +204,75 @@ static void choose_base_dir  ( GtkButton *button,
     gtk_tree_selection_set_mode (gtk_tree_view_get_selection(
         GTK_TREE_VIEW((GTK_FILE_SELECTION(file_selector))->file_list)),
         GTK_SELECTION_NONE);
-
-    gtk_signal_connect (GTK_OBJECT (GTK_FILE_SELECTION(file_selector)->ok_button),
-                        "clicked",
-                        GTK_SIGNAL_FUNC (set_base_dir), 
-                        (gpointer) GTK_OBJECT(file_selector)); 
-    gtk_signal_connect_object (GTK_OBJECT (GTK_FILE_SELECTION(file_selector)->ok_button),
-                               "clicked", 
-                               GTK_SIGNAL_FUNC (gtk_widget_destroy),
-                               (gpointer) file_selector);
-    gtk_signal_connect_object (GTK_OBJECT (GTK_FILE_SELECTION(file_selector)->cancel_button),
-                               "clicked", 
-                               GTK_SIGNAL_FUNC (gtk_widget_destroy),
-                               (gpointer) file_selector);
-    gtk_file_selection_hide_fileop_buttons(GTK_FILE_SELECTION(file_selector));
-    
+    gtk_signal_connect (
+        GTK_OBJECT (GTK_FILE_SELECTION(file_selector)->ok_button),
+        "clicked",
+        GTK_SIGNAL_FUNC (set_base_dir), 
+        (gpointer) GTK_OBJECT(file_selector)); 
+    gtk_signal_connect_object (
+        GTK_OBJECT (GTK_FILE_SELECTION(file_selector)->ok_button),
+        "clicked", 
+        GTK_SIGNAL_FUNC (gtk_widget_destroy),
+        (gpointer) file_selector);
+    gtk_signal_connect_object (
+        GTK_OBJECT (GTK_FILE_SELECTION(file_selector)->cancel_button),
+        "clicked", 
+        GTK_SIGNAL_FUNC (gtk_widget_destroy),
+        (gpointer) file_selector);
+    gtk_file_selection_hide_fileop_buttons(
+        GTK_FILE_SELECTION(file_selector));
     
     button_filter = gtk_check_button_new_with_label(
         "Filter only .mp3, .ogg, or .wav extension");
-    g_signal_connect (G_OBJECT (button_filter),
-                      "toggled",
-                      G_CALLBACK (toggle_no_filter),
-                      NULL);
+    g_signal_connect (
+        G_OBJECT (button_filter),
+        "toggled",
+        G_CALLBACK (toggle_no_filter),
+        NULL);
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(button_filter),
                                  prefs.extension_filter);
     gtk_box_pack_start(GTK_BOX(GTK_FILE_SELECTION(file_selector)->main_vbox), 
                        button_filter, FALSE, FALSE, 5);
-
+    
     gtk_widget_show (file_selector);
-    gtk_widget_show(button_filter);
-    gtk_widget_hide(GTK_FILE_SELECTION(file_selector)->selection_entry);
+    gtk_widget_show (button_filter);
+    gtk_widget_hide (GTK_FILE_SELECTION(file_selector)->selection_entry);
+    gtk_widget_hide (GTK_FILE_SELECTION(file_selector)->selection_text);
 }
 
 
 static void set_base_dir ( GtkButton *button,
                            gpointer user_data ) {
-    GtkWidget * w;
     gchar * base_dir;
     struct stat stat_buf;
+    GtkFileSelection * file_sel;
+    GtkTreeSelection * select;
+    GtkTreeModel * model;
+    GtkTreeIter iter;    
+    char path[BUFFER_SIZE];
+    bzero(path, BUFFER_SIZE);
 
-    w = (GtkWidget *) user_data;
-    base_dir = (gchar *) gtk_file_selection_get_filename (GTK_FILE_SELECTION(w));
+    file_sel = GTK_FILE_SELECTION(user_data);
+    base_dir = (gchar *) gtk_file_selection_get_filename (file_sel);
+    strncpy(path, base_dir, BUFFER_SIZE);
+
+    select = gtk_tree_view_get_selection(GTK_TREE_VIEW(file_sel->dir_list));
     
-    if (stat (base_dir, &stat_buf)) {
-        fprintf(stderr, "Could not stat %s\n", base_dir); 
+    if (gtk_tree_selection_get_selected(select, &model, &iter)) {
+        gchar * dir_data = NULL;
+        gtk_tree_model_get(model, &iter, 0, &dir_data, -1);
+        if ((strcmp(dir_data, "./") != 0) && (strcmp(dir_data, "../") != 0)) {
+            snprintf(path, BUFFER_SIZE, "%s%s", base_dir, dir_data);
+        }
+        g_free(dir_data);
+    }
+    
+    if (stat (path, &stat_buf)) {
+        fprintf(stderr, "Could not stat %s\n", path); 
         return;
     }
     if (!S_ISDIR(stat_buf.st_mode)) {
-        fprintf(stderr, "%s is not a directory\n", base_dir); 
+        fprintf(stderr, "%s is not a directory\n", path); 
         return;
     }
     if (prefs.song_root_dir) {
@@ -261,7 +281,7 @@ static void set_base_dir ( GtkButton *button,
          * doing */
         send_ipc(ui_pipe_fd, CLEAR_ANALYSIS_QUEUE);
     }
-    prefs.song_root_dir = g_strdup(base_dir);     
+    prefs.song_root_dir = g_strdup(path);     
     prefs_update_song_dir();
     gtk_idle_add(explore_view_set_root_idle, prefs.song_root_dir);
 
@@ -314,4 +334,3 @@ static void tooltips_toggled ( GtkToggleButton *togglebutton,
         gtk_tooltips_enable(tips);
     save_prefs();
 }
-
