@@ -30,6 +30,7 @@
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/resource.h>
 #include <errno.h>
 #include <string.h>
 #include <sys/poll.h>
@@ -121,6 +122,9 @@ void analysis_daemon(void) {
     char buffer[BUFFER_SIZE];
     gchar * file;
     FILE * f;
+    
+    /* Nice the analysis */
+    setpriority(PRIO_PROCESS, getpid(), 19);
     
     in_analysis = FALSE;
     loop = g_main_new(FALSE);
