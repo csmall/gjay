@@ -24,6 +24,7 @@
 #include <gtk/gtk.h>
 #include <glib.h>
 #include <assert.h>
+#include <limits.h>
 #include "rgbhsv.h"
 
 /* We batch the freq spectrum into just a few bins */
@@ -35,8 +36,8 @@
 #define GJAY_DATA    "gjay_data"
 #define GJAY_PREFS   "gjay_prefs"
 
-/* Short labels and filename strings */
-#define BUFFER_SIZE 160
+/* We use fixed-size buffers for labels and filenames */
+#define BUFFER_SIZE  FILENAME_MAX
 
 /* How frequently, in milliseconds, we check the analyize data */
 #define ANALYZE_TIME 500
