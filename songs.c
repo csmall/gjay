@@ -364,11 +364,11 @@ song * test_ogg ( char * fname ) {
         s->length = ov_time_total(&vf, -1);
                 
         for (i = 0; i < vc->comments; i++) {
-            if (strncmp(vc->user_comments[i], "title=", strlen("title=")) == 0) {
+            if (strncasecmp(vc->user_comments[i], "title=", strlen("title=")) == 0) {
                 s->title = g_strdup(vc->user_comments[i] + strlen("title="));
-            } else if (strncmp(vc->user_comments[i], "artist=", strlen("artist=")) == 0) {
+            } else if (strncasecmp(vc->user_comments[i], "artist=", strlen("artist=")) == 0) {
                 s->artist = g_strdup(vc->user_comments[i] + strlen("artist="));
-            } else if (strncmp(vc->user_comments[i], "album=", strlen("album=")) == 0) {
+            } else if (strncasecmp(vc->user_comments[i], "album=", strlen("album=")) == 0) {
                 s->album = g_strdup(vc->user_comments[i] + strlen("album="));
             }
         }

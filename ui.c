@@ -33,6 +33,8 @@
 #define APP_HEIGHT 420
 #define PLAYLIST_WIDTH APP_WIDTH - 10
 #define PLAYLIST_HEIGHT APP_HEIGHT - 120
+#define MSG_WIDTH 250
+#define MSG_HEIGHT 160
 
 #define PLAYLIST_SONG_TITLE_LEN 20
 
@@ -53,7 +55,7 @@ typedef struct {
 } widget_and_data;
 
 
-GtkWidget * app_window;
+GtkWidget * app_window, * msg_window = NULL;
 GtkWidget * song_list;
 GtkWidget * analysis_label;
 GtkWidget * analysis_progress;
@@ -936,30 +938,53 @@ static gint playlist_make ( GtkWidget *widget,
     return TRUE;
 }
 
-
 void display_message ( gchar * msg ) {
-    GtkWidget * win, * label, * button, * vbox;
+    GtkWidget * messages, * button, * swin, * vbox = NULL;
 
-    win = gtk_window_new (GTK_WINDOW_TOPLEVEL);
-    gtk_window_set_title (GTK_WINDOW (win), "GJay: Message");
-    gtk_container_set_border_width (GTK_CONTAINER (win), 5);
-    
-    vbox = gtk_vbox_new(FALSE, 2);
-    gtk_container_add(GTK_CONTAINER(win), vbox);
+    if (msg_window == NULL) {
+        msg_window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
+        gtk_window_set_title (GTK_WINDOW (msg_window), "GJay: Messages");
+        gtk_widget_set_usize(msg_window, MSG_WIDTH, MSG_HEIGHT);
+        gtk_container_set_border_width (GTK_CONTAINER (msg_window), 5);
 
-    label = gtk_label_new(msg);
-    gtk_box_pack_start(GTK_BOX(vbox), label, FALSE, FALSE, 5);
+        vbox = gtk_vbox_new (FALSE, 2);
+        gtk_container_add (GTK_CONTAINER (msg_window), vbox);
 
-    button = gtk_button_new_with_label("OK");
-    gtk_box_pack_start(GTK_BOX(vbox), button, FALSE, FALSE, 5);
+        swin = gtk_scrolled_window_new (NULL, NULL);
+        gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (swin),
+                                        GTK_POLICY_NEVER,
+                                        GTK_POLICY_AUTOMATIC);
+        gtk_box_pack_start(GTK_BOX(vbox), swin, TRUE, TRUE, 2);
 
-    gtk_signal_connect (GTK_OBJECT (win), "delete_event",  
-                        (GtkSignalFunc) gtk_widget_destroy, 
-                        (gpointer) win);
-    gtk_signal_connect_object (GTK_OBJECT (button), "clicked",
-                               (GtkSignalFunc) gtk_widget_destroy, 
-                               (gpointer) win);
-    gtk_widget_show_all(win);
+        messages = gtk_text_new (NULL, NULL);
+
+        gtk_container_add(GTK_CONTAINER(swin), messages);
+
+        button = gtk_button_new_with_label("OK");
+        gtk_box_pack_start(GTK_BOX(vbox), button, FALSE, FALSE, 5);
+
+        gtk_signal_connect (GTK_OBJECT (msg_window), 
+                            "delete_event",
+                            GTK_SIGNAL_FUNC (gtk_widget_destroy),
+                            (gpointer) msg_window);
+        gtk_signal_connect_object (GTK_OBJECT (button), "clicked",
+                                   GTK_SIGNAL_FUNC (gtk_widget_hide),
+                                   (gpointer) msg_window);
+        gtk_object_set_data(GTK_OBJECT (msg_window),
+                            "messages",
+                            messages);
+    }
+
+    gtk_widget_show_all (GTK_WIDGET(msg_window));
+
+    messages = GTK_WIDGET(gtk_object_get_data(GTK_OBJECT (msg_window), 
+                                              "messages"));
+    gtk_text_set_point (GTK_TEXT (messages),
+                        gtk_text_get_length (GTK_TEXT (messages)));
+    gtk_text_insert (GTK_TEXT (messages), NULL, NULL, NULL,
+                     msg, -1);
+    gtk_text_insert (GTK_TEXT (messages), NULL, NULL, NULL,
+                     "\n\n", -1);
 }
 
 
