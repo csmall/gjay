@@ -1,3 +1,23 @@
+/**
+ * GJay, copyright (c) 2002 Chuck Groom
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 1, or (at
+ * your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
+ * USA
+ */
+
+
 #ifndef __SONGS_H__
 #define __SONGS_H__
 
@@ -81,21 +101,8 @@ void        write_data_file        ( void );
 
 gboolean    add_from_daemon_file_at_seek ( int seek );
 
-
-
-void        sort                 ( GList ** list );
-HSV         average_color        ( GList * list );
-gdouble     average_rating       ( GList * list );
-GList *     songs_by_artist      ( GList * list, gchar * artist );
 void        song_set_freq_pixbuf  ( song * s);
 void        song_set_color_pixbuf ( song * s);
 void        print_song  ( song * s );
-
-/* Different song sort functions */
-gint sort_bpm ( gconstpointer a, gconstpointer b);
-gint sort_rating ( gconstpointer a, gconstpointer b);
-gint sort_freq   ( gconstpointer a, gconstpointer b);
-gint sort_artist_title ( gconstpointer a, gconstpointer b);
-gint sort_color ( gconstpointer a, gconstpointer b);
 
 #endif /* __SONGS_H__ */

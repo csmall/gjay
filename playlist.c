@@ -28,10 +28,9 @@
 static song * current;
 static song * first;
 static gdouble distance      ( song * s1 );
-/* Used for sorting song list */
-static gint    sort_dist     ( gconstpointer a, gconstpointer b);
-static gint    gaussian_rand ( gdouble deviation );
 
+/* How much does brightness factor into matching two songs? */
+#define BRIGHTNESS_FACTOR .8
 
 /**
  * Generate a playlist (list of song *) no longer than the specified
@@ -95,25 +94,23 @@ GList * generate_playlist ( guint minutes ) {
         }
     } 
     if (prefs.start_color || (prefs.start_selected && !first)) {
-        s = g_malloc(sizeof(song));
-        memset(s, 0x00, sizeof(song));
-        s->color.H = prefs.color.H;
-        s->color.B = prefs.color.B;
-        working = g_list_append(working, s);
-        working = g_list_sort(working, sort_color);
-        i = g_list_index(working, s);
-        working = g_list_remove(working, s);
-        g_free(s);
-        if (rand()%2)
-            i--;
-        i += (int) prefs.variance - (rand() % (2* ((int) prefs.variance)));
-        if (i < 0)
-            i = 0;
-        else if (i >= g_list_length(working)) {
-            i = g_list_length(working) - 1;
-        }
-        first = SONG(g_list_nth(working, i));
-    } else if (!first) {
+        for (min_distance = 10000, list = g_list_first(working); list; 
+             list = g_list_next(list)) {
+            s = SONG(list);
+            if (!s->no_color) {
+                s_distance = MIN(fabs(prefs.color.H - s->color.H),
+                                 (MIN(prefs.color.H, s->color.H)  + 2*M_PI) -
+                                 MAX(prefs.color.H, s->color.H)) +
+                    BRIGHTNESS_FACTOR * fabs(prefs.color.B - s->color.B);
+                if (s_distance < min_distance) {
+                    min_distance = s_distance;
+                    first = SONG(list);
+                }
+            }
+        } 
+    } 
+    if (!first) {
+        /* Pick random starting song */
         i = rand() % g_list_length(working); 
         first = SONG(g_list_nth(working, i));
     }
@@ -258,20 +255,6 @@ static gdouble distance ( song * s1 ) {
 
 
 
-/* Return -1 if (a) is closer to current than (b), 0 if same dist, 1
-   if (b) is closer than (a). */
-static gint sort_dist ( gconstpointer a, gconstpointer b) {
-    double d_a, d_b;
-    d_a = distance((song *) a);
-    d_b = distance((song *) b);
-    if (d_a < d_b)
-        return - 1;
-    if (d_a > d_b)
-        return 1;
-    return 0;
-}
-
-
 void save_playlist ( GList * list, gchar * fname ) {
     FILE * f;
     song * s;
@@ -303,16 +286,3 @@ void save_playlist ( GList * list, gchar * fname ) {
 }
 
 
-static gint gaussian_rand( gdouble deviation ) {
-    float x1, x2, w, y1;
-    
-    do {
-        x1 = 2.0 * (rand() / (gdouble) RAND_MAX) - 1.0;
-        x2 = 2.0 * (rand() / (gdouble) RAND_MAX) - 1.0;
-        w = x1 * x1 + x2 * x2;
-    } while ( w >= 1.0 );
-    
-    w = sqrt( (-2.0 * log( w ) ) / w );
-    y1 = fabs(x1 * w);
-    return (int) (y1 * deviation + 1);
-}

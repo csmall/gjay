@@ -11,6 +11,7 @@
 typedef enum {
     /* UI process sends... */
     UNLINK_DAEMON_FILE, /* no arg */
+    CLEAR_ANALYSIS_QUEUE, /* no arg */
     QUEUE_FILE,       /* str arg */
     QUIT_IF_ATTACHED, /* no arg */
     ATTACH,           /* no arg */
@@ -32,6 +33,13 @@ typedef enum {
 /* Pipes are named by the sending process */
 #define DAEMON_PIPE "/tmp/gjay_daemon"
 #define UI_PIPE     "/tmp/gjay_ui"
+
+/* The UI will send a message to an attached daemon at least every
+ *  UI_PING ms. If an attached daemon hasn't heard from the UI in
+ *  FREAKOUT sec it quits.
+ */
+#define UI_PING                5000
+#define DAEMON_ATTACH_FREAKOUT 20
 
 extern int daemon_pipe_fd;
 extern int ui_pipe_fd;

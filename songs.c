@@ -26,6 +26,7 @@
 #include <vorbis/codec.h>
 #include <endian.h>
 #include <errno.h>
+#include <math.h>
 #include "gjay.h"
 #include "analysis.h"
 
@@ -199,7 +200,8 @@ void read_attr_file ( void ) {
                     s->rating = fl1;
                 break;
             default:
-                fprintf(stderr, "Unable to parse token\n");
+                if (verbosity)
+                    fprintf(stderr, "Unable to parse token\n");
                 break;
             }
         }
@@ -327,7 +329,8 @@ gboolean read_data (FILE * f) {
             fscanf(f, " %ud\n", (unsigned int *) &s->length);
             break;
         default:
-            fprintf(stderr, "Unknown token %s\n", token);
+            if (verbosity) 
+                fprintf(stderr, "Unknown token %s\n", token);
             if (s)
                 delete_song(s);
             return FALSE;
@@ -677,164 +680,6 @@ static song * test_wav_create ( char * fname ) {
 }
 
 
-void sort ( GList ** list ) {
-    GCompareFunc func;
-
-    /* FIXME */
-#if 0
-    switch (prefs.sort) {
-    case ARTIST_TITLE:
-        func = sort_artist_title;
-        break;
-    case COLOR:
-        func = sort_color;
-        break;
-    case BPM:
-        func = sort_bpm;
-        break;
-    case RATING:
-        func = sort_rating;
-        break;
-    case FREQ:
-        func = sort_freq;
-    }
-#endif
-    func = sort_artist_title;
-    *list = g_list_sort(*list, func);
-}
-
-
-gint sort_artist_title ( gconstpointer a, gconstpointer b) {
-    gint result;
-    gchar * a_artist, * b_artist, * a_title, * b_title;
-    song * s_a = (song *) a;
-    song * s_b = (song *) b;
-    
-    a_artist = s_a->artist;
-    b_artist = s_b->artist;
-
-    if (strncasecmp(a_artist, "the ", 4) == 0)
-        a_artist += 4;
-    if (strncasecmp(b_artist, "the ", 4) == 0)
-        b_artist += 4;
-    result = strcasecmp(a_artist, b_artist);
-    if (result == 0) {
-        a_title = strcmp(s_a->title, "?") ? s_a->title: s_a->fname;
-        b_title = strcmp(s_b->title, "?") ? s_b->title: s_b->fname;
-        if (strncasecmp(a_title, "the ", 4) == 0)
-            a_title += 4;
-        else if (strncasecmp(a_title, "a ", 2) == 0)
-            a_title += 2;
-        if (strncasecmp(b_title, "the ", 4) == 0)
-            b_title += 4;
-        else if (strncasecmp(b_title, "a ", 2) == 0)
-            b_title += 2;
-
-        result = strcasecmp(a_title, b_title);
-    }
-    return result;
-}
-
-
-gint sort_rating ( gconstpointer a, gconstpointer b) {
-    song * s_a = (song *) a;
-    song * s_b = (song *) b;
-    if (s_a->rating < s_b->rating)
-        return 1;
-    if (s_a->rating == s_b->rating)
-        return sort_artist_title(a, b);
-    return -1;
-}
-
-
-gint sort_bpm ( gconstpointer a, gconstpointer b) {
-    song * s_a = (song *) a;
-    song * s_b = (song *) b;
-
-    if (s_a->bpm_undef) {
-        if (s_b->bpm_undef)
-            return sort_artist_title(a, b);
-        return -1;
-    } 
-    if (s_b->bpm_undef)
-        return 1;
-
-    if (s_a->bpm < s_b->bpm)
-        return -1;
-    if (s_a->bpm == s_b->bpm)
-        return sort_artist_title(a, b);
-    return 1;
-}
-
-
-#define BRIGHTNESS_SORT .8
-
-gint sort_color ( gconstpointer a, gconstpointer b) {
-    song * s_a = (song *) a;
-    song * s_b = (song *) b;
-    
-    
-    if (s_a->no_color) {
-        if (s_b->no_color) 
-            return sort_artist_title(a, b);
-        return -1;
-    }
-    if (s_b->no_color) 
-        return 1;
-    if ((s_a->color.H + BRIGHTNESS_SORT * s_a->color.B) <
-        (s_b->color.H + BRIGHTNESS_SORT * s_b->color.B)) {
-        return -1;
-    }
-    if ((s_a->color.H + BRIGHTNESS_SORT * s_a->color.B) ==
-        (s_b->color.H + BRIGHTNESS_SORT * s_b->color.B)) {
-        return 0;
-    }
-    return 1;
-}
-
-    
-gint sort_freq ( gconstpointer a, gconstpointer b) {
-    song * s_a = (song *) a;
-    song * s_b = (song *) b;
-    gdouble a_sum, b_sum, a_val, b_val;
-    gint i;
-    
-    for (i = 0, a_sum = 0, b_sum = 0; i < NUM_FREQ_SAMPLES; i++) {
-        a_val = s_a->freq[i];
-        b_val = s_b->freq[i];
-        if (a_val > b_val)
-            a_sum += a_val;
-        else if (a_val < b_val)
-            b_sum += b_val;
-    }
-
-    if (a_sum < b_sum) 
-        return -1;
-    if (a_sum > b_sum)
-        return 1;
-    return 0;
-}
-
-
-
-
-HSV average_color ( GList * list ) {
-    RGB rgb;
-    gdouble r, g, b;
-    gdouble num_songs = g_list_length(list);
-    r = g = b = 0;
-    for (;list; list = g_list_next(list)) {
-        rgb = hsv_to_rgb(hb_to_hsv(SONG(list)->color));
-        r += rgb.R;
-        g += rgb.G;
-        b += rgb.B;
-    }
-    rgb.R = r / num_songs;
-    rgb.G = g / num_songs;
-    rgb.B = b / num_songs;
-    return(rgb_to_hsv(rgb));
-}
-
 
 /**
  * If the song does not have a pixbuf for its frequency, and it has been 
@@ -842,7 +687,7 @@ HSV average_color ( GList * list ) {
  */
 void song_set_freq_pixbuf ( song * s) {
     guchar * data;
-    int x, y, sample, offset, strength, rowstride;
+    int x, y, offset, rowstride;
     guchar r, g, b;
 
     assert(s);
@@ -860,7 +705,7 @@ void song_set_freq_pixbuf ( song * s) {
     data = gdk_pixbuf_get_pixels (s->freq_pixbuf);
     
     for (x = 0; x < NUM_FREQ_SAMPLES; x++) {
-        g = b = MIN(255, 255.0 * 1.8 * sqrt((double) s->freq[x]));
+        g = b = MIN(255, 255.0 * 1.8 * (float) sqrt((double) s->freq[x]));
         r = MIN(255, 255.0 * 2.0 * s->freq[x]);
         for (y = 0; y <  FREQ_IMAGE_HEIGHT; y++) {
             offset = rowstride * y + 3*x;

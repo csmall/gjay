@@ -49,6 +49,8 @@
 
 #define BPM_BUF_SIZE    32*1024
 #define SHARED_BUF_SIZE sizeof(short int) * BPM_BUF_SIZE
+#define SLEEP_WHILE_IDLE 500
+
 
 typedef enum {
     OGG = 0,
@@ -94,7 +96,7 @@ static gboolean     in_analysis = FALSE;  /* Are we currently analyizing a
 static song       * analyze_song = NULL;
 static GList      * queue = NULL; 
 static GHashTable * queue_hash = NULL;
-
+static time_t       last_ping;
 
 void          analyze(char * fname);
 FILE *        inflate_to_wav (gchar * path, 
@@ -122,7 +124,7 @@ void analysis_daemon(void) {
     
     in_analysis = FALSE;
     loop = g_main_new(FALSE);
-
+    last_ping = time(NULL);
     queue_hash = g_hash_table_new(g_str_hash, g_str_equal);
     
     /* Read analysis queue, if any */
@@ -157,8 +159,15 @@ void analysis_daemon(void) {
 gboolean daemon_idle (gpointer data) {
     gchar * file;
 
+    if ((mode != DAEMON_DETACHED) && 
+        (time(NULL) - last_ping > DAEMON_ATTACH_FREAKOUT)) {
+        if (verbosity)
+            printf("Daemon appears to have been orphaned. Quitting.\n");
+        g_main_quit((GMainLoop *) data);
+    } 
+
     if (mode == DAEMON_INIT) {
-        usleep(200);
+        usleep(SLEEP_WHILE_IDLE);
         return TRUE;
     }
 
@@ -209,7 +218,6 @@ static void add_file_to_queue ( char * fname) {
         fclose(f_queue);
         fclose(f_add);
     }
-    unlink(fname);
 }
 
 
@@ -244,6 +252,7 @@ static void write_queue (void) {
 gboolean ui_pipe_input (GIOChannel *source,
                         GIOCondition condition,
                         gpointer data) {
+    GList * list;
     char buffer[BUFFER_SIZE], * file;
     int len, k, l;
     ipc_type ipc;
@@ -253,7 +262,9 @@ gboolean ui_pipe_input (GIOChannel *source,
     for (k = 0, l = len; l; l -= k) {
         k = read(ui_pipe_fd, buffer + k, l);
     }
-
+    
+    last_ping = time(NULL);
+    
     memcpy((void *) &ipc, buffer, sizeof(ipc_type));
     switch(ipc) {
     case REQ_ACK:
@@ -269,13 +280,31 @@ gboolean ui_pipe_input (GIOChannel *source,
                  getenv("HOME"), GJAY_DIR, GJAY_DAEMON_DATA);
         unlink(buffer);
         break;
+    case CLEAR_ANALYSIS_QUEUE:
+        if (verbosity > 1)
+            printf("Daemon is clearing out analysis queue, file\n");
+        snprintf(buffer, BUFFER_SIZE, "%s/%s/%s", getenv("HOME"), 
+                 GJAY_DIR, GJAY_QUEUE);
+        unlink(buffer);
+        for (list = g_list_first(queue); list; list = g_list_next(list)) 
+            g_free(list->data);
+        g_list_free(queue);
+        queue = NULL;
+        g_hash_table_destroy(queue_hash);
+        queue_hash = g_hash_table_new(g_str_hash, g_str_equal);
+        break;
     case QUEUE_FILE:
+        if (verbosity > 1) 
+            printf("Queuing\n");
         /* If the file is not already in the queue, enqueue the file and
          * also append the file name to the analysis log */
         buffer[len] = '\0';
         file = buffer + sizeof(ipc_type);
+        if (verbosity > 1) 
+            printf("Queuing file %s\n", file);
         add_file_to_queue(file);
         g_idle_add (daemon_idle, data);
+        unlink(file);
         break;
     case DETACH: 
         if (mode == DAEMON) {
@@ -296,7 +325,7 @@ gboolean ui_pipe_input (GIOChannel *source,
         
         break;
     case QUIT_IF_ATTACHED:
-        if (mode != DAEMON_DETACHED) {
+        if (mode == DAEMON) {
             if (verbosity)
                 printf("Daemon Quitting\n");
             g_main_quit ((GMainLoop * ) data);
@@ -817,7 +846,7 @@ void send_analyze_song_name ( void ) {
     char buffer[BUFFER_SIZE];
     if (!analyze_song)
         return;
-    if (analyze_song->title) {
+    if (analyze_song->title && (strlen(analyze_song->title) > 1)) {
         snprintf(buffer, BUFFER_SIZE, "%s : %s", analyze_song->artist, analyze_song->title);
     } else {
         snprintf(buffer, BUFFER_SIZE, "%s", analyze_song->fname);

@@ -1,3 +1,22 @@
+/**
+ * GJay, copyright (c) 2002 Chuck Groom
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 1, or (at
+ * your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
+ * USA
+ */
+
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/stat.h>
@@ -35,6 +54,7 @@ static void     rating_changed ( GtkRange *range,
                                  gpointer user_data );
 static void     populate_selected_list (void);
 static void     redraw_rating (void);
+
 
 /* How many chars should we truncate displayed file names to? */
 #define TRUNC_NAME 18
@@ -79,6 +99,8 @@ GtkWidget * make_selection_view ( void ) {
     gtk_box_pack_start(GTK_BOX(hbox2), event_box, FALSE, FALSE, 2);
 
     play = gtk_image_new_from_pixbuf(pixbufs[PM_BUTTON_PLAY]);
+    gtk_tooltips_set_tip (tips, event_box,
+                          "Play the selected songs in XMMS", "");
     gtk_container_add (GTK_CONTAINER(event_box), play);
     gtk_widget_set_events (event_box, GDK_BUTTON_PRESS_MASK);
     gtk_signal_connect (GTK_OBJECT(event_box), 
@@ -90,6 +112,8 @@ GtkWidget * make_selection_view ( void ) {
     gtk_box_pack_start(GTK_BOX(hbox2), event_box, FALSE, FALSE, 2);
     
     select_all = gtk_image_new_from_pixbuf(pixbufs[PM_BUTTON_ALL]);
+    gtk_tooltips_set_tip (tips, event_box,
+                          "Select all songs in this directory (but not its sub-directories)", "");
     gtk_container_add (GTK_CONTAINER(event_box), select_all);
     gtk_widget_set_events (event_box, GDK_BUTTON_PRESS_MASK);
     gtk_signal_connect (GTK_OBJECT(event_box), 
@@ -100,6 +124,8 @@ GtkWidget * make_selection_view ( void ) {
     event_box = gtk_event_box_new ();
     gtk_box_pack_start(GTK_BOX(hbox2), event_box, FALSE, FALSE, 2);
     select_all_recursive = gtk_image_new_from_pixbuf(pixbufs[PM_BUTTON_ALL_RECURSIVE]);
+    gtk_tooltips_set_tip (tips, event_box,
+                          "Select all songs in this directory and its sub-directories", "");
     gtk_container_add (GTK_CONTAINER(event_box), select_all_recursive);
     gtk_widget_set_events (event_box, GDK_BUTTON_PRESS_MASK);
     gtk_signal_connect (GTK_OBJECT(event_box), 
@@ -176,6 +202,31 @@ GtkWidget * make_selection_view ( void ) {
 }
 
 
+/**
+ * If a directory is selected when we enter playlist view, hide
+ * directory selection buttons and show them again when we leave that
+ * mode */
+void set_selected_in_playlist_view ( gboolean in_view ) {
+    gchar * fname;
+    
+    if (selected_files == NULL)
+        return;
+    if (g_list_length(selected_files) > 1)
+        return;
+    fname = (gchar *) selected_files->data;
+    if ( g_hash_table_lookup(song_name_hash, fname) ||
+         g_hash_table_lookup(rated_name_hash, fname) ||
+         g_hash_table_lookup(files_not_song_hash, fname))
+        return;
+    if (in_view) {
+        gtk_widget_hide(select_all);
+        gtk_widget_hide(select_all_recursive);
+    } else {
+        gtk_widget_show(select_all);
+        gtk_widget_show(select_all_recursive);
+    }
+}
+
 
 void set_selected_file ( char * file, 
                          char * short_name, 
@@ -244,7 +295,6 @@ void set_selected_file ( char * file,
             } else {
                 pm_type = PM_ICON_PENDING;
                 gtk_label_set_text(GTK_LABEL(label_type), "Will be analyzed");
-                
                 s = g_hash_table_lookup(rated_name_hash, file);
                 if (!s) {
                     s = create_song(file);
@@ -381,7 +431,7 @@ void populate_selected_list (void) {
             artist = s->artist;
         else
             artist = NULL;
-        if (s->title) 
+        if (s->title && strlen(s->title) > 1) 
             title = s->title;
         else 
             title = s->fname;

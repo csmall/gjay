@@ -56,15 +56,15 @@ static char * pixbuf_files[] = {
 };
 
 
-static void     load_pixbufs(void);
-static gboolean delete_window (GtkWidget *widget,
-                               GdkEvent *event,
-                               gpointer user_data);
-static void     respond_quit_analysis (GtkDialog *dialog,
-                                       gint arg1,
-                                       gpointer user_data);
-static void     quit_app (void);    
-
+static void     load_pixbufs          ( void );
+static gboolean delete_window         ( GtkWidget *widget,
+                                        GdkEvent *event,
+                                        gpointer user_data );
+static void     respond_quit_analysis ( GtkDialog *dialog,
+                                        gint arg1,
+                                        gpointer user_data );
+static void     quit_app              ( void);    
+static gint     ping_daemon           ( gpointer data );
 
 
 GtkWidget * make_app_ui ( void ) {
@@ -79,7 +79,6 @@ GtkWidget * make_app_ui ( void ) {
         gtk_tooltips_enable(tips);
 
     gdk_rgb_init();
-
     current_tab = TAB_EXPLORE;
     
     window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
@@ -153,6 +152,8 @@ GtkWidget * make_app_ui ( void ) {
                         NULL);
   
     gtk_notebook_set_page(GTK_NOTEBOOK(notebook), TAB_EXPLORE);
+    
+    gtk_timeout_add( UI_PING, ping_daemon, NULL);
     return window;
 }
 
@@ -235,6 +236,8 @@ void display_message ( gchar * msg ) {
         gtk_box_pack_start(GTK_BOX(vbox), swin, TRUE, TRUE, 2);
         msg_text_view = gtk_text_view_new ();
         gtk_text_view_set_editable(GTK_TEXT_VIEW(msg_text_view), FALSE);
+        gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(msg_text_view),
+                                    GTK_WRAP_WORD);
         gtk_container_add(GTK_CONTAINER(swin), msg_text_view);
 
         button = gtk_button_new_with_label("OK");
@@ -308,6 +311,7 @@ void switch_page (GtkNotebook *notebook,
                                TRUE, TRUE, 5);
             gtk_paned_add1(GTK_PANED(paned), explore_view); 
             gtk_paned_add2(GTK_PANED(paned), selection_view); 
+            set_selected_in_playlist_view(FALSE);
             gtk_widget_show(paned);
         } else {
              gtk_box_pack_start(GTK_BOX(explore_hbox), no_root_view,
@@ -319,6 +323,7 @@ void switch_page (GtkNotebook *notebook,
         gtk_box_pack_start(GTK_BOX(playlist_hbox), paned, TRUE, TRUE, 5);
         gtk_paned_add1(GTK_PANED(paned), playlist_view);
         gtk_paned_add2(GTK_PANED(paned), selection_view);
+        set_selected_in_playlist_view(TRUE);
         gtk_widget_show(paned);
         gtk_widget_show(playlist_hbox);
         break;
@@ -339,7 +344,7 @@ void switch_page (GtkNotebook *notebook,
  *    ./icons/
  *    ~/.gjay/icons
  *    /usr/share/gjay/icons
- *    /usr/localshare/gjay/icons
+ *    /usr/local/share/gjay/icons
  */
 void load_pixbufs(void) {
     char buffer[BUFFER_SIZE];
@@ -444,4 +449,15 @@ static void quit_app (void) {
     gtk_widget_destroy(about_view);
     gtk_widget_destroy(paned);
     gtk_main_quit();
+}
+
+
+/**
+ * We make sure to ping the daemon periodically such that it knows the
+ * UI process is still attached. Otherwise, it will timeout after
+ * about 20 seconds and quit.
+ */
+static gint ping_daemon ( gpointer data ) {
+    send_ipc(ui_pipe_fd, ACK);
+    return TRUE;
 }

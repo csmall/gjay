@@ -1,8 +1,30 @@
+/**
+ * GJay, copyright (c) 2002 Chuck Groom
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 1, or (at
+ * your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
+ * USA
+ */
+
+
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/stat.h>
 #include "gjay.h"
 #include "ui.h"
+#include "ipc.h"
+
 
 static char * welcome_str =
   "Welcome to GJay!\n\n" \
@@ -214,16 +236,25 @@ static void set_base_dir ( GtkButton *button,
         fprintf(stderr, "%s is not a directory\n", base_dir); 
         return;
     }
-    if (prefs.song_root_dir) 
+    if (prefs.song_root_dir) {
         g_free(prefs.song_root_dir);
+        /* Clear out old stuff the daemon may have been thinking about
+         * doing */
+        send_ipc(ui_pipe_fd, CLEAR_ANALYSIS_QUEUE);
+    }
+
     prefs.song_root_dir = g_strdup(base_dir);
-
+    
     explore_view_set_root(prefs.song_root_dir);
-
-    switch_page(GTK_NOTEBOOK(notebook),
-                NULL,
-                TAB_EXPLORE,
-                NULL);
+    if (gtk_notebook_get_current_page(GTK_NOTEBOOK(notebook)) !=
+        TAB_EXPLORE) {
+        gtk_notebook_set_current_page(GTK_NOTEBOOK(notebook), TAB_EXPLORE);
+    } else {
+        switch_page(GTK_NOTEBOOK(notebook),
+                    NULL,
+                    TAB_EXPLORE,
+                    NULL);
+    }
 }
 
 

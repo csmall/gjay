@@ -1,3 +1,22 @@
+/**
+ * GJay, copyright (c) 2002 Chuck Groom
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 1, or (at
+ * your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
+ * USA
+ */
+
 #include <stdlib.h>
 #include <ftw.h> 
 #include <string.h>
@@ -116,10 +135,11 @@ void explore_view_set_root ( char * root_dir ) {
 
     gtk_tree_store_clear(store);
     tree_depth = 0;
-
+    
     /* Unmark current songs */
-    for (llist = g_list_first(songs); llist; llist = g_list_next(llist)) 
-        ((song *) llist->data)->marked = FALSE;
+    for (llist = g_list_first(songs); llist; llist = g_list_next(llist)) {
+        SONG(llist)->marked = FALSE;
+    }
     
     /* Clear queue of files which were pending addition from previous
      * tree-building attempt. This should rarely be needed. */
@@ -145,9 +165,11 @@ void explore_view_set_root ( char * root_dir ) {
     file_name_in_tree = NULL;
 
     /* Check to see if the directory exists */
-    if (access(root_dir, R_OK | X_OK)) 
+    if (access(root_dir, R_OK | X_OK)) {
+        snprintf(buffer, BUFFER_SIZE, "Cannot acces the base directory '%s'! Maybe it moved? You can pick another directory in the prefs", root_dir);
+        display_message(buffer);
         return;
-    
+    }    
     if (iter_stack)
         g_queue_free (iter_stack); 
     iter_stack = g_queue_new(); 
@@ -334,13 +356,19 @@ static void select_row (GtkTreeSelection *selection, gpointer data) {
     GtkTreeIter iter;
     GtkTreeModel *model;
     gchar * name;
-
+    
     if (gtk_tree_selection_get_selected (selection, &model, &iter)) {
         get_iter_path(model, &iter, buffer, TRUE);
         gtk_tree_model_get (model, &iter, NAME_COLUMN, &name, -1);
-        
-        set_selected_file(buffer, 
-                          name, 
+        /* Very special and quite annoying case. If we have changed root
+           directories, it is possible this method gets called before the
+           tree is setup and the root directory gets called as if it were
+           a normal file because it doesn't have any children. */
+        if (!g_queue_is_empty(files_to_add_queue) && 
+            (gtk_tree_store_iter_depth(store, &iter) == 0)) {
+            return;
+        }
+        set_selected_file(buffer, name, 
                           gtk_tree_model_iter_has_child(model, &iter));
         g_free(name);
     }
