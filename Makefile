@@ -1,7 +1,7 @@
 PREFIX = /usr/local
 CC = gcc
 LINK = $(CC)
-CFLAGS = -d -g -Wall `pkg-config --cflags gtk+-2.0`
+CFLAGS = -g -Wall `pkg-config --cflags gtk+-2.0`
 LFLAGS = `pkg-config --libs gtk+-2.0` -lxmms -lgsl -lgslcblas -lm -lpthread -lvorbis -lvorbisfile
 TARGET = gjay
 

@@ -20,6 +20,7 @@
 
 #include <gdk-pixbuf/gdk-pixbuf.h>
 #include <gdk/gdk.h>
+#include <string.h>
 #include "gjay.h"
 #include "ui.h"
 

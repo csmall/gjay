@@ -20,6 +20,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <string.h>
 #include "gjay.h"
 #include "ui.h"
 #include "playlist.h"

@@ -1,3 +1,4 @@
+#include <string.h>
 #include "ipc.h"
 #include "gjay.h"
 
