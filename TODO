@@ -8,7 +8,3 @@ Input is always appreciated!
 - The categorize dialog should include a list of color/label pairs to the
   right of the color wheel so users can jot down what colors
   (e.g. "dark red") mean to them
-
-- Freq and BPM analysis could be tweaked for way more efficient performance.
-  For example, I think you could get away with doing a BPM analysis of the
-  middle third of a song without altering the results very much.

@@ -31,7 +31,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <errno.h>
-#include <pthread.h>
 #include <string.h>
 #include <sys/poll.h>
 #include <vorbis/vorbisfile.h>
@@ -46,16 +45,10 @@
 #include <gsl/gsl_fft_halfcomplex.h>
 #include "gjay.h"
 #include "analysis.h"
+#include "ipc.h"
 
-pthread_mutex_t analyze_mutex;
-pthread_mutex_t analyze_data_mutex;
-
-song * analyze_song = NULL;
-int analyze_percent = 0;
-analyze_mode analyze_state = ANALYZE_IDLE;
-gdouble analyze_bpm;
-
-// #define DEBUG
+#define BPM_BUF_SIZE    32*1024
+#define SHARED_BUF_SIZE sizeof(short int) * BPM_BUF_SIZE
 
 typedef enum {
     OGG = 0,
@@ -63,17 +56,12 @@ typedef enum {
     MP3
 } ftype;
 
-#define BPM_BUF_SIZE 32*1024
-#define SHARED_BUF_SIZE sizeof(short int) * BPM_BUF_SIZE
-
-/* Shared struct for reading wav file data between two threads */
 typedef struct {
     FILE * f;
     waveheaderstruct header;
     long int freq_seek, seek;
     char buffer[SHARED_BUF_SIZE];
-    gboolean dont_wait; /* Set when one thread finishes */
-} wav_file_shared;
+} wav_file;
 
 
 /* BPM globals */
@@ -101,69 +89,239 @@ static long read_buffer_start;
 static long read_buffer_end; /* same as file position */
 static int window_size = 1024;
 static int step_size = 1024;
+static gboolean in_analysis = FALSE;  /* Are we currently analyizing a
+                                         song? */
+
+static GList      * queue = NULL; 
+static GHashTable * queue_hash = NULL;
 
 
-void *     analyze_thread(void* arg);
-FILE *     inflate_to_wav (gchar * path, ftype type);
-
-int           run_analysis     ( wav_file_shared * wsfile,
+void          analyze(char * fname);
+FILE *        inflate_to_wav (gchar * path, 
+                              ftype type);
+int           run_analysis     ( wav_file * wsfile,
                                  gdouble * freq_results,
                                  gdouble * volume_diff,
                                  gdouble * bpm_result );
 unsigned long bpm_phasefit     ( long i );
-int           freq_read_frames ( wav_file_shared * wsfile, 
+int           freq_read_frames ( wav_file * wsfile, 
                                  int start, 
                                  int length, 
                                  void *data );
+void          send_ui_percent   ( int percent );
+gboolean      daemon_idle       ( gpointer data );
+static void   write_queue       ( void );
 
+void analysis_daemon(void) {
+    GIOChannel * ui_io;
+    GMainLoop * loop;
+    char buffer[BUFFER_SIZE];
+    gchar * file;
+    FILE * f;
+    
+    in_analysis = FALSE;
+    loop = g_main_new(FALSE);
 
-
-
-gboolean analyze(song * s) {
-    pthread_t thread;
-    if (s->flags & ANALYZED)
-        return FALSE;
-    if (pthread_mutex_trylock(&analyze_mutex)) {
-        return FALSE;
+    queue_hash = g_hash_table_new(g_str_hash, g_str_equal);
+    
+    /* Read analysis queue, if any */
+    snprintf(buffer, BUFFER_SIZE, "%s/%s/%s", getenv("HOME"), 
+             GJAY_DIR, GJAY_QUEUE);
+    f = fopen(buffer, "r");
+    if (f) {
+        while (!feof(f)) {
+            read_line(f, buffer, BUFFER_SIZE);
+            if (strlen(buffer) &&!g_hash_table_lookup(queue_hash, buffer)) {
+                file = g_strdup(buffer);
+                g_hash_table_insert(queue_hash, file, (void *) 1);
+                queue = g_list_append(queue, file);
+            }
+        }
+        fclose(f);
     }
-    pthread_create(&thread, NULL, analyze_thread, (void *) s);
+    
+    ui_io = g_io_channel_unix_new (ui_pipe_fd);
+    g_io_add_watch (ui_io,
+                    G_IO_IN,
+                    ui_pipe_input,
+                    loop);
+    g_idle_add (daemon_idle, loop);
+    // FIXME: add G_IO_HUP watcher
+
+    g_main_run(loop);
+}
+
+
+gboolean daemon_idle (gpointer data) {
+    gchar * file;
+
+    if (in_analysis)
+        return TRUE;
+    
+    if (queue) {
+        file = g_list_first(queue)->data;
+        analyze(file);
+        g_hash_table_remove(queue_hash, file);
+        queue = g_list_remove(queue, file);
+        g_free(file);
+        
+        write_queue();
+    }
+    
+    if (queue)
+        return TRUE;
+
+    if (mode == DAEMON) {
+        printf("Analysis daemon done.\n");
+        g_main_quit((GMainLoop *) data);
+    }
+    return FALSE;
+}
+
+
+static void add_file_to_queue ( char * fname) {
+    char queue_fname[BUFFER_SIZE], buffer[BUFFER_SIZE], * str;
+    FILE * f_queue, * f_add;
+        
+    snprintf(queue_fname, BUFFER_SIZE, "%s/%s/%s", getenv("HOME"), 
+             GJAY_DIR, GJAY_QUEUE);
+    f_queue = fopen(queue_fname, "a");
+    f_add = fopen(fname, "r");
+    
+    if (f_queue && f_add) {
+        while (!feof(f_add)) {
+            read_line(f_add, buffer, BUFFER_SIZE);
+            if (!g_hash_table_lookup(queue_hash, buffer)) {
+                str = g_strdup(buffer);
+                queue = g_list_append(queue, str);
+                g_hash_table_insert(queue_hash, str, (void *) 1);
+                fprintf(f_queue, "%s\n", str);
+            }
+        }
+        fclose(f_queue);
+        fclose(f_add);
+    }
+    unlink(fname);
+}
+
+
+
+static void write_queue (void) {
+    char fname[BUFFER_SIZE], fname_temp[BUFFER_SIZE];
+    FILE * f;
+    GList * llist;
+    
+    snprintf(fname, BUFFER_SIZE, "%s/%s/%s", getenv("HOME"), 
+             GJAY_DIR, GJAY_QUEUE);
+    snprintf(fname_temp, BUFFER_SIZE, "%s_temp", fname);
+    
+    if (queue) {
+        f = fopen(fname_temp, "w");
+        if (f) {
+            for (llist = g_list_first(queue);
+                 llist;
+                 llist = g_list_next(llist)) {
+                fprintf(f, "%s\n", (char *) llist->data);
+            }
+            rename(fname_temp, fname);
+            fclose(f);
+        }
+    } else {
+        unlink(fname);
+    }
+}
+
+
+
+gboolean ui_pipe_input (GIOChannel *source,
+                        GIOCondition condition,
+                        gpointer data) {
+    char buffer[BUFFER_SIZE], * file;
+    int len, k, l;
+    ipc_type ipc;
+
+    read(ui_pipe_fd, &len, sizeof(int));
+    assert(len < BUFFER_SIZE);
+    for (k = 0, l = len; l; l -= k) {
+        k = read(ui_pipe_fd, buffer + k, l);
+    }
+
+    memcpy((void *) &ipc, buffer, sizeof(ipc_type));
+    switch(ipc) {
+    case REQ_ACK:
+        send_ipc(daemon_pipe_fd, ACK);
+        break;
+    case ACK:
+        // No need for action
+        break;
+    case UNLINK_DAEMON_FILE:
+        snprintf(buffer, BUFFER_SIZE, "%s/%s/%s", 
+                 getenv("HOME"), GJAY_DIR, GJAY_DAEMON_DATA);
+        unlink(buffer);
+        break;
+    case QUEUE_FILE:
+        /* If the file is not already in the queue, enqueue the file and
+         * also append the file name to the analysis log */
+        buffer[len] = '\0';
+        file = buffer + sizeof(ipc_type);
+        add_file_to_queue(file);
+        g_idle_add (daemon_idle, data);
+        break;
+    case QUIT_IF_ATTACHED:
+        fprintf(stderr, "Daemon Quitting\n");
+        g_main_quit ((GMainLoop * ) data);
+        break;
+    default:
+        // Do nothing
+    }
     return TRUE;
 }
 
-void * analyze_thread(void* arg) {
+
+
+void analyze(char * fname) {
     OggVorbis_File vf;
     waveheaderstruct header;
-    wav_file_shared wsfile;
+    wav_file wsfile;
     int result, i;
-    guint16 song_len;
     char buffer[BUFFER_SIZE];
-    gchar * path;
     gdouble freq[NUM_FREQ_SAMPLES], volume_diff, analyze_bpm;
     FILE * f;
     ftype type;
+    song * analyze_song = NULL;
+    struct stat stat_buf;
 #ifdef DEBUG
     time_t t;
 #endif
 
-    pthread_mutex_lock(&analyze_data_mutex);
-    analyze_song = (song *) arg;
-    analyze_percent = 0;
-    analyze_state = ANALYZE;
-    path = g_strdup(analyze_song->path);
-    song_len = analyze_song->length;
-    pthread_mutex_unlock(&analyze_data_mutex);
-
-    /* First, determine file type */
-    f = fopen(path, "r");
-    if (!f) {
-        /* Song ain't there. */
-        pthread_mutex_lock(&analyze_data_mutex);
-        analyze_song->flags |= SONG_ERROR;
-        pthread_mutex_unlock(&analyze_data_mutex);
-        pthread_mutex_unlock(&analyze_mutex);
-        return NULL;
+    in_analysis = TRUE;
+    send_ui_percent(0);
+    
+    if (stat(fname, &stat_buf) != 0) {
+        /* File ain't there! The UI thread will check for non-existant
+           files periodically. */
+        in_analysis = FALSE;
+        return;
     }
 
+   analyze_song = create_song_from_file(fname);
+    if (!analyze_song) {
+        /* File isn't a song */
+        result = append_daemon_file(fname, NULL);
+        if (result >= 0) 
+            send_ipc_int(daemon_pipe_fd, ADDED_FILE, result);
+        in_analysis = FALSE;
+        return;
+    }
+
+    if (analyze_song->title)
+        send_ipc_text(daemon_pipe_fd, STATUS_TEXT, analyze_song->title);
+    else
+        send_ipc_text(daemon_pipe_fd, STATUS_TEXT, analyze_song->fname);
+    send_ipc_text(daemon_pipe_fd, ANIMATE_START, analyze_song->path);
+
+    /* Determine file type */
+    f = fopen(fname, "r");    
     if(ov_open(f, &vf, NULL, 0) == 0) {
         type = OGG;
     } else {
@@ -179,23 +337,17 @@ void * analyze_thread(void* arg) {
     }
     fclose(f);
 
-    pthread_mutex_lock(&analyze_data_mutex);
-    if (!analyze_song) {
-        pthread_mutex_unlock(&analyze_data_mutex);
-        pthread_mutex_unlock(&analyze_mutex);
-        return NULL;
-    }
-    f = inflate_to_wav(path, type);
-    memset(&wsfile, 0x00, sizeof(wav_file_shared));
+    
+    f = inflate_to_wav(fname, type);
+    memset(&wsfile, 0x00, sizeof(wav_file));
     wsfile.f = f;
     fread(&wsfile.header, sizeof(waveheaderstruct), 1, f);
     wav_header_swab(&wsfile.header);
     wsfile.header.data_length = (analyze_song->length - 1) * wsfile.header.byte_p_sec;
 #ifdef DEBUG
-    printf("Analyzing %s\n", analyze_song->fname);
+    printf("Analyzing %s\n", fname);
     t = time(NULL);
 #endif
-    pthread_mutex_unlock(&analyze_data_mutex);
 
     result = run_analysis(&wsfile, freq, &volume_diff, &analyze_bpm); 
 
@@ -203,40 +355,34 @@ void * analyze_thread(void* arg) {
     printf("Analysis took %ld seconds\n", time(NULL) - t);
 #endif
 
-    pthread_mutex_lock(&analyze_data_mutex);
-    analyze_percent = 0;
-    analyze_state = ANALYZE_FINISH;
+    send_ui_percent(0);
+
     if (result && analyze_song) {
         for (i = 0; i < NUM_FREQ_SAMPLES; i++) 
             analyze_song->freq[i] = freq[i];
-        analyze_song->flags |= ANALYZED;
         analyze_song->bpm = analyze_bpm;
         if (isinf(analyze_song->bpm) || (analyze_song->bpm < MIN_BPM)) {
-            analyze_song->flags |= BPM_UNDEF;
+            analyze_song->bpm_undef = TRUE;
+        } else {
+            analyze_song->bpm_undef = FALSE;
         }
         analyze_song->volume_diff = volume_diff;
     } 
-    pthread_mutex_unlock(&analyze_data_mutex);
 
     /* Finish reading rest of output */
     while ((result = fread(buffer, 1,  BUFFER_SIZE, f)))
         ;
     fclose(f);
-
-    pthread_mutex_lock(&analyze_data_mutex);
-    analyze_percent = 0;
-    analyze_state = ANALYZE_DONE;
-    pthread_mutex_unlock(&analyze_data_mutex);
-    pthread_mutex_unlock(&analyze_mutex);
-    g_free(path);
-    return NULL;
-}
-
-
-void * sys_thread(void* arg) {
-    system((char *) arg);
-    free((char *) arg);
-    return NULL;
+    
+    send_ipc(daemon_pipe_fd, ANIMATE_STOP);
+    send_ipc_text(daemon_pipe_fd, STATUS_TEXT, "Idle");
+    
+    result = append_daemon_file(analyze_song->path, analyze_song);
+    if (result >= 0) 
+        send_ipc_int(daemon_pipe_fd, ADDED_FILE, result);
+    delete_song(analyze_song);
+    in_analysis = FALSE;
+    return;
 }
 
 
@@ -316,7 +462,7 @@ int quote_path(char *buf, size_t bufsiz, const char *path) {
  *
  * Any ugliness is the fault of my munging. 
  */
-int run_analysis  (wav_file_shared * wsfile,
+int run_analysis  (wav_file * wsfile,
                    gdouble * freq_results,
                    gdouble * volume_diff,
                    gdouble * bpm_result ) {
@@ -387,11 +533,8 @@ int run_analysis  (wav_file_shared * wsfile,
             wsfile->freq_seek = 0;
             wsfile->seek += count;
             
-            /* Update status bar */
-            pthread_mutex_lock(&analyze_data_mutex);
-            analyze_percent = MIN(100, (wsfile->seek * 100 ) / 
-                                  wsfile->header.data_length);
-            pthread_mutex_unlock(&analyze_data_mutex);
+            /* Update status bar. This chunk takes ~70% of the time  */
+            send_ui_percent(wsfile->seek/(wsfile->header.data_length / 70));
             
             /* BPM loop */
             for (h=0;h<count/2;h+=2*(44100/audiorate))
@@ -455,11 +598,8 @@ int run_analysis  (wav_file_shared * wsfile,
             num_frames++;
         }
     }
-    
-    pthread_mutex_lock(&analyze_data_mutex);
-    analyze_state = ANALYZE_FINISH;
-    analyze_percent = 0;
-    pthread_mutex_unlock(&analyze_data_mutex);
+
+    /* Finish analysis... */
     *volume_diff =  max_frame_sum / (sum / (gdouble) num_frames);
 
 #ifdef DEBUG
@@ -507,9 +647,8 @@ int run_analysis  (wav_file_shared * wsfile,
                 minimumfoutat=h;
             }
             if (fout>maximumfout) maximumfout=fout;
-            pthread_mutex_lock(&analyze_data_mutex);
-            analyze_percent = (50*(h - startshift)) / (stopshift - startshift);
-            pthread_mutex_unlock(&analyze_data_mutex);
+            
+            send_ui_percent (70 + ((15*(h - startshift)) / (stopshift - startshift)));
         }
         left=minimumfoutat-100;
 	right=minimumfoutat+100;
@@ -528,9 +667,7 @@ int run_analysis  (wav_file_shared * wsfile,
             }
             if (fout>maximumfout) maximumfout=fout;
             
-            pthread_mutex_lock(&analyze_data_mutex);
-            analyze_percent = 50 + ((50*(h - left)) / (right - left));
-            pthread_mutex_unlock(&analyze_data_mutex);
+            send_ui_percent(85 + ((15*(h - left)) / (right - left)));
         }
         
         for(h=startshift;h<stopshift;h++) {
@@ -555,7 +692,7 @@ int run_analysis  (wav_file_shared * wsfile,
 
 
 
-int freq_read_frames (wav_file_shared * wsfile,
+int freq_read_frames (wav_file * wsfile,
                       int start, 
                       int length, 
                       void *data)
@@ -628,3 +765,25 @@ unsigned long bpm_phasefit(long i)
      }
    return mismatch;
 }
+
+
+
+void send_ui_percent (int percent) {
+    static int old_percent = -1;
+
+    if (old_percent == percent)
+        return;
+    
+    old_percent = percent;
+    assert((percent >= 0) && (percent <= 100));
+    
+    send_ipc_int(daemon_pipe_fd, STATUS_PERCENT, percent);
+
+    /* This is a bit of a hack, but... anytime we care enough to pause
+     * analysis so we can send the percentage,  run an iteration of the 
+     * event loop */
+    if (g_main_pending())
+        g_main_iteration(TRUE);
+}
+
+

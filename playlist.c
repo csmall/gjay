@@ -22,56 +22,55 @@
 #include <unistd.h>
 #include <string.h>
 #include "gjay.h"
+#include "ui.h"
 #include "analysis.h"
 
 static song * current;
 static song * first;
-static gdouble distance ( song * s1 );
+static gdouble distance      ( song * s1 );
 /* Used for sorting song list */
-static gint sort_dist ( gconstpointer a, gconstpointer b);
-static gint gaussian_rand( gdouble deviation );
+static gint    sort_dist     ( gconstpointer a, gconstpointer b);
+static gint    gaussian_rand ( gdouble deviation );
 
-/* Generate a playlist no longer than the specified length */
+
+/**
+ * Generate a playlist (list of song *) no longer than the specified
+ * time, in minutes 
+ */
 GList * generate_playlist ( guint minutes ) {
-    GList * working, * final, *temp;
-    gint i, time, l, r;
+    GList * working, * final, * rand_list, * ll;
+    gint i, time, l, r, min_distance_index;
+    gdouble min_distance, s_distance;
     song * s;
 
     time = 0;
     if (!g_list_length(songs))
         return NULL;
 
-    if (prefs.criteria_hue + 
-        prefs.criteria_brightness +
-        prefs.criteria_freq + 
-        prefs.criteria_bpm == 0) {
-        display_message("Some criterion must be non-zero");
-        return NULL;
-    }
-
     /* Create a working set, a copy of the songs list */
-    working = g_list_copy(songs);
+    working = g_list_copy(songs); 
+    /* FIXME: Add support for limiting songs to current selection */
     final = NULL;
 
-    if (prefs.rating_cutoff) {
-        for (i = 0; i < g_list_length(working); i++) {
-            current = SONG(g_list_nth(working, i));
-            if (current->rating < prefs.rating) {
-                i--;
-                working = g_list_remove(working, current);
-            }
-        }
+    for (i = 0; i < g_list_length(working); i++) {
+        current = SONG(g_list_nth(working, i));
+        if ((!current->marked) || 
+            ((prefs.rating_cutoff) && (current->rating < prefs.rating))) {
+            i--;
+            working = g_list_remove(working, current);
+        } 
     }
-
+    
     if (!working) {
         display_message("No songs to create playlist from");
         return NULL;
     }
     
+    
+
     /* Pick the first song */
-    if (prefs.start_random) {
-        i = rand() % g_list_length(working);
-    } else if (prefs.start_color) {
+    /* FIXME: add support for selected song */
+    if (prefs.start_color) {
         s = g_malloc(sizeof(song));
         memset(s, 0x00, sizeof(song));
         s->color.H = prefs.color.H;
@@ -83,41 +82,48 @@ GList * generate_playlist ( guint minutes ) {
         g_free(s);
         if (rand()%2)
             i--;
-        i += prefs.variance - (rand() % (2*prefs.variance));
+        i += (int) prefs.variance - (rand() % (2* ((int) prefs.variance)));
         if (i < 0)
             i = 0;
         else if (i >= g_list_length(working)) {
             i = g_list_length(working) - 1;
         }
     } else {
-        for (temp = working, i = 0; temp; temp = g_list_next(temp), i++) {
-            s = SONG(temp);
-            if (s->checksum == prefs.song_cksum) 
-                break;
-        }
-        if (!temp) {
-            display_message("Sorry, that song isn't\nin the list");
-            g_list_free(working);
-            return NULL;
-        }
+        i = rand() % g_list_length(working); 
     }
+
     first = SONG(g_list_nth(working, i));
     working = g_list_remove (working, first);
     final = g_list_append(final, first);
+
     current = first;
 
     /* Pick the rest of the songs */
     while (working && (time < minutes * 60)) {
-        /* Pick song closest to current song, with some variance. */
-        /* Sort list by distance to current song */
-        working = g_list_sort (working, sort_dist);
-        l = g_list_length(working) - 1;
-        r = gaussian_rand(prefs.variance);
-	i = MIN(l, r);
-        current = SONG(g_list_nth(working, i));
+        /* Divide working list into { random set, leftover }. Then 
+         * pick the best song in random set. */
+        rand_list = NULL;
+        min_distance = 10000;
+        min_distance_index = -1;
+        l = g_list_length(working);
+        r = MAX(1, (l * prefs.variance) / MAX_CRITERIA );
+        /* Reduce copy of working to size of random list */
+        while(r--) {
+            s = SONG(g_list_nth(working, rand() % g_list_length(working)));
+            working = g_list_remove(working, s);
+            rand_list = g_list_append(rand_list, s);
+            /* Find the closest song */
+            s_distance = distance(s);
+            if (s_distance < min_distance) {
+                min_distance = s_distance;
+                min_distance_index = g_list_length(rand_list) - 1;
+            }
+        }
+        current = SONG(g_list_nth(rand_list, min_distance_index));
         time += current->length;
-        working = g_list_remove (working, current);
         final = g_list_append(final, current);
+        rand_list = g_list_remove(rand_list, current);
+        working = g_list_concat(working, rand_list);
     }
     if (final && (time > minutes * 60)) {
         time -= SONG(g_list_last(final))->length;
@@ -129,31 +135,35 @@ GList * generate_playlist ( guint minutes ) {
 }
 
 
-
-
 /* Calculate "distance" between a song and "current" or "first", depending
  * on prefs. There are four factors:
  *  - Hue
  *  - Brightness
  *  - BPM
  *  - Freq
+ *  - Sorting distance
  */
 static gdouble distance ( song * s1 ) {
     gdouble total_criteria, criteria;
     gdouble d, distance = 0;
-    gint i;
+    gint i, path_dist;
     song * s2;
     
     total_criteria = 
-        prefs.criteria_hue + 
-        prefs.criteria_brightness +
-        prefs.criteria_freq + 
-        prefs.criteria_bpm;
+        prefs.hue + 
+        prefs.brightness +
+        prefs.freq + 
+        prefs.bpm +
+        prefs.path_weight;
     criteria = 0;
 
-    s2 = (prefs.hold_hue ? first : current);
-    if (!((s1->flags & COLOR_UNK) || (s2->flags & COLOR_UNK))) {
-        criteria = prefs.criteria_hue;
+    if (prefs.wander) 
+        s2 = current;
+    else
+        s2 = first;
+
+    if (!((s1->no_color) || (s2->no_color))) {
+        criteria = prefs.hue;
         d = fabsl(s1->color.H - s2->color.H);
         if (d > M_PI) {
             if (s1->color.H > s2->color.H) 
@@ -161,77 +171,68 @@ static gdouble distance ( song * s1 ) {
             else
                 d = fabsl(s1->color.H + 2*M_PI - s2->color.H);
         }
-        d *=  prefs.criteria_hue / (M_PI);
+        d *=  prefs.hue / (M_PI);
         distance += d;
     } else {
         /* Add half a hit against this combo */
-        criteria += prefs.criteria_hue / 2.0;
-        distance += prefs.criteria_hue / 2.0;
+        criteria += prefs.hue / 2.0;
+        distance += prefs.hue / 2.0;
     }
 
-    s2 = (prefs.hold_brightness ? first : current);
-    if (!((s1->flags & COLOR_UNK) || (s2->flags & COLOR_UNK))) {
-        criteria +=  prefs.criteria_brightness;
+    if (!(s1->no_color || s2->no_color)) {
+        criteria +=  prefs.brightness;
         d = fabsl(s1->color.B - s2->color.B);
-        d *= prefs.criteria_brightness;
+        d *= prefs.brightness;
         distance += d;
     } else {
         /* Add half a hit against this combo */
-        criteria +=  prefs.criteria_brightness / 2;
-        distance +=  prefs.criteria_brightness / 2;
+        criteria +=  prefs.brightness / 2;
+        distance +=  prefs.brightness / 2;
     }
 
-    s2 = (prefs.hold_bpm ? first : current);
-    if ((s1->flags & ANALYZED) && (s2->flags & ANALYZED)) {
-        criteria += prefs.criteria_bpm;
-        if ((s1->flags & BPM_UNDEF) || (s2->flags & BPM_UNDEF)) {
-            if ((s1->flags & BPM_UNDEF) && (s2->flags & BPM_UNDEF))
-                d = 0;
-            else 
-                d = MAX_CRITERIA;
-        } else {
-            d = fabsl(s1->bpm - s2->bpm);
-            d *= prefs.criteria_bpm / ((gdouble) (MAX_BPM - MIN_BPM));
+
+    criteria += prefs.bpm;
+    if (s1->bpm_undef || s2->bpm_undef) {
+        if (s1->bpm_undef && s2->bpm_undef)
+            d = 0;
+        else 
+            d = MAX_CRITERIA;
+    } else {
+        d = fabsl(s1->bpm - s2->bpm);
+        d *= prefs.bpm / ((gdouble) (MAX_BPM - MIN_BPM));
+    }
+    distance += d;
+   
+    criteria += prefs.freq;
+    for (d = 0, i = 0; i < NUM_FREQ_SAMPLES; i++) {
+        d += fabsl(s1->freq[i] - s2->freq[i]);
+        if (i < NUM_FREQ_SAMPLES - 1) {
+            d += fabsl(s1->freq[i] - s2->freq[i + 1])/2.0;  
+            d += fabsl(s1->freq[i + 1] - s2->freq[i])/2.0;  
         }
-        distance += d;
-    } else {
-        /* Add half a hit against this combo */
-        criteria += prefs.criteria_bpm/2.0;
-        distance += prefs.criteria_bpm/2.0;
-    }
-
-    s2 = (prefs.hold_freq ? first : current);
-    if ((s1->flags & ANALYZED) && (s2->flags & ANALYZED)) {
-        criteria += prefs.criteria_freq;
-        d = 0;
-        for (i = 0; i < NUM_FREQ_SAMPLES; i++) {
-            d += fabsl(s1->freq[i] - s2->freq[i]);
-            if (i < NUM_FREQ_SAMPLES - 1) {
-                d += fabsl(s1->freq[i] - s2->freq[i + 1])/2.0;  
-                d += fabsl(s1->freq[i + 1] - s2->freq[i])/2.0;  
-            }
-            if (i > 0) {
-                d += fabsl(s1->freq[i] - s2->freq[i - 1])/2.0;  
-                d += fabsl(s1->freq[i - 1] - s2->freq[i])/2.0;  
-            }
+        if (i > 0) {
+            d += fabsl(s1->freq[i] - s2->freq[i - 1])/2.0;  
+            d += fabsl(s1->freq[i - 1] - s2->freq[i])/2.0;  
         }
-        d /= 5.0;
-        d *= 1 + (MAX(s1->volume_diff, s2->volume_diff) - MIN(s1->volume_diff, s2->volume_diff))/10.0;
-        d *= prefs.criteria_freq;
-        distance += d;
-    } else {
-        /* Add half a hit against this combo */
-        criteria += prefs.criteria_freq/2.0;
-        distance += prefs.criteria_freq/2.0;
     }
-
-    if (criteria == 0) {
-        /* There's no basis for comparing these songs. */
-        return total_criteria;
+    d /= 5.0;
+    d *= 1 + (MAX(s1->volume_diff, s2->volume_diff) - MIN(s1->volume_diff, s2->volume_diff))/10.0;
+    d *= prefs.freq;
+    distance += d;
+    
+    if (tree_depth) {
+        path_dist = explore_files_depth_distance(s1->path, s2->path);
+        if (path_dist >= 0) {
+            criteria += prefs.path_weight;
+            distance += (prefs.path_weight * ((float) path_dist)) / 
+                ((float) tree_depth);
+        }
     }
     
     return distance * (total_criteria / criteria);
 }
+
+
 
 /* Return -1 if (a) is closer to current than (b), 0 if same dist, 1
    if (b) is closer than (a). */

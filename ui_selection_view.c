@@ -1,0 +1,481 @@
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <math.h>
+#include "gjay.h"
+#include "ui.h"
+#include "rgbhsv.h"
+
+enum {
+   ARTIST_COLUMN,
+   TITLE_COLUMN,
+   FREQ_COLUMN,
+   BPM_COLUMN,
+   LAST_COLUMN
+};
+
+GList               * selected_songs = NULL; /* Songs which have been
+                                                selected */
+GList               * selected_files = NULL; /* List of selected file names */
+static GtkListStore * list_store;
+static GtkWidget    * icon, * play, * select_all, * select_all_recursive;
+static GtkWidget    * label_name, * label_type, * label_rating;
+static GtkWidget    * tree, * vbox_lower, * cwheel, * rating;
+
+static void     set_selected_files (GList * files);
+static gboolean play_selected (GtkWidget *widget,
+                               GdkEventButton *event,
+                               gpointer user_data);
+static gboolean select_all_selected (GtkWidget *widget,
+                                     GdkEventButton *event,
+                                     gpointer user_data);
+static void     update_selection_area (void);
+static void     rating_changed ( GtkRange *range,
+                                 gpointer user_data );
+static void     populate_selected_list (void);
+static void     redraw_rating (void);
+
+
+GtkWidget * make_selection_view ( void ) {
+    GtkWidget * vbox1, * vbox2, * vbox3, * hbox1, * hbox2;
+    GtkWidget * alignment, * event_box, * swin;
+    GtkCellRenderer * text_renderer, * pixbuf_renderer;
+    GtkTreeViewColumn *column;
+    
+ 
+    vbox1 = gtk_vbox_new (FALSE, 2);  
+    
+    hbox1 = gtk_hbox_new (FALSE, 2);
+    gtk_box_pack_start(GTK_BOX(vbox1), hbox1, FALSE, FALSE, 2);
+    icon = gtk_image_new_from_pixbuf (pixbufs[PM_ICON_CLOSED]);
+    gtk_box_pack_start(GTK_BOX(hbox1), icon, FALSE, FALSE, 2);
+
+    vbox2 = gtk_vbox_new(FALSE, 2);
+    label_name = gtk_label_new("");
+    label_type = gtk_label_new("");
+    gtk_box_pack_start(GTK_BOX(hbox1), vbox2, FALSE, FALSE, 2);
+
+    alignment = gtk_alignment_new (0, 0, 0, 0);
+    gtk_container_add(GTK_CONTAINER(alignment), label_name);
+    gtk_box_pack_start(GTK_BOX(vbox2), alignment, FALSE, FALSE, 2);
+
+    alignment = gtk_alignment_new (0, 0, 0, 0);
+    gtk_container_add(GTK_CONTAINER(alignment), label_type);
+    gtk_box_pack_start(GTK_BOX(vbox2), alignment, FALSE, FALSE, 2);
+
+    
+    select_all_recursive = gtk_image_new_from_pixbuf(pixbufs[PM_BUTTON_ALL_RECURSIVE]);
+    
+    alignment = gtk_alignment_new (1, 0.5, 0, 0);
+    gtk_box_pack_start(GTK_BOX(hbox1), alignment, TRUE, TRUE, 2);
+
+    hbox2 = gtk_hbox_new (FALSE, 2);
+    gtk_container_add(GTK_CONTAINER(alignment), hbox2);
+
+    event_box = gtk_event_box_new ();
+    gtk_box_pack_start(GTK_BOX(hbox2), event_box, FALSE, FALSE, 2);
+
+    play = gtk_image_new_from_pixbuf(pixbufs[PM_BUTTON_PLAY]);
+    gtk_container_add (GTK_CONTAINER(event_box), play);
+    gtk_widget_set_events (event_box, GDK_BUTTON_PRESS_MASK);
+    gtk_signal_connect (GTK_OBJECT(event_box), 
+                        "button_press_event",
+			GTK_SIGNAL_FUNC (play_selected), 
+                        NULL);
+
+    event_box = gtk_event_box_new ();
+    gtk_box_pack_start(GTK_BOX(hbox2), event_box, FALSE, FALSE, 2);
+    
+    select_all = gtk_image_new_from_pixbuf(pixbufs[PM_BUTTON_ALL]);
+    gtk_container_add (GTK_CONTAINER(event_box), select_all);
+    gtk_widget_set_events (event_box, GDK_BUTTON_PRESS_MASK);
+    gtk_signal_connect (GTK_OBJECT(event_box), 
+                        "button_press_event",
+			GTK_SIGNAL_FUNC (select_all_selected), 
+                        (gpointer *) FALSE);
+
+    event_box = gtk_event_box_new ();
+    gtk_box_pack_start(GTK_BOX(hbox2), event_box, FALSE, FALSE, 2);
+    select_all_recursive = gtk_image_new_from_pixbuf(pixbufs[PM_BUTTON_ALL_RECURSIVE]);
+    gtk_container_add (GTK_CONTAINER(event_box), select_all_recursive);
+    gtk_widget_set_events (event_box, GDK_BUTTON_PRESS_MASK);
+    gtk_signal_connect (GTK_OBJECT(event_box), 
+                        "button_press_event",
+			GTK_SIGNAL_FUNC (select_all_selected), 
+                        (gpointer *) TRUE);
+    
+    vbox_lower = gtk_vbox_new (FALSE, 2);  
+    gtk_box_pack_start(GTK_BOX(vbox1), vbox_lower, TRUE, TRUE, 2);
+
+    list_store = gtk_list_store_new(LAST_COLUMN, 
+                                    G_TYPE_STRING, 
+                                    G_TYPE_STRING,
+                                    GDK_TYPE_PIXBUF,
+                                    G_TYPE_STRING);
+    tree = gtk_tree_view_new_with_model (GTK_TREE_MODEL (list_store));
+    g_object_unref (G_OBJECT (list_store));
+    text_renderer = gtk_cell_renderer_text_new ();
+    pixbuf_renderer = gtk_cell_renderer_pixbuf_new ();
+    column = gtk_tree_view_column_new_with_attributes ("Artist", text_renderer,
+                                                       "text", ARTIST_COLUMN,
+                                                       NULL);
+    gtk_tree_view_append_column (GTK_TREE_VIEW (tree), column);
+    column = gtk_tree_view_column_new_with_attributes ("Title", text_renderer,
+                                                       "text", TITLE_COLUMN,
+                                                       NULL);
+    gtk_tree_view_append_column (GTK_TREE_VIEW (tree), column);
+    column = gtk_tree_view_column_new_with_attributes ("Freq", pixbuf_renderer,
+                                                       "pixbuf", FREQ_COLUMN,
+                                                       NULL);
+    gtk_tree_view_append_column (GTK_TREE_VIEW (tree), column);
+    column = gtk_tree_view_column_new_with_attributes ("BPM", text_renderer,
+                                                       "text", BPM_COLUMN,
+                                                       NULL);
+    gtk_tree_view_append_column (GTK_TREE_VIEW (tree), column);
+    
+    swin = gtk_scrolled_window_new (NULL, NULL);
+    gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (swin),
+                                    GTK_POLICY_AUTOMATIC,
+                                    GTK_POLICY_AUTOMATIC);
+    gtk_container_add(GTK_CONTAINER(swin), tree);
+
+    gtk_box_pack_start(GTK_BOX(vbox_lower), swin, TRUE, TRUE, 2);
+    
+    
+    hbox2 = gtk_hbox_new (FALSE, 2);
+    gtk_box_pack_start(GTK_BOX(vbox_lower), hbox2, FALSE, FALSE, 2);
+
+    cwheel = create_colorwheel(COLORWHEEL_DIAMETER,
+                               &selected_songs,
+                               NULL);
+    gtk_box_pack_start(GTK_BOX(hbox2), cwheel, FALSE, FALSE, 2);
+    
+    vbox3 = gtk_vbox_new (FALSE, 2);
+    gtk_box_pack_start(GTK_BOX(hbox2), vbox3, TRUE, FALSE, 2);    
+    label_rating = gtk_label_new("Rating");
+    gtk_box_pack_start(GTK_BOX(vbox3), label_rating, FALSE, FALSE, 2);
+    
+    rating=  gtk_vscale_new_with_range  (MIN_RATING,
+                                         MAX_RATING,
+                                         0.2);
+    gtk_signal_connect (GTK_OBJECT(rating),
+                        "value-changed",
+                        GTK_SIGNAL_FUNC (rating_changed),
+                        NULL);
+   
+    gtk_range_set_inverted(GTK_RANGE(rating), TRUE);
+    alignment = gtk_alignment_new (0.5, 0, 
+                                   0.5, 1);
+    gtk_container_add(GTK_CONTAINER(alignment), rating);
+    gtk_box_pack_start(GTK_BOX(vbox3), alignment, TRUE, TRUE, 2);
+
+    return vbox1;
+}
+
+
+
+void set_selected_file ( char * file, 
+                         char * short_name, 
+                         gboolean is_dir ) {
+    GList * llist;
+    int pm_type;
+    song * s;
+
+    for (llist = g_list_first(selected_files); llist;
+         llist = g_list_next(llist))
+        g_free(llist->data);
+
+    g_list_free(selected_files);
+    g_list_free(selected_songs);
+    selected_files = NULL;
+    selected_songs = NULL;
+
+    if (file == NULL) {
+        /* Hide everything */
+        gtk_widget_hide(icon);
+        gtk_widget_hide(play);
+        gtk_widget_hide(select_all);
+        gtk_widget_hide(select_all_recursive);
+        gtk_widget_hide(vbox_lower);
+        gtk_label_set_text(GTK_LABEL(label_name), "Nothing selected");
+        return;
+    }
+
+    gtk_widget_show(icon);   
+    strcmp(file, file);
+
+    if (is_dir) {
+        gtk_label_set_text(GTK_LABEL(label_name), short_name);
+        gtk_image_set_from_pixbuf (GTK_IMAGE(icon), 
+                                   pixbufs[PM_ICON_CLOSED]);
+        gtk_label_set_text(GTK_LABEL(label_type), "");
+        gtk_widget_hide(play);
+        gtk_widget_show(select_all);
+        gtk_widget_show(select_all_recursive);
+        gtk_widget_hide(vbox_lower);
+        selected_files = g_list_append(selected_files, g_strdup(file));
+    } else {
+        gtk_widget_hide(select_all);
+        gtk_widget_hide(select_all_recursive);
+        
+        if (g_hash_table_lookup(files_not_song_hash, file)) {
+            gtk_label_set_text(GTK_LABEL(label_name), short_name);
+            pm_type = PM_ICON_NOSONG;
+            gtk_widget_hide(play);
+            gtk_widget_hide(vbox_lower);
+            gtk_label_set_text(GTK_LABEL(label_type), "Not a song");
+        } else {
+            s = g_hash_table_lookup(song_name_hash, file);
+            gtk_label_set_text(GTK_LABEL(label_name), "");
+
+            gtk_widget_show(play);
+            if (s) {
+                pm_type = PM_ICON_SONG;
+                gtk_label_set_text(GTK_LABEL(label_type), "");
+            } else {
+                pm_type = PM_ICON_PENDING;
+                gtk_label_set_text(GTK_LABEL(label_type), "Will be analyzed");
+                
+                s = g_hash_table_lookup(rated_name_hash, file);
+                if (!s) {
+                    s = create_song(file);
+                    rated = g_list_append(rated, s);
+                    g_hash_table_insert(rated_name_hash, s->path, s);
+                }
+            }
+            selected_songs = g_list_append(selected_songs, s);
+            gtk_widget_show(vbox_lower);
+        }
+        
+        gtk_image_set_from_pixbuf (GTK_IMAGE(icon), 
+                                   pixbufs[pm_type]);
+        selected_files = g_list_append(selected_files, g_strdup(file));
+    }
+    update_selection_area();
+}
+
+
+
+static void set_selected_files (GList * files) {
+    GList * llist;
+    char * file;
+    song * s;
+
+    if (!files)
+        return; 
+
+    /* Remove files known to be invalid */
+    for (llist = g_list_first(files);
+         llist;
+         llist = g_list_next(llist)) {
+        file = (gchar *) llist->data;
+        if (g_hash_table_lookup(files_not_song_hash, file)) {
+            /* FIXME -- inefficient */
+            files = g_list_remove(files, file);
+            llist = files;
+            g_free(file);
+        } 
+    }
+
+    files = g_list_first(files);
+    if (!files)
+        return; 
+
+    for (llist = g_list_first(selected_files);
+         llist;
+         llist = g_list_next(llist)) {
+        g_free(selected_files->data);
+    }
+    g_list_free(selected_files);
+    selected_files = files;
+
+    for (llist = g_list_first(selected_songs); 
+         llist; 
+         llist = g_list_next(llist)) {
+        s = (song *) llist->data;
+        if (s->freq_pixbuf) {
+            gdk_pixbuf_unref(s->freq_pixbuf);
+            s->freq_pixbuf = NULL;
+        }
+    }
+    g_list_free(selected_songs);
+    selected_songs = NULL;
+    
+    for (llist = g_list_first(files);
+         llist;
+         llist = g_list_next(llist)) {
+        s = NULL;
+        s = g_hash_table_lookup(song_name_hash, llist->data);
+        if (!s) 
+            s = g_hash_table_lookup(rated_name_hash, llist->data);
+        if (!s) {
+            s = create_song(llist->data);
+            rated = g_list_append(rated, s);
+            g_hash_table_insert(rated_name_hash, s->path, s);
+        }
+        selected_songs = g_list_append(selected_songs, s);
+    }
+    
+    gtk_widget_show(play);
+    gtk_widget_hide(select_all);
+    gtk_widget_hide(select_all_recursive);
+    gtk_widget_show(icon);
+    gtk_widget_show(vbox_lower);
+    gtk_label_set_text(GTK_LABEL(label_type), "Contains...");
+    gtk_image_set_from_pixbuf (GTK_IMAGE(icon), pixbufs[PM_ICON_OPEN]);
+    update_selection_area();
+}
+
+
+static gboolean play_selected (GtkWidget *widget,
+                               GdkEventButton *event,
+                               gpointer user_data) {
+    play_files(selected_files);
+    return TRUE;
+}
+
+
+static gboolean select_all_selected (GtkWidget *widget,
+                                     GdkEventButton *event,
+                                     gpointer user_data) {
+    GList * list;
+    if (selected_files) {
+        list = explore_files_in_dir(g_list_first(selected_files)->data, 
+                                    (gboolean) user_data);
+        set_selected_files(list);
+    }
+    return TRUE;
+}
+
+
+
+static void  update_selection_area (void) {
+    populate_selected_list();
+    redraw_rating();
+    gtk_widget_queue_draw(cwheel);
+}
+
+
+void populate_selected_list (void) {
+    GList * llist;
+    song * s;
+    gchar * artist, * title;
+    gchar bpm[20];
+    GtkTreeIter iter;
+
+    gtk_list_store_clear (GTK_LIST_STORE(list_store)); 
+    for (llist = g_list_first(selected_songs); 
+         llist; 
+         llist = g_list_next(llist)) {
+        s = (song *) llist->data;
+        if (s->artist)
+            artist = s->artist;
+        else
+            artist = NULL;
+        if (s->title) 
+            title = s->title;
+        else 
+            title = s->fname;
+        if (s->no_data)
+            sprintf(bpm, "?");
+        else if (s->bpm_undef)
+            sprintf(bpm, "Unsure"); 
+        else
+            sprintf(bpm, "%3.2f", s->bpm);
+        song_set_freq_pixbuf(s);
+        gtk_list_store_append (GTK_LIST_STORE(list_store), &iter);
+        gtk_list_store_set (GTK_LIST_STORE(list_store), &iter,
+                            ARTIST_COLUMN, artist,
+                            TITLE_COLUMN, title,
+                            FREQ_COLUMN, s->freq_pixbuf,
+                            BPM_COLUMN, bpm,
+                            -1);
+    }
+    gtk_tree_view_columns_autosize(GTK_TREE_VIEW(tree));
+}
+
+
+void update_selected_songs_color ( gdouble angle, 
+                                   gdouble radius ) {
+    GList * llist;
+    song * s;
+
+    for (llist = g_list_first(selected_songs); llist; 
+         llist = g_list_next(llist)) {
+        s = (song *) llist->data;
+        s->no_color = FALSE;
+        s->color.H = (float) angle;
+        s->color.B = (float) radius;
+    }
+}
+
+
+void redraw_rating (void) {
+    GList * llist;
+    song * s;
+    gdouble lower, upper, total;
+    gint n, k;
+    
+    lower = MAX_RATING + 1;
+    upper = -1;
+    for (n = 0, k = 0, llist = g_list_first(selected_songs); llist; 
+         llist = g_list_next(llist)) {
+        s = (song *) llist->data;
+        if (!s->no_rating) {
+            total += s->rating;
+            lower = MIN(lower, s->rating);
+            upper = MAX(upper, s->rating);
+            k++;
+        } 
+        n++;
+    }
+    if (k == 0) {
+        gtk_range_set_value (GTK_RANGE(rating), DEFAULT_RATING);
+        gtk_label_set_text (GTK_LABEL(label_rating), "Not rated");
+    } else if ((n == k) && (lower == upper)) {
+        gtk_range_set_value (GTK_RANGE(rating), total / k);
+        gtk_label_set_text (GTK_LABEL(label_rating), "Rating");
+    } else {
+        gtk_range_set_value (GTK_RANGE(rating), total / k);
+        gtk_label_set_text (GTK_LABEL(label_rating), "Ave. rating");
+    }
+}
+
+
+static void rating_changed ( GtkRange *range,
+                             gpointer user_data ) {
+    GList * llist;
+    song * s;
+    
+    gdouble val = gtk_range_get_value(range);
+
+    for (llist = g_list_first(selected_songs); llist; 
+         llist = g_list_next(llist)) {
+        s = (song *) llist->data;
+        s->no_rating = FALSE;
+        s->rating = val;
+    }
+    gtk_label_set_text (GTK_LABEL(label_rating), "Rating");
+}
+
+#if 0
+void redraw_bpm (void) {
+    char buffer[BUFFER_SIZE];
+    song * s;
+    
+    gtk_widget_hide(label_bpm);
+    if (g_list_length(selected_songs) == 1) {
+        s = (song *) selected_songs->data;
+        if (!s->no_data) {
+            gtk_widget_show(label_bpm);
+            if (s->bpm_undef) {
+                gtk_label_set_text(GTK_LABEL(label_bpm), "Unsure BPM");
+            } else {
+                snprintf(buffer, BUFFER_SIZE, "%3.2f BPM", s->bpm);
+                gtk_label_set_text(GTK_LABEL(label_bpm), buffer);
+            }
+        }
+    } 
+}
+#endif 
+

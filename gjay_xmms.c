@@ -64,9 +64,7 @@ void play_song ( song * s ) {
     if (xmms_session < 0)
         return;
     list = g_list_append(NULL, s->path);
-    xmms_remote_playlist_clear(xmms_session);
-    xmms_remote_playlist_add(xmms_session, list);
-    xmms_remote_play(xmms_session);
+    play_files(list);
     g_list_free(list);
 }
 
@@ -78,8 +76,15 @@ void play_songs ( GList * slist ) {
     for (; slist; slist = g_list_next(slist)) {
         list = g_list_append(list, SONG(slist)->path);
     } 
-    xmms_remote_playlist_clear(xmms_session);
-    xmms_remote_playlist_add(xmms_session, list);
-    xmms_remote_play(xmms_session);
+    play_files(list);
     g_list_free(list);
+}
+
+
+void play_files ( GList * list) {
+    if (list) {
+        xmms_remote_playlist_clear(xmms_session);
+        xmms_remote_playlist_add(xmms_session, list);
+        xmms_remote_play(xmms_session);
+    }
 }

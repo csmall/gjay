@@ -15,15 +15,15 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
  * USA
+ *
+ * Song analysis is done in a daemon process
  */
 
 
 #ifndef __ANALYSIS_H__
 #define __ANALYSIS_H__
 
-#include <pthread.h>
 #include <stdint.h>
-
 #include "gjay.h"
 
 /* Shamelessly excerpted from the Linux kernel */
@@ -53,18 +53,6 @@
 })
 
 
-/* This mutex is locked when an analysis is in progress, unlocked
- * otherwise.  When locked, the song analyze_song shouldn't be
- * altered or have its freq data touched */
-extern pthread_mutex_t analyze_mutex;
-
-typedef enum {
-    ANALYZE = 0,
-    ANALYZE_FINISH,
-    ANALYZE_DONE,
-    ANALYZE_IDLE
-} analyze_mode;
-
 /* WAV file header */
 typedef struct {  
 	char		main_chunk[4];	/* 'RIFF' */
@@ -84,15 +72,16 @@ typedef struct {
 
 
 /* Mutex lock for analysis data */
-extern pthread_mutex_t analyze_data_mutex;
 extern song          * analyze_song;
-extern analyze_mode    analyze_state;
 extern int             analyze_percent;
 
 /* Analysis.c */
-gboolean analyze(song * s);
+void     analysis_daemon(void);
+//gboolean analyze(song * s);
 int      quote_path(char *buf, size_t bufsiz, const char *path);
-void     wav_header_swab(waveheaderstruct * header); /* Endian stuff */
+
+/* Endian stuff */
+void     wav_header_swab(waveheaderstruct * header); 
 unsigned long  swab_ul(unsigned long l); 
 unsigned short swab_us(unsigned short s);
  

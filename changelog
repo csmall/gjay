@@ -1,3 +1,16 @@
+0.2 - November 19, 2002
+- Complete overhaul (Chuck Groom) 
+   - Switched from Gtk-1.2 to Gtk-2.0
+   - UI: The main screen is an "explorer" folder view. The user sets a root
+     music directory, GJay takes it from there.
+   - Daemon: GJay analysis runs in a separate process which can be separated
+     from the UI for background processing.
+   - Format: All file formats have changed. Files are now human-readable. 
+     There are now separate files for song attributes and song data (ie.
+     stuff that changes and stuff that doesn't changes). Files are
+     generally appended, not overwritten. When a file needs to be overwritten,
+     we write to a temporary file and rename. 
+
 0.1.4.1 - October 15, 2002 
 - Ogg attributes are discovered w/o case sensitivity (Sean Perry,
   Joshua Judson Rosen)

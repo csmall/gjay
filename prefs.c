@@ -25,123 +25,195 @@
 #include <string.h>
 #include "gjay.h"
 
+typedef enum {
+    TOKEN_SONG_ROOT_DIR,
+    TOKEN_EXTENSION_FILTER,
+    TOKEN_USE_SEL_SONG,
+    TOKEN_USE_SEL_DIR,
+    TOKEN_START_SEL,
+    TOKEN_START_COLOR,
+    TOKEN_WANDER,
+    TOKEN_RATING_CUTOFF,
+    TOKEN_TIME,
+    TOKEN_VARIANCE,
+    TOKEN_HUE,
+    TOKEN_BRIGHTNESS,
+    TOKEN_BPM,
+    TOKEN_FREQ,
+    TOKEN_DEPTH,
+    TOKEN_RATING,
+    TOKEN_PATH_WEIGHT,
+    TOKEN_COLOR, 
+    TOKEN_PREFS_LAST
+} pref_tokens;
+
+char * pref_token[TOKEN_PREFS_LAST] = {
+    "SONG_ROOT_DIR",
+    "EXTENSION_FILTER",
+    "USE_SEL_SONG",
+    "USE_SEL_DIR",
+    "START_SEL",
+    "START_COLOR",
+    "WANDER",
+    "RATING_CUTOFF",
+    "TIME",
+    "VARIANCE",
+    "HUE",
+    "BRIGHTNESS",
+    "BPM",
+    "FREQ",
+    "DEPTH",
+    "RATING",
+    "PATH_WEIGHT",
+    "COLOR"
+};
+
+
+
 app_prefs prefs;
 
-static void default_prefs (void );
-static gchar * read_string (FILE * in);
 
-void load_prefs ( void ) {
-    char buffer[BUFFER_SIZE];
-    FILE * in;
-    gint i;
+ void load_prefs ( void ) {
+     char buffer[BUFFER_SIZE], token[128];
+     FILE * f;
+     gint k;
 
-    memset(&prefs, 0x00, sizeof(app_prefs));
+     /* Set default values */
+     memset(&prefs, 0x00, sizeof(app_prefs));
+     prefs.rating = DEFAULT_RATING;
+     prefs.time = DEFAULT_PLAYLIST_TIME;
+     prefs.variance =
+         prefs.hue = 
+         prefs.brightness =
+         prefs.bpm =
+         prefs.freq =
+         prefs.depth =
+         prefs.path_weight = DEFAULT_CRITERIA;
+     prefs.extension_filter = TRUE;
+     prefs.color.H = 0;
+     prefs.color.B = 0.5;
 
-    snprintf(buffer, BUFFER_SIZE, "%s/%s/%s", getenv("HOME"), 
-             GJAY_DIR, GJAY_PREFS);
-    in = fopen(buffer, "r");
-    if (!in) {
-        default_prefs();
-        return;
-    }
-    fscanf(in, "%s\n", buffer);
-    if (strcmp(buffer, GJAY_VERSION)) {
-        /* Prefs didn't change from 0.1 */
-        if (strcmp(buffer, "0.1")) {
-            fprintf(stderr, "Unknown file format for version %s; this is version %s\n", buffer, GJAY_VERSION);
-            default_prefs();
-            fclose(in);
-            return;
-        }
-    }   
-    fread(&prefs, sizeof(app_prefs), 1, in);
-
-    prefs.add_dir = read_string(in);
-    if (prefs.num_color_labels) {
-        prefs.label_colors = g_malloc(sizeof(HSV) * prefs.num_color_labels);
-        prefs.label_color_titles = g_malloc(sizeof(gchar *) * prefs.num_color_labels);
-        for (i = 0; i < prefs.num_color_labels; i++) {
-            prefs.label_color_titles[i] = read_string(in);
-        }
-        for (i = 0; i < prefs.num_color_labels; i++) {
-            fread(&prefs.label_colors[i], sizeof(HSV), 1, in);
-        }    
-    }
-
-    fclose(in);
+     snprintf(buffer, BUFFER_SIZE, "%s/%s/%s", getenv("HOME"), 
+              GJAY_DIR, GJAY_PREFS);
+     f = fopen(buffer, "r");
+     if (f) {
+         while (!feof(f) && fscanf(f, "%s", token)) {
+             for (k = 0; k < TOKEN_PREFS_LAST; k++) {
+                 if (strcmp(token, pref_token[k]) == 0)
+                     break;
+             }
+             switch ((pref_tokens) k) {
+             case TOKEN_SONG_ROOT_DIR:
+                 if (prefs.song_root_dir)
+                     g_free(prefs.song_root_dir);
+                 fscanf(f, " ");
+                 read_line(f, buffer, BUFFER_SIZE);
+                 prefs.song_root_dir = g_strdup(buffer);
+                 continue; // Because we read the newline
+             case TOKEN_EXTENSION_FILTER:
+                 prefs.extension_filter = TRUE;
+                 break;
+             case TOKEN_USE_SEL_SONG:
+                 prefs.use_selected_songs = TRUE;
+                 break;
+             case TOKEN_USE_SEL_DIR:
+                 prefs.use_selected_dir = TRUE;
+                 break;
+             case TOKEN_START_SEL:
+                 prefs.start_selected = TRUE;
+                 break;
+             case TOKEN_START_COLOR:
+                 prefs.start_color = TRUE;
+                 break;
+             case TOKEN_WANDER:
+                 prefs.wander = TRUE;
+                 break;
+             case TOKEN_RATING_CUTOFF:
+                 prefs.rating_cutoff = TRUE;
+                 break;
+             case TOKEN_TIME:
+                 fscanf(f, " %ud", (unsigned int *) &prefs.time);
+                 break;    
+             case TOKEN_VARIANCE:
+                 fscanf(f, " %f", &prefs.variance);
+                 break;
+             case TOKEN_HUE:
+                 fscanf(f, " %f", &prefs.hue);
+                 break;
+             case TOKEN_BRIGHTNESS:
+                 fscanf(f, " %f", &prefs.brightness);
+                 break;
+             case TOKEN_BPM:
+                 fscanf(f, " %f", &prefs.bpm);
+                 break;
+             case TOKEN_FREQ:
+                 fscanf(f, " %f", &prefs.freq);
+                 break;
+             case TOKEN_DEPTH:
+                 fscanf(f, " %f", &prefs.depth);
+                 break;
+             case TOKEN_RATING:
+                 fscanf(f, " %f", &prefs.rating);
+                 break;
+             case TOKEN_PATH_WEIGHT:
+                 fscanf(f, " %f", &prefs.path_weight);
+                 break;
+             case TOKEN_COLOR:
+                 fscanf(f, " %f %f", &prefs.color.H, &prefs.color.B);
+                 break;
+             default:
+                 fprintf(stderr, "Did not understand pref token %s\n", token);
+             }
+             fscanf(f, "\n");
+          }
+         fclose(f);
+     } 
 }
 
 
 void save_prefs ( void ) {
     char buffer[BUFFER_SIZE];
-    struct stat stat_buf;
-    FILE * out;
-    int i;
-
-    snprintf(buffer, BUFFER_SIZE, "%s/%s", getenv("HOME"), GJAY_DIR);
-    if (stat(buffer, &stat_buf) < 0) {
-        if (mkdir (buffer, 
-                   S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IXGRP |
-                   S_IROTH | S_IXOTH) < 0) {
-            fprintf (stderr, "Could not create %s\n", buffer);
-            perror(NULL);
-            return;
-        }
-        fprintf(stderr, "Created directory %s\n", buffer);
-    }
+    FILE * f;
+    
     snprintf(buffer, BUFFER_SIZE, "%s/%s/%s", getenv("HOME"), 
              GJAY_DIR, GJAY_PREFS);
-    out = fopen(buffer, "w");
-    if (!out) {
-        fprintf (stderr, "Could not write to %s\n", buffer);
-        return;
-    }
+    f = fopen(buffer, "w");
+    if (f) {
+        if (prefs.song_root_dir)
+            fprintf(f, "%s %s\n", pref_token[TOKEN_SONG_ROOT_DIR],
+                    prefs.song_root_dir);
+        if (prefs.extension_filter)
+            fprintf(f, "%s\n", pref_token[TOKEN_EXTENSION_FILTER]);        
+        if (prefs.use_selected_songs)
+            fprintf(f, "%s\n", pref_token[TOKEN_USE_SEL_SONG]);   
+        if (prefs.use_selected_dir)
+            fprintf(f, "%s\n", pref_token[TOKEN_USE_SEL_DIR]);   
+        if (prefs.start_selected)
+            fprintf(f, "%s\n", pref_token[TOKEN_START_SEL]);   
+        if (prefs.start_color)
+            fprintf(f, "%s\n", pref_token[TOKEN_START_COLOR]);   
+        if (prefs.wander)
+            fprintf(f, "%s\n", pref_token[TOKEN_WANDER]);   
+        if (prefs.rating_cutoff)
+            fprintf(f, "%s\n", pref_token[TOKEN_RATING_CUTOFF]);
+            
+        fprintf(f, "%s %f\n", pref_token[TOKEN_VARIANCE], prefs.variance);
+        fprintf(f, "%s %f\n", pref_token[TOKEN_HUE], prefs.hue);
+        fprintf(f, "%s %f\n", pref_token[TOKEN_BRIGHTNESS], prefs.brightness);
+        fprintf(f, "%s %f\n", pref_token[TOKEN_BPM], prefs.bpm);
+        fprintf(f, "%s %f\n", pref_token[TOKEN_FREQ], prefs.freq);
+        fprintf(f, "%s %f\n", pref_token[TOKEN_DEPTH], prefs.depth);
+        fprintf(f, "%s %f\n", pref_token[TOKEN_RATING], prefs.rating);
+        fprintf(f, "%s %f\n", pref_token[TOKEN_PATH_WEIGHT], prefs.path_weight);
 
-    fprintf(out, "%s\n", GJAY_VERSION);
+        fprintf(f, "%s %d\n", pref_token[TOKEN_TIME], prefs.time);
 
-    fwrite(&prefs, sizeof(app_prefs), 1, out);
-
-    if (prefs.add_dir) {
-        fprintf(out, "%d %s\n", strlen(prefs.add_dir), prefs.add_dir);
+        fprintf(f, "%s %f %f\n", pref_token[TOKEN_COLOR], prefs.color.H,
+                prefs.color.B);
+        
+        fclose(f);
     } else {
-        fprintf(out, "0\n");
+        fprintf(stderr, "Unable to write prefs %s\n", buffer);
     }
-
-    for (i = 0; i < prefs.num_color_labels; i++) {
-        if (prefs.label_color_titles[i]) {
-            fprintf(out, "%d %s\n", strlen(prefs.label_color_titles[i]), 
-                    prefs.label_color_titles[i]);
-        } else {
-            fprintf(out, "0\n");
-        }
-    }
-    for (i = 0; i < prefs.num_color_labels; i++) {
-        fwrite(&prefs.label_colors[i], sizeof(HSV), 1, out);
-    }
-    fclose(out);
 }
 
-static void default_prefs (void ) {
-    prefs.add_dir = NULL;
-    prefs.start_random = TRUE;
-    prefs.rating_cutoff = FALSE;
-    prefs.sort = ARTIST_TITLE;
-    prefs.rating = (MAX_RATING + MIN_RATING)/2.0;
-    prefs.time = DEFAULT_PLAYLIST_TIME;
-    prefs.criteria_bpm = prefs.criteria_freq = prefs.criteria_hue =
-        prefs.criteria_brightness = DEFAULT_CRITERIA;
-}
-
-/* Read a string from a file formatted as "integer string\n". If integer is
-   0, return NULL; otherwise, return g_malloc'd string */
-static gchar * read_string (FILE * in) {
-    gint len;
-    gchar * str = NULL;
-    fscanf(in, "%d", &len);
-    if (len > 0) {
-        str = g_malloc(len);
-        fscanf(in, " %s", str);
-    }
-    fscanf(in, "\n");
-    return str;
-}
