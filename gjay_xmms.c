@@ -108,7 +108,7 @@ song * get_current_xmms_song (void) {
     gchar * path;
     gint pos;
     song * s = NULL;
-    get_xmms_session();
+    join_or_start_xmms();
     if (xmms_session < MAX_XMMS_SESSION) {
         pos = xmms_remote_get_playlist_pos(xmms_session);
         path = xmms_remote_get_playlist_file(xmms_session, pos);    
