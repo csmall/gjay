@@ -10,7 +10,8 @@ HEADERS = \
 	ui.h \
 	rgbhsv.h \
 	analysis.h \
-	playlist.h
+	playlist.h \
+	ipc.h
 OBJECTS = \
 	gjay.o \
 	ipc.o \
@@ -28,7 +29,11 @@ OBJECTS = \
 	analysis.o \
 	playlist.o
 
-INSTALL=/usr/bin/install -o root -g root -m 755
+INSTALL=/usr/bin/install -o root -g root
+INSTALL_EXE=$(INSTALL) -m 755
+INSTALL_FILE=$(INSTALL) -m 644
+INSTALL_DIR=$(INSTALL) -m 755 -d
+
 
 all: $(TARGET) 
 
@@ -40,7 +45,9 @@ $(TARGET): $(OBJECTS)
 	$(LINK) $(LFLAGS) -o $(TARGET) $(OBJECTS)
 
 install: $(TARGET)
-	$(INSTALL) gjay $(DESTDIR)/usr/bin/gjay
+	$(INSTALL_EXE) gjay $(DESTDIR)/usr/bin/gjay 
+	$(INSTALL_DIR) icons $(DESTDIR)/usr/local/share/gjay/icons
+	$(INSTALL_FILE) icons/*.png $(DESTDIR)/usr/local/share/gjay/icons/
 
 clean:
 	-rm -f *.a *.o *~ data/*~ core $(TARGET) 
