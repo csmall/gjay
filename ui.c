@@ -166,7 +166,9 @@ gboolean daemon_pipe_input (GIOChannel *source,
     gchar * str;
     int len, k, p, l, seek;
     ipc_type ipc, send_ipc;
-    
+    GList * ll;
+    gboolean update;
+    song * s;
 
     read(daemon_pipe_fd, &len, sizeof(int));
     assert(len < BUFFER_SIZE);
@@ -194,14 +196,31 @@ gboolean daemon_pipe_input (GIOChannel *source,
     case STATUS_TEXT:
         buffer[len] = '\0';
         if (analysis_label && !destroy_window_flag) {
-            str = strdup_to_utf8(buffer + sizeof(ipc_type));
+            str = buffer + sizeof(ipc_type);
             gtk_label_set_text(GTK_LABEL(analysis_label), str);
-            g_free(str);
         }
         break;
     case ADDED_FILE:
+        /* Unmark all songs */
+        for (ll = g_list_first(songs); ll; ll = g_list_next(ll)) 
+            SONG(ll)->marked = FALSE;
         memcpy(&seek, buffer + sizeof(ipc_type), sizeof(int));
         add_from_daemon_file_at_seek(seek);
+        update = FALSE;
+        /* Update visible marked songs */
+        for (ll = g_list_first(songs); ll; ll = g_list_next(ll)) { 
+            s = SONG(ll);
+            if (s->marked && !s->no_data) {
+                /* Change the tree view icon and selection view, if 
+                 * necessary */
+                explore_update_file_pm(s->path, PM_FILE_SONG);
+                if (!update && g_list_find(selected_songs, s)) {
+                    update_selection_area();
+                    update = TRUE;
+                }
+            }
+            SONG(ll)->marked = FALSE;
+        }
         break;
     case ANIMATE_START:
         buffer[len] = '\0';
@@ -439,8 +458,7 @@ static void respond_quit_analysis (GtkDialog *dialog,
 
 
 
-static void quit_app (void) {
-    
+static void quit_app (void) {    
     destroy_window_flag = TRUE;
     gtk_object_sink(GTK_OBJECT(tips));
     gtk_widget_destroy(explore_view);

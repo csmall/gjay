@@ -49,7 +49,6 @@ static gboolean play_selected (GtkWidget *widget,
 static gboolean select_all_selected (GtkWidget *widget,
                                      GdkEventButton *event,
                                      gpointer user_data);
-static void     update_selection_area (void);
 static void     rating_changed ( GtkRange *range,
                                  gpointer user_data );
 static void     populate_selected_list (void);
@@ -64,7 +63,6 @@ GtkWidget * make_selection_view ( void ) {
     GtkWidget * alignment, * event_box, * swin;
     GtkCellRenderer * text_renderer, * pixbuf_renderer;
     GtkTreeViewColumn *column;
-    
  
     vbox1 = gtk_vbox_new (FALSE, 2);  
     
@@ -215,8 +213,7 @@ void set_selected_in_playlist_view ( gboolean in_view ) {
         return;
     fname = (gchar *) selected_files->data;
     if ( g_hash_table_lookup(song_name_hash, fname) ||
-         g_hash_table_lookup(rated_name_hash, fname) ||
-         g_hash_table_lookup(files_not_song_hash, fname))
+         g_hash_table_lookup(not_song_hash, fname))
         return;
     if (in_view) {
         gtk_widget_hide(select_all);
@@ -236,10 +233,10 @@ void set_selected_file ( char * file,
     int pm_type;
     song * s;
 
-    for (llist = g_list_first(selected_files); llist;
+    for (llist = g_list_first(selected_files); 
+         llist;
          llist = g_list_next(llist))
         g_free(llist->data);
-
     g_list_free(selected_files);
     g_list_free(selected_songs);
     selected_files = NULL;
@@ -257,9 +254,7 @@ void set_selected_file ( char * file,
     }
 
     gtk_widget_show(icon);   
-    strcmp(file, file);
-
-    assert(short_name);
+        
     strncpy(short_name_trunc, short_name, BUFFER_SIZE);
     if (strlen(short_name) > TRUNC_NAME)
         memcpy(short_name_trunc + TRUNC_NAME, "...\0", 4);
@@ -277,8 +272,8 @@ void set_selected_file ( char * file,
     } else {
         gtk_widget_hide(select_all);
         gtk_widget_hide(select_all_recursive);
-        
-        if (g_hash_table_lookup(files_not_song_hash, file)) {
+    
+        if (g_hash_table_lookup(not_song_hash, file)) {
             gtk_label_set_text(GTK_LABEL(label_name), short_name_trunc);
             pm_type = PM_ICON_NOSONG;
             gtk_widget_hide(play);
@@ -286,6 +281,7 @@ void set_selected_file ( char * file,
             gtk_label_set_text(GTK_LABEL(label_type), "Not a song");
         } else {
             s = g_hash_table_lookup(song_name_hash, file);
+            assert(s);
             gtk_label_set_text(GTK_LABEL(label_name), "");
 
             gtk_widget_show(play);
@@ -295,12 +291,6 @@ void set_selected_file ( char * file,
             } else {
                 pm_type = PM_ICON_PENDING;
                 gtk_label_set_text(GTK_LABEL(label_type), "Will be analyzed");
-                s = g_hash_table_lookup(rated_name_hash, file);
-                if (!s) {
-                    s = create_song(file);
-                    rated = g_list_append(rated, s);
-                    g_hash_table_insert(rated_name_hash, s->path, s);
-                }
             }
             selected_songs = g_list_append(selected_songs, s);
             gtk_widget_show(vbox_lower);
@@ -314,65 +304,39 @@ void set_selected_file ( char * file,
 }
 
 
-
+/**
+ * Files is a list of UTF8-encoded paths
+ */
 static void set_selected_files (GList * files) {
     GList * llist;
-    char * file;
     song * s;
 
     if (!files)
         return; 
 
-    /* Remove files known to be invalid */
-    for (llist = g_list_first(files);
-         llist;
-         llist = g_list_next(llist)) {
-        file = (gchar *) llist->data;
-        if (g_hash_table_lookup(files_not_song_hash, file)) {
-            /* FIXME -- inefficient */
-            files = g_list_remove(files, file);
-            llist = files;
-            g_free(file);
-        } 
-    }
-
-    files = g_list_first(files);
-    if (!files)
-        return; 
-
-    for (llist = g_list_first(selected_files);
-         llist;
-         llist = g_list_next(llist)) {
-        g_free(selected_files->data);
-    }
-    g_list_free(selected_files);
-    selected_files = files;
-
-    for (llist = g_list_first(selected_songs); 
+    for (llist = g_list_first(selected_files); 
          llist; 
          llist = g_list_next(llist)) {
-        s = (song *) llist->data;
-        if (s->freq_pixbuf) {
-            gdk_pixbuf_unref(s->freq_pixbuf);
-            s->freq_pixbuf = NULL;
-        }
+        g_free(llist->data);
     }
+    g_list_free(selected_files);
     g_list_free(selected_songs);
     selected_songs = NULL;
-    
-    for (llist = g_list_first(files);
-         llist;
-         llist = g_list_next(llist)) {
-        s = NULL;
-        s = g_hash_table_lookup(song_name_hash, llist->data);
-        if (!s) 
-            s = g_hash_table_lookup(rated_name_hash, llist->data);
-        if (!s) {
-            s = create_song(llist->data);
-            rated = g_list_append(rated, s);
-            g_hash_table_insert(rated_name_hash, s->path, s);
-        }
-        selected_songs = g_list_append(selected_songs, s);
+    selected_files = NULL;
+
+    for (llist = g_list_first(files); llist; llist = g_list_next(llist)) {
+        if (g_hash_table_lookup(not_song_hash, llist->data)) {
+            g_free(llist->data);
+        } else {
+            s = g_hash_table_lookup(song_name_hash, llist->data);
+            assert(s);
+            if (s->freq_pixbuf) {
+                gdk_pixbuf_unref(s->freq_pixbuf);
+                s->freq_pixbuf = NULL;
+            }
+            selected_songs = g_list_append(selected_songs, s);
+            selected_files = g_list_append(selected_files, llist->data);
+        } 
     }
     
     gtk_widget_show(play);
@@ -408,7 +372,7 @@ static gboolean select_all_selected (GtkWidget *widget,
 
 
 
-static void  update_selection_area (void) {
+void update_selection_area (void) {
     populate_selected_list();
     redraw_rating();
     gtk_widget_queue_draw(cwheel);
@@ -427,6 +391,7 @@ void populate_selected_list (void) {
          llist; 
          llist = g_list_next(llist)) {
         s = (song *) llist->data;
+        assert(s);
         if (s->artist)
             artist = s->artist;
         else
@@ -442,8 +407,6 @@ void populate_selected_list (void) {
         else
             sprintf(bpm, "%3.2f", s->bpm);
         song_set_freq_pixbuf(s);
-        title = strdup_to_utf8(title);
-        artist = strdup_to_utf8(artist);
         gtk_list_store_append (GTK_LIST_STORE(list_store), &iter);
         gtk_list_store_set (GTK_LIST_STORE(list_store), &iter,
                             ARTIST_COLUMN, artist,
@@ -451,8 +414,6 @@ void populate_selected_list (void) {
                             FREQ_COLUMN, s->freq_pixbuf,
                             BPM_COLUMN, bpm,
                             -1);
-        g_free(artist);
-        g_free(title);
     }
     gtk_tree_view_columns_autosize(GTK_TREE_VIEW(tree));
 }
@@ -469,6 +430,8 @@ void update_selected_songs_color ( gdouble angle,
         s->no_color = FALSE;
         s->color.H = (float) angle;
         s->color.B = (float) radius;
+        /* If other songs mirror this one, pass on the change */
+        song_set_repeat_attrs(s);
     }
 }
 
@@ -481,7 +444,9 @@ void redraw_rating (void) {
     
     lower = MAX_RATING + 1;
     upper = -1;
-    for (n = 0, k = 0, llist = g_list_first(selected_songs); llist; 
+    total = 0;
+    for (n = 0, k = 0, llist = g_list_first(selected_songs);
+         llist; 
          llist = g_list_next(llist)) {
         s = (song *) llist->data;
         if (!s->no_rating) {
@@ -517,6 +482,8 @@ static void rating_changed ( GtkRange *range,
         s = (song *) llist->data;
         s->no_rating = FALSE;
         s->rating = val;
+        /* If other songs mirror this one, pass on the change */
+        song_set_repeat_attrs(s);
     }
     gtk_label_set_text (GTK_LABEL(label_rating), "Rating");
 }

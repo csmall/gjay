@@ -111,15 +111,16 @@ void        explore_animate_stop         ( void );
 
 
 /* Select file pane */
-void        set_selected_file            ( char * file, 
-                                           char * short_name, 
-                                           gboolean is_dir );
+void        set_selected_file             ( char * file, 
+                                            char * short_name, 
+                                            gboolean is_dir );
+void        update_selection_area         ( void );
 void        set_selected_in_playlist_view ( gboolean in_view );
-void        update_selected_songs_color  ( gdouble angle, 
-                                           gdouble radius );
-GtkWidget * create_colorwheel            ( gint diameter,
-                                           GList ** list,
-                                           HB * color );
+void        update_selected_songs_color   ( gdouble angle, 
+                                            gdouble radius );
+GtkWidget * create_colorwheel             ( gint diameter,
+                                            GList ** list,
+                                            HB * color );
 #endif /* __UI_H__ */
 
 

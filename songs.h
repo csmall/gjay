@@ -31,6 +31,13 @@
 #define MIN_BPM               100.0
 #define MAX_BPM               160.0
 
+typedef enum {
+    OGG = 0, 
+    MP3,
+    WAV,
+    SONG_FILE_TYPE_LAST
+} song_file_type;
+
 typedef struct _song song;
 
 typedef enum {
@@ -41,16 +48,16 @@ typedef enum {
     FREQ
 } sort_by;
  
-extern GList      * songs;          /* song *  */
-extern GList      * rated;          /* song *  */
-extern GList      * files_not_song; /* char *  */
+extern GList      * songs;             /*  song *   */
+extern GList      * not_songs;         /*  char *   */
+
 extern GHashTable * song_name_hash;
-extern GHashTable * rated_name_hash;
-extern GHashTable * files_not_song_hash;
+extern GHashTable * song_checksum_hash;
+extern GHashTable * not_song_hash;
 
 
 struct _song {
-    /* Characteristics (don't change) */
+    /* Characteristics (don't change). Strings are UTF8 encoded. */
     char * path;
     char * fname; /* Pointer within path */
     char * title;
@@ -61,48 +68,60 @@ struct _song {
     gdouble freq[NUM_FREQ_SAMPLES];
     gdouble volume_diff; /* % difference in volume between loudest and
                             average frame */
-    guint16 length;      /* Song length, in sec */
+    gint    length;      /* Song length, in sec */
     
     /* Attributes (user-defined values that may change) */
     HB color;
     gdouble rating;
 
     /* Meta-info */
-    gboolean no_data; /* Characteristics not set */
+    gboolean no_data;   /* Characteristics not set */
     gboolean no_rating; /* Rating attributes not set */
     gboolean no_color;  /* Color attributes not set */
 
-    /* Marked by tree */
+    /* Transient flags, not saved with song data */
+    gboolean in_tree;
     gboolean marked; 
 
     /* Transient display pixbuf */
     GdkPixbuf * freq_pixbuf;
     GdkPixbuf * color_pixbuf;
 
-    /* FIXME -- add */
-    // guint32 checksum; 
+    /* How to tell if two songs with different paths are the same
+       song (symlinked, most likely) */
+    guint32 checksum; 
+    song * repeat_prev, * repeat_next;    
 };
 
 
 #define SONG(list) ((song *) list->data)
 
-song *      create_song            ( char * fname );
-song *      create_song_from_file  ( gchar * fname );
+song *      create_song            ( void );
 void        delete_song            ( song * s );
+song *      song_set_path          ( song * s, 
+                                     char * path );
+void        song_set_freq_pixbuf   ( song * s);
+void        song_set_color_pixbuf  ( song * s);
+void        song_set_repeats       ( song * s, 
+                                     song * original );
+void        song_set_repeat_attrs  ( song * s);
+void        file_info              ( gchar    * path,
+                                     gboolean * is_song,
+                                     gint     * checksum,
+                                     gint     * length,
+                                     gchar   ** title,
+                                     gchar   ** artist,
+                                     gchar   ** album,
+                                     song_file_type * type );
 
-int         append_daemon_file     ( char * fname, song * s );
-void        append_attr_file       ( song * s );
+void        write_data_file        ( void );
+int         append_daemon_file     ( song * s );
 
 void        read_data_file         ( void );
 void        read_daemon_file       ( void );
-void        read_attr_file         ( void );
-void        write_attr_file        ( void );
-void        write_data_file        ( void );
-
 gboolean    add_from_daemon_file_at_seek ( int seek );
 
-void        song_set_freq_pixbuf  ( song * s);
-void        song_set_color_pixbuf ( song * s);
+
 void        print_song  ( song * s );
 
 #endif /* __SONGS_H__ */

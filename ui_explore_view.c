@@ -34,7 +34,7 @@ enum
 
 typedef struct {
     gchar    * fname;
-    gboolean   is_file; 
+    gboolean   is_file;  /* If FALSE, a directory */
 } file_to_add;
 
 
@@ -48,16 +48,11 @@ gint           tree_depth;               /* How deep does the tree go */
 static GHashTable * file_name_iter_hash = NULL;
 static GList      * file_name_in_tree = NULL;
 static GQueue     * files_to_add_queue = NULL; 
+static GList      * files_to_analyze = NULL;
 
 static gint         animate_timeout = 0;
 static gint         animate_frame = 0;
 static gchar      * animate_file = NULL;
-
-/* As we add files which have not been analyzed, we add their
- * names to a temporary analysis file. */
-static char       * temp_append = NULL;
-static int          temp_num = 1;
-static FILE       * f_temp = NULL;
 
 static int    tree_walk       ( const char *file, 
                                 const struct stat *sb, 
@@ -71,11 +66,12 @@ static int    get_iter_path   ( GtkTreeModel *tree_model,
                                 gboolean is_start );
 static int    file_depth      ( char * file );
 static gint   explore_animate ( gpointer data );
-static gint   iter_sort_strcmp  (GtkTreeModel *model,
+static gint   iter_sort_strcmp ( GtkTreeModel *model,
                                  GtkTreeIter *a,
                                  GtkTreeIter *b,
                                  gpointer user_data);
-
+gint          compare_str     ( gconstpointer a,
+                                gconstpointer b );
 
 GtkWidget * make_explore_view ( void ) {
     GtkWidget * swin;
@@ -139,7 +135,7 @@ void explore_view_set_root ( char * root_dir ) {
     
     /* Unmark current songs */
     for (llist = g_list_first(songs); llist; llist = g_list_next(llist)) {
-        SONG(llist)->marked = FALSE;
+        SONG(llist)->in_tree = FALSE;
     }
     
     /* Clear queue of files which were pending addition from previous
@@ -179,16 +175,10 @@ void explore_view_set_root ( char * root_dir ) {
         g_queue_free(parent_name_stack);
     parent_name_stack = g_queue_new();
 
-    /* Create a temporary file for storing any file names requiring
-     * analysis */
-    snprintf(buffer, BUFFER_SIZE, "%s/%s/%s%d", 
-             getenv("HOME"), 
-             GJAY_DIR, 
-             GJAY_TEMP, 
-             temp_num++);
-    temp_append = g_strdup(buffer);
-    f_temp = fopen(temp_append, "w");
-        
+    if (files_to_analyze)
+        g_list_free(files_to_analyze);
+    files_to_analyze = NULL;
+
     /* Recurse through the directory tree, adding file names to 
      * a stack. In spare cycles, we'll process these files properly for
      * list display and requesting daemon processing */
@@ -221,10 +211,11 @@ static int tree_walk (const char *file,
 
     fta = g_malloc(sizeof(file_to_add));
     fta->is_file = (flag == FTW_F);
-    fta->fname = g_strdup(file);
+    fta->fname = strdup_to_utf8(file);
     g_queue_push_head(files_to_add_queue, fta);
     return 0;
 }
+
 
 
 
@@ -232,23 +223,45 @@ static int tree_add_idle (gpointer data) {
     file_to_add * fta;
     GtkTreeIter * parent, * current;
     int pm_type;
-    char * display_name,  * str;
-    gchar * utf8 = NULL;
-    song * s;
-
+    gchar * display_name,  * str;
+    song * s, * original;
+    gboolean is_song;
+    song_file_type type;
+    
     if (g_queue_is_empty(files_to_add_queue)) {
         /* We are done with analysis!*/
-        /* Send any new names to the daemon. */
-        if (f_temp) {
-            fclose(f_temp);
-            f_temp = NULL;
-            send_ipc_text(ui_pipe_fd, QUEUE_FILE, temp_append);
+        FILE  * f;    
+        GList * ll;
+        gchar buffer[BUFFER_SIZE];
+
+        /* Create a temporary file for storing any file names requiring
+         * analysis */
+        snprintf(buffer, BUFFER_SIZE, "%s/%s/%s", 
+                 getenv("HOME"), 
+                 GJAY_DIR, 
+                 GJAY_TEMP);
+        f = fopen(buffer, "w");
+
+        /* Sort list of files to analyze  */
+        files_to_analyze = g_list_sort (files_to_analyze,  compare_str);
+
+        for (ll = g_list_first(files_to_analyze); ll; ll = g_list_next(ll)) {
+            if (f) 
+                fprintf(f, "%s\n", (gchar *) ll->data);
+            g_free(ll->data);
         }
-        g_free(temp_append);
+        g_list_free(files_to_analyze);
+        files_to_analyze = NULL;
+        
+        /* Send any new names to the daemon. */
+        if (f) {
+            fclose(f);
+            send_ipc_text(ui_pipe_fd, QUEUE_FILE, buffer);
+        } 
         return FALSE;
     }
-    fta = (file_to_add *) files_to_add_queue->tail->data;
 
+    fta = (file_to_add *) files_to_add_queue->tail->data;
     display_name = fta->fname;
     current = g_malloc(sizeof(GtkTreeIter));
 
@@ -263,28 +276,68 @@ static int tree_add_idle (gpointer data) {
             g_queue_pop_tail(iter_stack);
         }
         parent = iter_stack->tail->data;   
-        
-        if ((s = (song *) g_hash_table_lookup(song_name_hash, fta->fname))) {
-            s->marked = TRUE;
-            pm_type = PM_FILE_SONG;
-        } else if (g_hash_table_lookup(files_not_song_hash, fta->fname)) {
-            pm_type = PM_FILE_NOSONG;
-        } else {
-            pm_type = PM_FILE_PENDING;
-            /* Add to analysis queue */
-            if (f_temp) 
-                fprintf(f_temp, "%s\n", fta->fname);
-        }
 
+        s = (song *) g_hash_table_lookup(song_name_hash, fta->fname);
+        if (s) {
+            s->in_tree = TRUE;
+
+            if (!s->no_data) {
+                pm_type = PM_FILE_SONG;
+            } else {
+                pm_type = PM_FILE_PENDING;
+                /* Analyze this file if it's the first song of a string of
+                 * duplicates */
+                if (s == g_hash_table_lookup(song_checksum_hash, 
+                                             &s->checksum)) {
+                    files_to_analyze = g_list_append(
+                        files_to_analyze, strdup_to_latin1(s->path));
+                }
+            }
+        } else if (g_hash_table_lookup(not_song_hash, fta->fname)) {
+            pm_type = PM_FILE_NOSONG;
+        }  else {
+            s = create_song();
+            file_info(fta->fname,
+                      &is_song,
+                      &s->checksum,
+                      &s->length,
+                      &s->title,
+                      &s->artist,
+                      &s->album,
+                      &type);
+            if (is_song) {
+                song_set_path(s, fta->fname);
+                /* Check for symlinkery */
+                original = g_hash_table_lookup(song_checksum_hash, 
+                                               &s->checksum);
+                if (original) { 
+                    song_set_repeats(s, original);
+                } else { 
+                    g_hash_table_insert(song_checksum_hash, 
+                                        &s->checksum, s);
+                    /* Add to analysis queue */
+                    files_to_analyze = g_list_append(files_to_analyze,
+                                                     strdup_to_latin1(fta->fname));
+                }
+                songs = g_list_append(songs, s);
+                g_hash_table_insert(song_name_hash, s->path, s);
+                pm_type = PM_FILE_PENDING;
+                s->in_tree = TRUE;
+            } else {
+                delete_song(s);
+                str = g_strdup(fta->fname);
+                not_songs = g_list_append(not_songs, str);
+                g_hash_table_insert(not_song_hash, str, (gpointer) TRUE);
+                pm_type = PM_FILE_NOSONG;
+            }
+        }
         display_name = fta->fname + 1 + strlen(parent_name_stack->tail->data);
 
         gtk_tree_store_append (store, current, parent);
-        utf8 = strdup_to_utf8(display_name);
         gtk_tree_store_set (store, current,
-                            NAME_COLUMN, utf8,
+                            NAME_COLUMN, display_name,
                             IMAGE_COLUMN, pixbufs[pm_type],
                             -1);
-        g_free(utf8);
         
         str = strdup(fta->fname);
         file_name_in_tree = g_list_append(file_name_in_tree, str);
@@ -308,25 +361,21 @@ static int tree_add_idle (gpointer data) {
         }
         
         gtk_tree_store_append (store, current, parent);
-        utf8 = strdup_to_utf8(display_name);
         gtk_tree_store_set (store, current,
-                            NAME_COLUMN, utf8,
+                            NAME_COLUMN, display_name,
                             IMAGE_COLUMN, pixbufs[PM_DIR_CLOSED],
                             -1);
-        g_free(utf8);
         str = strdup(fta->fname);
         file_name_in_tree = g_list_append(file_name_in_tree, str);
         g_hash_table_insert ( file_name_iter_hash,
                               str,
                               current);
-
         
         g_queue_push_tail(iter_stack, current);
         g_queue_push_tail(parent_name_stack, str);
         tree_depth = MAX(tree_depth, g_list_length(parent_name_stack->head));
     }
     
-
     g_queue_pop_tail(files_to_add_queue);
     g_free(fta->fname);
     g_free(fta);
@@ -340,18 +389,16 @@ static int get_iter_path (GtkTreeModel *model,
                           gboolean start) {
     GtkTreeIter parent;
     int len, offset = 0;
-    char * name, * name_l1;
+    char * name;
         
     if (gtk_tree_model_iter_parent(model, &parent, child)) {
         offset = get_iter_path(model, &parent, buffer, FALSE);
     }
 
     gtk_tree_model_get (model, child, NAME_COLUMN, &name, -1);
-    name_l1 = strdup_to_latin1(name);
+    len = strlen(name);
+    memcpy(buffer + offset, name, len); 
     g_free(name);
-    len = strlen(name_l1);
-    memcpy(buffer + offset, name_l1, len); 
-    g_free(name_l1);
 
     buffer[offset + len] = (start ? '\0' : '/');
     
@@ -366,11 +413,9 @@ static void select_row (GtkTreeSelection *selection, gpointer data) {
     char buffer[BUFFER_SIZE];
     GtkTreeIter iter;
     GtkTreeModel *model;
-    gchar * name, * name_l1;
+    gchar * name;
     
     if (gtk_tree_selection_get_selected (selection, &model, &iter)) {
-        get_iter_path(model, &iter, buffer, TRUE);
-        gtk_tree_model_get (model, &iter, NAME_COLUMN, &name, -1);
         /* Very special and quite annoying case. If we have changed root
            directories, it is possible this method gets called before the
            tree is setup and the root directory gets called as if it were
@@ -379,11 +424,12 @@ static void select_row (GtkTreeSelection *selection, gpointer data) {
             (gtk_tree_store_iter_depth(store, &iter) == 0)) {
             return;
         }
-        name_l1 = strdup_to_latin1(name);
-        g_free(name);
-        set_selected_file(buffer, name_l1, 
+
+        get_iter_path(model, &iter, buffer, TRUE);
+        gtk_tree_model_get (model, &iter, NAME_COLUMN, &name, -1);
+        set_selected_file(buffer, name, 
                           gtk_tree_model_iter_has_child(model, &iter));
-        g_free(name_l1);
+        g_free(name);
     }
 }
 
@@ -530,5 +576,9 @@ gint iter_sort_strcmp  (GtkTreeModel *model,
     g_free(a_str);
     g_free(b_str);
     return result;
+}
+
+gint compare_str ( gconstpointer a, gconstpointer b) {
+    return g_strcasecmp((gchar *) a, (gchar *) b);
 }
 

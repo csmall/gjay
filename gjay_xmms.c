@@ -63,20 +63,23 @@ void play_song ( song * s ) {
     init_xmms();
     if (xmms_session < 0)
         return;
-    list = g_list_append(NULL, s->path);
+    list = g_list_append(NULL, strdup_to_latin1(s->path));
     play_files(list);
+    g_free((gchar *) list->data);
     g_list_free(list);
 }
 
 void play_songs ( GList * slist ) {
-    GList * list = NULL;
+    GList * list = NULL, * ll;
     init_xmms();
     if (xmms_session < 0)
         return;
     for (; slist; slist = g_list_next(slist)) {
-        list = g_list_append(list, SONG(slist)->path);
+        list = g_list_append(list, strdup_to_latin1(SONG(slist)->path));
     } 
     play_files(list);
+    for (ll = list; ll; ll = g_list_next(ll)) 
+        g_free((gchar *) ll->data);
     g_list_free(list);
 }
 

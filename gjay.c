@@ -166,27 +166,25 @@ int main( int argc, char *argv[] )
                         NULL);
 
         songs = NULL;
-        rated = NULL;
-        files_not_song = NULL;
-        song_name_hash      = g_hash_table_new(g_str_hash, g_str_equal);
-        rated_name_hash     = g_hash_table_new(g_str_hash, g_str_equal);
-        files_not_song_hash = g_hash_table_new(g_str_hash, g_str_equal);
+        not_songs = NULL;
+        song_name_hash     = g_hash_table_new(g_str_hash, g_str_equal);
+        song_checksum_hash = g_hash_table_new(g_int_hash, g_int_equal);
+        not_song_hash      = g_hash_table_new(g_str_hash, g_str_equal);
+
         
         load_prefs();
         read_data_file();
-        read_attr_file();
-
         widget = make_app_ui();
         gtk_widget_show_all(widget);
-
         send_ipc(ui_pipe_fd, ATTACH);
         set_selected_file(NULL, NULL, FALSE);
-
         gtk_main();
 
+        assert(g_hash_table_lookup(song_name_hash, "/home/cgroom/gjay/gjay/test/the_best_of_bob_dylan_volume_1/18_shelter_from_the_storm.ogg"));
+       
         save_prefs();
         write_data_file();
-        write_attr_file();
+
         if (prefs.detach || (prefs.daemon_action == PREF_DAEMON_DETACH)) {
             send_ipc(ui_pipe_fd, DETACH);
             send_ipc(ui_pipe_fd, UNLINK_DAEMON_FILE);

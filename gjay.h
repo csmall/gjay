@@ -39,27 +39,17 @@ typedef enum {
 
 
 /* Default directory for storing app info */
-#define GJAY_VERSION   "0.2.3"
-#define GJAY_DIR       ".gjay"
-#define GJAY_PREFS     "prefs"
-#define GJAY_QUEUE     "analysis_queue"
-/* Three files define GJay's information about songs. 
- *   FILE_DATA -- Store permanent information about song characteristics.
- *                These are features which never change (BPM, Freq, etc.)
- *   DAEMON_DATA -- Store transient information about song characteristics.
- *                  Written to by daemon process.
- *   FILE_ATTR   -- Store information about song attributes, characteristics
- *                  which may change.
- */
-#define GJAY_FILE_DATA   "file_data"
-#define GJAY_DAEMON_DATA "daemon_data"
-#define GJAY_FILE_ATTR   "file_attr"
-#define GJAY_TEMP        "temp_"
-/* Write the daemon process ID to this file */
-#define GJAY_PID       "gjay.pid"
+#define GJAY_VERSION     "0.2.3"
+#define GJAY_DIR         ".gjay"
+#define GJAY_PREFS       "prefs.xml"
+#define GJAY_FILE_DATA   "data.xml"
+#define GJAY_DAEMON_DATA "daemon.xml"
+#define GJAY_QUEUE       "analysis_queue"
+#define GJAY_TEMP        "temp_analysis_append"
+#define GJAY_PID         "gjay.pid"
 
 /* We use fixed-size buffers for labels and filenames */
-#define BUFFER_SIZE     FILENAME_MAX
+#define BUFFER_SIZE      FILENAME_MAX
 
 /* Color wheel size */
 #define CATEGORIZE_DIAMETER   200   
@@ -89,4 +79,3 @@ void        play_files  ( GList * list);
 
 
 #endif /* GJAY_H */
-

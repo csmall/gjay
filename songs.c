@@ -30,519 +30,114 @@
 #include "gjay.h"
 #include "analysis.h"
 
-
-gint    num_songs;
-
-/* We track 3 types of file: files which are songs (analyzed), files
- * which have been rated but not analyzed, and files which are not
- * songs. We keep both a list and hash (on path)
- */
-GList * songs;   
-GList * rated;
-GList * files_not_song;
-
-GHashTable * song_name_hash;
-GHashTable * rated_name_hash;
-GHashTable * files_not_song_hash;
-
-static void     write_data (FILE * f, 
-                            char * fname, 
-                            song * s);
-static void     write_attr (FILE * f, 
-                            song * s);
-static gboolean read_data  (FILE * f);
-
-/* Test whether a file is an ogg/mp3/wav; if so, create a song */
-static song *  test_ogg_create ( char * fname );
-static song *  test_mp3_create ( char * fname );
-static song *  test_wav_create ( char * fname );
+#define CRC_TABLE_SIZE 256
+#define CRC_BYTES      50*1024
 
 
 typedef enum {
-    TOKEN_SONG = 0,
-    TOKEN_NOT_SONG,
-    TOKEN_END_OF_SONG,
-    TOKEN_CHECKSUM,
-    TOKEN_TITLE,
-    TOKEN_ARTIST,
-    TOKEN_ALBUM,
-    TOKEN_BPM,
-    TOKEN_FREQ,
-    TOKEN_VOL_DIFF,
-    TOKEN_LENGTH,
-    TOKEN_COLOR,
-    TOKEN_RATING,
-    TOKEN_BPM_UNDEF,
-    TOKEN_NO_COLOR,
-    TOKEN_NO_RATING,
-    TOKEN_NO_DATA,
-    TOKEN_LAST
-} song_tokens;
+    E_FILE = 0,
+    E_TITLE,
+    E_ARTIST,
+    E_ALBUM,
+    E_CHECKSUM,
+    E_LENGTH,
+    E_RATING,
+    E_COLOR,
+    E_FREQ,
+    E_BPM,    
+    /* Attributes */
+    E_PATH,
+    E_NOT_SONG,
+    E_REPEATS,
+    E_VOL_DIFF,
+    E_LAST
+} element_type;
 
 
-char * song_token[TOKEN_LAST] = {
-    "SONG",
-    "NOTSONG",
-    "EOS",
-    "CKSUM",
-    "TITLE",
-    "ARTIST",
-    "ALBUM",
-    "BPM",
-    "FREQ",
-    "VOL_DIFF",
-    "LEN",
-    "COLOR",
-    "RATING",
-    "BPM_UNDEF",
-    "NO_COLOR",
-    "NO_RATING",
-    "NO_DATA"
+static const char * element_str[E_LAST] = {
+    "file",
+    "title",
+    "artist",
+    "album",
+    "checksum",
+    "length",
+    "rating",
+    "color",
+    "freq",
+    "bpm",
+    "path",
+    "not_song",
+    "repeats",
+    "volume_diff" 
 };
 
 
-/**
- * Read the main GJay data file and, if present, the daemon's analysis
- * data.
- */
-#define NUM_DATA_FILES 2
-void read_data_file ( void ) {
-    char buffer[BUFFER_SIZE];
-    char * files[NUM_DATA_FILES] = { GJAY_FILE_DATA, GJAY_DAEMON_DATA };
-    FILE * f;
-    gint k;
-
-    for (k = 0; k < NUM_DATA_FILES; k++) {
-        snprintf(buffer, BUFFER_SIZE, "%s/%s/%s", getenv("HOME"), 
-                 GJAY_DIR, files[k]);
-        f = fopen(buffer, "r");
-        if (f) {
-            while (!feof(f)) 
-                read_data(f);
-            fclose(f);
-        }
-    }
-}
+typedef struct {
+    gboolean is_repeat;
+    gboolean not_song;
+    gboolean new;
+    element_type element;
+    song * s;
+} song_parse_state;
 
 
-/**
- * The attr file is log-structured
- */
-void read_attr_file ( void ) {
-    char buffer[BUFFER_SIZE], token[128];
-    FILE * f;
-    song * s = NULL;
-    gchar * fname;
-    int k;
-    float fl1, fl2;
 
-    snprintf(buffer, BUFFER_SIZE, "%s/%s/%s", getenv("HOME"), 
-             GJAY_DIR, GJAY_FILE_ATTR);
-    f = fopen(buffer, "r");
-    if (f) {
-        while (!feof(f) && fscanf(f, "%s", token)) {
-            for (k = 0; k < TOKEN_LAST; k++) {
-                if (strcmp(token, song_token[k]) == 0)
-                    break;
-            }
-            if (strlen(token) == 0)
-                continue;
-            switch (k) {
-            case TOKEN_SONG:
-                fscanf(f, " ");
-                read_line(f, buffer, BUFFER_SIZE); 
-                s = g_hash_table_lookup(song_name_hash, buffer);
-                if (!s) {
-                    if (g_hash_table_lookup(files_not_song_hash, buffer))
-                        break;
-                    s = g_hash_table_lookup(rated_name_hash, buffer);
-                    if (!s) {
-                        /* This file has been rated but not analyzed */
-                        s = create_song_from_file(buffer);
-                        if (!s) {
-                            /* Not a song */
-                            fname = g_strdup(buffer);
-                            files_not_song = g_list_append(files_not_song, 
-                                                           fname);
-                            g_hash_table_insert (files_not_song_hash,
-                                                 fname,
-                                                 (int *) TRUE);
-                            explore_update_file_pm(fname, PM_FILE_NOSONG);
-                            break;
-                        } else {
-                            rated = g_list_append(rated, s);
-                            g_hash_table_insert (rated_name_hash,
-                                                 s->path,
-                                                 s);
-                            /* Not enough information to update the explore
-                             * view window */
-                        }
-                    }
-                    s->no_data = TRUE;
-                }
-                break;
-            case TOKEN_END_OF_SONG:
-                fscanf(f, "\n");
-                s = NULL;
-                break;
-            case TOKEN_COLOR:
-                s->no_color = FALSE;
-                fscanf(f, " %f %f\n", &fl1, &fl2);
-                if (s) {
-                    s->color.H = fl1;
-                    s->color.B = fl2;
-                }
-                break;
-            case TOKEN_RATING:
-                s->no_rating = FALSE;
-                fscanf(f, " %f\n", &fl1);
-                if (s)
-                    s->rating = fl1;
-                break;
-            default:
-                if (verbosity)
-                    fprintf(stderr, "Unable to parse token\n");
-                break;
-            }
-        }
-        fclose(f);
-    }
-}
+GList * songs;     /* List of song *  */
+GList * not_songs; /* List of char *, UTF8 encoded */
+
+GHashTable * song_name_hash; 
+GHashTable * song_checksum_hash;
+GHashTable * not_song_hash;
+
+static guint32 * crc_table = NULL;
 
 
-/**
- * Read a song/file info from the file at the seek position, add to the
- * songs list. Return TRUE if the songs list was updated.
- */
-gboolean add_from_daemon_file_at_seek (int seek) {
-    char buffer[BUFFER_SIZE];
-    gboolean result;
-    FILE * f;
+static void     write_song_data     ( FILE * f, song * s );
+static void     write_not_song_data ( FILE * f, gchar * path );
+static gboolean read_song_file_type ( char * path, 
+                                      song_file_type type,
+                                      gint   * length,
+                                      gchar ** title,
+                                      gchar ** artist,
+                                      gchar ** album );
+static gboolean read_data           ( FILE * f );
+static void     data_start_element  ( GMarkupParseContext *context,
+                                      const gchar         *element_name,
+                                      const gchar        **attribute_names,
+                                      const gchar        **attribute_values,
+                                      gpointer             user_data,
+                                      GError             **error );
+static void     data_end_element    ( GMarkupParseContext *context,
+                                      const gchar         *element_name,
+                                      gpointer             user_data,
+                                      GError             **error );
+static void     data_text           ( GMarkupParseContext *context,
+                                      const gchar         *text,
+                                      gsize                text_len,  
+                                      gpointer             user_data,
+                                      GError             **error );
+static int      get_element         ( gchar * element_name );
+static void     song_copy_attrs     ( song * dest, 
+                                      song * original );
 
-    result = FALSE;
-    snprintf(buffer, BUFFER_SIZE, "%s/%s/%s", getenv("HOME"), 
-             GJAY_DIR, GJAY_DAEMON_DATA);
-    f = fopen(buffer, "r");
-    if (f) {
-        fseek(f, seek, SEEK_SET);
-        result = read_data(f);
-        fclose(f);
-    }
-    return result;
-}
-
-
-gboolean read_data (FILE * f) {
-    char buffer[BUFFER_SIZE], token[128];
-    int k, checksum;
-    song * s = NULL;
-    gchar * fname;
-
-    while (fscanf(f, "%s", token)) {
-        for (k = 0; k < TOKEN_LAST; k++) {
-            if (strcmp(token, song_token[k]) == 0)
-                break;
-        }
-        switch (k) {
-        case TOKEN_SONG:
-            fscanf(f, " ");
-            read_line(f, buffer, BUFFER_SIZE);
-            /**
-             * If this song has already been rated, remove from 
-             * rating list 
-             */
-            s = g_hash_table_lookup(rated_name_hash, buffer);
-            if (s) {
-                rated = g_list_remove(rated, s);
-                g_hash_table_remove(rated_name_hash, s->path);
-            } else {
-                s = create_song(buffer);
-            }
-            break;
-        case TOKEN_NOT_SONG:
-            fscanf(f, " ");
-            read_line(f, buffer, BUFFER_SIZE);
-            if (g_hash_table_lookup(files_not_song_hash, buffer) == NULL) {
-                fname = g_strdup(buffer);
-                files_not_song = g_list_append(files_not_song, fname);
-                g_hash_table_insert (files_not_song_hash,
-                                     fname,
-                                     (int *) TRUE);
-                explore_update_file_pm(fname, PM_FILE_NOSONG);
-            }
-            return FALSE;
-        case TOKEN_END_OF_SONG:
-            fscanf(f, "\n");
-            if (g_hash_table_lookup(song_name_hash, s->path) == NULL) {
-                num_songs++;
-                songs = g_list_append(songs, s);
-                g_hash_table_insert (song_name_hash,
-                                     s->path,
-                                     s);
-                if (explore_update_file_pm(s->path, PM_FILE_SONG))
-                    s->marked = TRUE;
-            } else {
-                if (verbosity)
-                    printf("Tossing song -- already in list\n");
-                /* Already in list */
-                delete_song(s);
-                return FALSE;
-            }
-            return TRUE;
-        case TOKEN_CHECKSUM:
-            /* Fixme */
-            fscanf(f, " %d\n", &checksum);
-            break;
-        case TOKEN_TITLE:
-            fscanf(f, " ");
-            read_line(f, buffer, BUFFER_SIZE);
-            s->title = g_strdup(buffer);
-            break;
-        case TOKEN_ARTIST:
-            fscanf(f, " ");
-            read_line(f, buffer, BUFFER_SIZE);
-            s->artist = g_strdup(buffer);
-            break;
-        case TOKEN_ALBUM:
-            fscanf(f, " ");
-            read_line(f, buffer, BUFFER_SIZE);
-            s->album = g_strdup(buffer);
-            break;
-        case TOKEN_BPM:
-            fscanf(f, " %lf\n", &s->bpm);
-            break;
-        case TOKEN_BPM_UNDEF:
-            fscanf(f, "\n");
-            s->bpm_undef = TRUE;
-            break;
-        case TOKEN_FREQ:
-            s->no_data = FALSE;
-            for (k = 0; k < NUM_FREQ_SAMPLES; k++) {
-                fscanf(f, " %lf", &s->freq[k]);
-            }
-            fscanf(f, "\n");
-            break;
-        case TOKEN_VOL_DIFF:
-            fscanf(f, " %lf\n", &s->volume_diff);
-            break;
-        case TOKEN_LENGTH:
-            fscanf(f, " %ud\n", (unsigned int *) &s->length);
-            break;
-        default:
-            if (verbosity) 
-                fprintf(stderr, "Unknown token %s\n", token);
-            if (s)
-                delete_song(s);
-            return FALSE;
-        }
-    }
-    return FALSE;
-}
+/* Utilities for CRC32 Checksum */
+static void     gen_crc_table ( void );
+static guint32  file_checksum ( char * path );
 
 
-void write_data_file(void) {
-    char buffer[BUFFER_SIZE], buffer_temp[BUFFER_SIZE];
-    FILE * f;
-    GList * llist;
 
-    snprintf(buffer, BUFFER_SIZE, "%s/%s/%s", getenv("HOME"), 
-             GJAY_DIR, GJAY_FILE_DATA);
-    snprintf(buffer_temp, BUFFER_SIZE, "%s_temp", buffer);
+/* Create a new song with the given filename */
+song * create_song ( void ) {
+    song * s;
     
-    f = fopen(buffer_temp, "w");
-    if (f) {
-        for (llist = g_list_first(songs); llist; llist = g_list_next(llist))
-            write_data(f, NULL, (song *) llist->data);
-        for (llist = g_list_first(files_not_song); 
-             llist; llist = g_list_next(llist))
-            write_data(f, (char *) llist->data, NULL);
-        fclose(f);
-        rename(buffer_temp, buffer);
-    }
-}
-
-
-void write_attr_file(void) {
-    char buffer[BUFFER_SIZE], buffer_temp[BUFFER_SIZE];
-    FILE * f;
-    GList * llist;
-
-    snprintf(buffer, BUFFER_SIZE, "%s/%s/%s", getenv("HOME"), 
-             GJAY_DIR, GJAY_FILE_ATTR);
-    snprintf(buffer_temp, BUFFER_SIZE, "%s_temp", buffer);
-    
-    f = fopen(buffer_temp, "w");
-    if (f) {
-        for (llist = g_list_first(songs); llist; llist = g_list_next(llist)) 
-            write_attr(f, (song *) llist->data);
-        for (llist = g_list_first(rated); llist; llist = g_list_next(llist))
-            write_attr(f, (song *) llist->data);
-        fclose(f);
-        rename(buffer_temp, buffer);
-    }
-}
-     
-
-/**
- * Write to the data file. If song s is NULL, assume the file in
- * question is not a song.
- */
-static void write_data (FILE * f, 
-                        char * fname, 
-                        song * s) {
-    int k;
-    if (s) {
-        fprintf(f, "%s %s\n", song_token[TOKEN_SONG], s->path);
-/*       fprintf(f, "%s %d\n", song_token[TOKEN_CHECKSUM], s->checksum); */
-        if (s->title)
-            fprintf(f, "%s %s\n", song_token[TOKEN_TITLE], s->title);
-        if (s->artist)
-            fprintf(f, "%s %s\n", song_token[TOKEN_ARTIST], s->artist);
-        if (s->album)
-            fprintf(f, "%s %s\n", song_token[TOKEN_ALBUM], s->album);
-        fprintf(f, "%s %d\n", song_token[TOKEN_LENGTH], s->length);
-        fprintf(f, "%s %f\n", song_token[TOKEN_BPM], s->bpm);
-        if (s->bpm_undef)
-            fprintf(f, "%s\n", song_token[TOKEN_BPM_UNDEF]);
-        fprintf(f, "%s %f\n", song_token[TOKEN_VOL_DIFF], s->volume_diff);
-        
-        fprintf(f, "%s ", song_token[TOKEN_FREQ]);
-        for (k = 0; k < NUM_FREQ_SAMPLES; k++) {
-            fprintf(f, "%f", s->freq[k]);
-            if (k == NUM_FREQ_SAMPLES - 1)
-                fprintf(f, "\n");
-            else 
-                fprintf(f, " ");
-        }
-        fprintf(f, "%s\n", song_token[TOKEN_END_OF_SONG]);
-    } else {
-        fprintf(f, "%s %s\n", song_token[TOKEN_NOT_SONG], fname);
-    }
-}
-
-
-/**
- * Write to the attr file.
- */
-static void write_attr (FILE * f, 
-                        song * s) {
-    if (s->no_color && s->no_rating)
-        return;
-    fprintf(f, "%s %s\n", song_token[TOKEN_SONG], s->path);
-    if (!s->no_color) {
-        fprintf(f, "%s %f %f\n", 
-                song_token[TOKEN_COLOR], 
-                s->color.H, s->color.B);
-    }
-    if (!s->no_rating) {
-        fprintf(f, "%s %f\n", song_token[TOKEN_RATING], s->rating);
-    }
-    fprintf(f, "%s\n", song_token[TOKEN_END_OF_SONG]);
-}
-
-
-
-/**
- * Append to the daemon data file. If song s is NULL, assume this file
- * is not a song. 
- * 
- * Return the file seek position of the start of the song/file, or -1 if
- * error
- */
-int append_daemon_file (char * fname, song * s) {
-    char buffer[BUFFER_SIZE];
-    FILE * f;
-    int file_seek; /* Get the seek position before the write */
-    
-    snprintf(buffer, BUFFER_SIZE, "%s/%s/%s", getenv("HOME"), 
-             GJAY_DIR, GJAY_DAEMON_DATA);
-    f = fopen(buffer, "a");
-    if (f) {
-        file_seek = ftell(f);
-        write_data(f, fname, s);
-        fclose(f);
-        return file_seek;
-    } else {
-        fprintf(stderr, "Error: unable to write %s.\nAnalysis for %s was skipped!\n", buffer, s->path);
-    }
-    return -1;
-}
-
-
-/**
- * Append to the attr file 
- */
-void append_attr_file (song * s) {
-    char buffer[BUFFER_SIZE];
-    FILE * f;
-    
-    snprintf(buffer, BUFFER_SIZE, "%s/%s/%s", getenv("HOME"), 
-             GJAY_DIR, GJAY_FILE_ATTR);
-    f = fopen(buffer, "a");
-    if (f) {
-        write_attr(f, s);
-        fclose(f);
-    } else {
-        fprintf(stderr, "Error: unable to write %s.\nAnalysis for %s was skipped!\n", buffer, s->path);
-    }
-}
-
-
-
-/**
- * Create a new song from a file. Return NULL if file invalid, not an
- * mp3, ogg, or wav, or if the song is already in the list. 
- */
-song * create_song_from_file ( gchar * fname ) {
-    song * s = NULL;
-    
-    if (access(fname, R_OK)) 
-        return NULL;
-
-    /* FIXME: add file checksum */
-
-    s = test_ogg_create(fname);
-    if (!s) 
-        s = test_wav_create(fname);
-    if (!s) 
-        s = test_mp3_create(fname);
-    if (s) {
-        if (!s->title)
-            s->title = g_strdup ("?");
-        if (!s->artist)
-            s->artist = g_strdup ("?");
-        if (!s->album)
-            s->album = g_strdup ("?");
-    } 
+    s = g_malloc(sizeof(song));
+    memset (s, 0x00, sizeof(song));
+    s->no_color = TRUE;
+    s->no_rating = TRUE;
+    s->no_data = TRUE;
+    s->rating = (MIN_RATING + MAX_RATING)/2;
     return s;
 }
-
-
-void print_song ( song * s) {
-    int i;
-    printf("Path: '%s'\n", s->path);
-    printf("Fname: '%s'\n", s->fname);
-    printf("Title: '%s'\n", s->title);
-    printf("Artist: '%s'\n", s->artist);
-    printf("Album: '%s'\n", s->album);
-    printf("Length: %.2d:%.2d\n", s->length/60, s->length%60);
-    /*   printf("Checksum: %lu\n", (long unsigned int) s->checksum); */
-    printf("Hue: %f\n", s->color.H);
-    printf("Brightness: %f\n", s->color.B);
-    printf("Rating: %f\n", s->rating);
-    printf("BPM: %f\n", s->bpm);
-    printf("No data: %d\n", s->no_data);
-    if (s->no_color) 
-        printf("No color attr\n");
-    if (s->no_rating) 
-        printf("No rating attr\n");
-    printf("Freq: ");
-    for (i = 0; i < NUM_FREQ_SAMPLES; i++) {
-        printf("%.3f ", s->freq[i]);
-    }
-    printf("\n");
-}
-
 
 void delete_song (song * s) {
     if(s->freq_pixbuf)
@@ -557,18 +152,11 @@ void delete_song (song * s) {
 }
 
 
-/* Create a new song with the given filename */
-song * create_song ( char * fname ) {
+song * song_set_path ( song * s, 
+                       char * path ) {
     int i;
-    song * s;
-    
-    s = g_malloc(sizeof(song));
-    memset (s, 0x00, sizeof(song));
-    s->no_color = TRUE;
-    s->no_rating = TRUE;
-    s->no_data = TRUE;
-    s->rating = (MIN_RATING + MAX_RATING)/2;
-    s->path = g_strdup(fname);
+    free(s->path);
+    s->path = g_strdup(path);
     s->fname = s->path;
     for (i = strlen(s->path) - 1; i; i--) {
         if (s->path[i] == '/') {
@@ -578,107 +166,6 @@ song * create_song ( char * fname ) {
     }
     return s;
 }
-
-
-static song * test_mp3_create ( char * fname ) {
-     FILE * f;
-     char buffer[BUFFER_SIZE];
-     char quoted_fname[BUFFER_SIZE];
-     song * s = NULL;
-
-     quote_path(quoted_fname, BUFFER_SIZE, fname);
-     snprintf(buffer, BUFFER_SIZE, 
-              "mp3info -p \"frames:%%u\\n%%a\\n%%t\\n%%l\\n%%S\" \'%s\'",
-              quoted_fname);
-     if (!(f = popen(buffer, "r"))) {
-         fprintf(stderr, "Unable to run %s\n", buffer);
-         return NULL;
-     } 
-     while (!feof(f) && !s) {
-         read_line(f, buffer, BUFFER_SIZE);
-         if (strncmp(buffer, "frames:", strlen("frames:")) == 0) {
-             if (strlen(buffer) > strlen("frames:")) {
-                 s = create_song(fname);
-             }
-         }
-     }
-     if (!feof(f) && s) {
-         read_line(f, buffer, BUFFER_SIZE);
-         if (strlen(buffer)) {
-             s->artist = g_strdup(buffer);
-         }
-         read_line(f, buffer, BUFFER_SIZE);
-         if (strlen(buffer)) {
-             s->title = g_strdup(buffer);
-         }
-         read_line(f, buffer, BUFFER_SIZE);
-         if (strlen(buffer)) {
-             s->album = g_strdup(buffer);
-         }
-         read_line(f, buffer, BUFFER_SIZE);
-         if (strlen(buffer)) {
-             s->length = atoi(buffer);
-         }
-     }
-     pclose(f);
-     return s;
-}
-
-
-static song * test_ogg_create ( char * fname ) { 
-    FILE * f;
-    song * s = NULL;
-    int i;
-    OggVorbis_File vf;
-    vorbis_comment * vc;
-
-    f = fopen(fname, "r");
-    if (!f) 
-        return NULL;
-    
-    if(ov_open(f, &vf, NULL, 0) == 0) {
-        s = create_song(fname);
-        vc = ov_comment(&vf, -1);
-        s->length = ov_time_total(&vf, -1);
-                
-        for (i = 0; i < vc->comments; i++) {
-            if (strncasecmp(vc->user_comments[i], "title=", strlen("title=")) == 0) {
-                s->title = g_strdup(vc->user_comments[i] + strlen("title="));
-            } else if (strncasecmp(vc->user_comments[i], "artist=", strlen("artist=")) == 0) {
-                s->artist = g_strdup(vc->user_comments[i] + strlen("artist="));
-            } else if (strncasecmp(vc->user_comments[i], "album=", strlen("album=")) == 0) {
-                s->album = g_strdup(vc->user_comments[i] + strlen("album="));
-            }
-        }
-        ov_clear(&vf);
-    } else {
-        fclose(f);
-    }
-    return s;
-}
-
-
-static song * test_wav_create ( char * fname ) {
-    FILE * f;
-    song * s = NULL;
-    struct stat buf;
-    waveheaderstruct header;
-
-    f = fopen(fname, "r");
-    if (!f)
-        return NULL;
-    fread(&header, sizeof(waveheaderstruct), 1, f);
-    wav_header_swab(&header);
-    fclose(f);
-    if ((strncmp(header.chunk_type, "WAVE", 4) == 0) &&
-        (header.byte_p_spl / header.modus == 2)) {
-        s = create_song(fname);
-        stat(fname, & buf);
-        s->length = (buf.st_size - sizeof(waveheaderstruct)) / 176758;
-    } 
-    return s;
-}
-
 
 
 /**
@@ -755,15 +242,562 @@ void song_set_color_pixbuf ( song * s) {
 }
 
 
-/* FIXME -- use file checksum for file uniqueness */
-#if 0
-#define CRC_TABLE_SIZE 256
-#define CRC_BYTES 50*1024
-static guint32 * crc_table = NULL;
+/**
+ * The song "s" repeats the song "original". It should copy the same info, 
+ * but be marked as a copy.
+ */
+void song_set_repeats ( song * s, song * original ) {
+    char * path, * fname;
+    song * ll;
 
-/* Utilities */
-static void gen_crc_table(void); /* For CRC32 checksum */
-static guint32 file_cksum ( char * fname );
+    path = s->path;
+    fname = s->fname;
+
+    g_free(s->artist);
+    g_free(s->title);
+    g_free(s->album);
+    
+    memcpy(s, original, sizeof(song));
+    if (original->title)
+        s->title = g_strdup(original->title);
+    if (original->album)
+        s->album = g_strdup(original->album);
+    if (original->artist)
+        s->artist = g_strdup(original->artist);
+    s->path = path;
+    s->fname = fname;
+    s->repeat_prev = NULL;
+    s->repeat_next = NULL;
+    s->freq_pixbuf = NULL;
+    s->color_pixbuf = NULL;
+
+    for (ll = original; ll->repeat_next; ll = ll->repeat_next)
+        ;
+    ll->repeat_next = s;
+    s->repeat_prev = ll;
+}
+
+
+/**
+ * Copy the song's attributes to all other songs which repeat it.
+ */
+void song_set_repeat_attrs( song * s) {
+    song * repeat;
+    for (repeat = s->repeat_prev; repeat; repeat = repeat->repeat_prev)
+        song_copy_attrs(repeat, s);
+    for (repeat = s->repeat_next; repeat; repeat = repeat->repeat_next)
+        song_copy_attrs(repeat, s);
+}
+
+
+static void song_copy_attrs( song * dest, song * original ) {
+    dest->bpm = original->bpm;
+    dest->rating = original->rating;
+    dest->color = original->color;
+    memcpy(&dest->freq, &original->freq, sizeof(gdouble) * NUM_FREQ_SAMPLES);
+    dest->no_data = original->no_data;
+    dest->no_rating = original->no_rating;
+    dest->no_color = original->no_color;
+    dest->bpm_undef = original->bpm_undef;
+    dest->volume_diff = original->volume_diff;
+    dest->marked = original->marked;
+}
+
+/**
+ * Collect information about a path. 
+ * IN:     Path
+ * RETURN: Set all other attributes if it is a song, otherwise set is_song
+ *         to false
+ *
+ * Note that we expect the path to be UTF8
+ */
+void file_info ( gchar    * path,
+                 gboolean * is_song,
+                 gint     * checksum,
+                 gint     * length,
+                 gchar   ** title,
+                 gchar   ** artist,
+                 gchar   ** album, 
+                 song_file_type * type ) {
+    gchar * latin1_path;
+    
+    *is_song = FALSE;
+    *checksum = 0;
+    *length = 0;
+    *artist = NULL;
+    *title = NULL;
+    *album = NULL;
+
+    latin1_path = strdup_to_latin1(path);
+    if (access(latin1_path, R_OK)) {
+        g_free(latin1_path);
+        return;
+    } 
+     
+    *checksum = file_checksum(latin1_path);
+
+    for (*type = OGG; *type < SONG_FILE_TYPE_LAST; (*type)++) {
+        if (read_song_file_type(latin1_path, *type, 
+                                length, title, artist, album)) {
+            *is_song = TRUE;
+            g_free(latin1_path);
+            return;
+        }
+    }
+    g_free(latin1_path);
+}
+
+
+void write_data_file(void) {
+    char buffer[BUFFER_SIZE], buffer_temp[BUFFER_SIZE];
+    FILE * f;
+    GList * llist;
+
+    snprintf(buffer, BUFFER_SIZE, "%s/%s/%s", getenv("HOME"), 
+             GJAY_DIR, GJAY_FILE_DATA);
+    snprintf(buffer_temp, BUFFER_SIZE, "%s_temp", buffer);
+    
+    f = fopen(buffer_temp, "w");
+    if (f) {
+        for (llist = g_list_first(songs); llist; llist = g_list_next(llist))
+            write_song_data(f, (song *) llist->data);
+        for (llist = g_list_first(not_songs); 
+             llist; llist = g_list_next(llist))
+            write_not_song_data(f, (char *) llist->data);
+        fclose(f);
+        rename(buffer_temp, buffer);
+    }
+}
+
+
+/**
+ * Append song info to the daemon data file.
+ * 
+ * Return the file seek position of the start of the song/file, or -1 if
+ * error
+ */
+int append_daemon_file (song * s) {
+    char buffer[BUFFER_SIZE];
+    FILE * f;
+    int file_seek; /* Get the seek position before the write */
+    
+    snprintf(buffer, BUFFER_SIZE, "%s/%s/%s", getenv("HOME"), 
+             GJAY_DIR, GJAY_DAEMON_DATA);
+    f = fopen(buffer, "a");
+    if (f) {
+        file_seek = ftell(f);
+        write_song_data(f, s);
+        fclose(f);
+        return file_seek;
+    } else {
+        fprintf(stderr, "Error: unable to write %s.\nAnalysis for %s was skipped!\n", buffer, s->path);
+    }
+    return -1;
+}
+
+
+/**
+ * Write a song to the data file in XML. Note that strings are UTF8-encoded.
+ *
+ * <file path="path" not_song="t/f" repeats="original_path">
+ *   <title>str</title>
+ *   <artist>str</artist>
+ *   <album>str</album>
+ *   <checksum>int</checksum>
+ *   <length>int</length>
+ *   <rating>float</rating>
+ *   <color>float float</color>
+ *   <freq volume_diff="float">float float...</freq>
+ *   <bpm>float</bpm>
+ * </file>
+ */
+static void write_song_data (FILE * f, song * s) {
+    int k;
+    assert(s);
+    
+    fprintf(f, "<file path=\"%s\" repeats=\"%s\" not_song=\"f\">\n",
+            s->path, s->repeat_prev ? s->repeat_prev->path : "");
+    if (!s->repeat_prev) {
+        if(s->artist)
+            fprintf(f, "\t<artist>%s</artist>\n", s->artist);
+        if(s->album)
+            fprintf(f, "\t<album>%s</album>\n", s->album);
+        if(s->title)
+            fprintf(f, "\t<title>%s</title>\n", s->title);
+        fprintf(f, "\t<checksum>%d</checksum>\n", s->checksum);
+        fprintf(f, "\t<length>%d</length>\n", s->length);
+        if(!s->no_data) {
+            if (s->bpm_undef)
+                fprintf(f, "\t<bpm>undef</bpm>\n");
+            else 
+                fprintf(f, "\t<bpm>%f</bpm>\n", s->bpm);
+            fprintf(f, "\t<freq volume_diff=\"%f\">", s->volume_diff);
+            for (k = 0; k < NUM_FREQ_SAMPLES; k++) 
+                fprintf(f, "%f ", s->freq[k]);
+            fprintf(f, "</freq>\n");
+        }
+        if (!s->no_rating)
+            fprintf(f, "\t<rating>%f</rating>\n", s->rating);
+        if (!s->no_color)
+            fprintf(f, "\t<color>%f %f</color>\n", s->color.H, s->color.B);
+    }
+    fprintf(f, "</file>\n");
+}
+
+
+static void write_not_song_data (FILE * f, gchar * path) {
+    fprintf(f, "<file path=\"%s\" repeats=\"\" not_song=\"t\"></file>\n", path);
+}
+
+
+
+/**
+ * Read the main GJay data file and, if present, the daemon's analysis
+ * data.
+ */
+#define NUM_DATA_FILES 2
+void read_data_file ( void ) {
+    char buffer[BUFFER_SIZE];
+    char * files[NUM_DATA_FILES] = { GJAY_FILE_DATA, GJAY_DAEMON_DATA };
+    FILE * f;
+    gint k;
+
+    for (k = 0; k < NUM_DATA_FILES; k++) {
+        snprintf(buffer, BUFFER_SIZE, "%s/%s/%s", 
+                 getenv("HOME"), GJAY_DIR, files[k]);
+        f = fopen(buffer, "r");
+        if (f) {
+            read_data(f);
+            fclose(f);
+        }
+    }
+}
+
+
+/**
+ * Read a song/file info from the file at the seek position, add to the
+ * songs list. Return TRUE if the songs list was updated.
+ */
+gboolean add_from_daemon_file_at_seek (int seek) {
+    char buffer[BUFFER_SIZE];
+    gboolean result;
+    FILE * f;
+
+    result = FALSE;
+    snprintf(buffer, BUFFER_SIZE, "%s/%s/%s", 
+             getenv("HOME"), GJAY_DIR, GJAY_DAEMON_DATA);
+    f = fopen(buffer, "r");
+    if (f) {
+        fseek(f, seek, SEEK_SET);
+        result = read_data(f);
+        fclose(f);
+    }
+    return result;
+}
+
+
+/**
+ * Read file data from the file f to its end 
+ */
+gboolean read_data (FILE * f) {
+    GMarkupParseContext * parse_context;
+    GMarkupParser parser;
+    gboolean result = TRUE;
+    GError * error;
+    char buffer[BUFFER_SIZE];
+    gssize text_len;
+    song_parse_state state;
+
+    memset(&state, 0x00, sizeof(song_parse_state));
+
+    parser.start_element = data_start_element;
+    parser.end_element = data_end_element;
+    parser.text = data_text;
+    
+    parse_context = g_markup_parse_context_new(&parser, 0, &state, NULL);
+    while (result && !feof(f)) {
+        text_len = fread(buffer, 1, BUFFER_SIZE, f);
+        result = g_markup_parse_context_parse ( parse_context,
+                                                buffer,
+                                                text_len,
+                                                &error);
+        error = NULL;
+    }
+    g_markup_parse_context_free(parse_context);
+    return result;
+}
+  
+ 
+/* Called for open tags <foo bar="baz"> */
+void data_start_element  (GMarkupParseContext *context,
+                          const gchar         *element_name,
+                          const gchar        **attribute_names,
+                          const gchar        **attribute_values,
+                          gpointer             user_data,
+                          GError             **error) {
+    song_parse_state * state = (song_parse_state *) user_data;
+    gchar * path, * repeat_path = NULL;
+    song * original;
+    element_type element;
+    int k;
+    
+    element = get_element((char *) element_name);
+    switch(element) {
+    case E_FILE:
+        memset(state, 0x00, sizeof(song_parse_state));
+        
+        for (k = 0; k < 3; k++) {
+            switch(get_element((char *) attribute_names[k])) {
+            case E_PATH:
+                path = (gchar *) attribute_values[k];
+                break;
+            case E_REPEATS:
+                repeat_path = (gchar *) attribute_values[k];
+                break;   
+            case E_NOT_SONG:
+                if (*attribute_values[k] == 't') 
+                    state->not_song = TRUE;
+                break;
+            }
+        }
+        assert(path);
+
+        if (state->not_song) {
+            if (!g_hash_table_lookup(not_song_hash, path)) {
+                state->new = TRUE;
+                path = g_strdup(path);
+                not_songs = g_list_append(not_songs, path);
+                g_hash_table_insert ( not_song_hash,
+                                      path, 
+                                      (gpointer) TRUE);
+            }
+            return;
+        }
+        state->s = g_hash_table_lookup(song_name_hash, path);
+        if (!state->s) {
+            state->new = TRUE;
+            state->s = create_song();
+            song_set_path(state->s, path);
+        }
+        if (repeat_path && (strlen(repeat_path) > 0)) {
+            state->is_repeat = TRUE;
+            original = g_hash_table_lookup(song_name_hash, repeat_path);
+            assert(original);
+            song_set_repeats(state->s, original);
+        }
+        state->s->marked = TRUE; /* Mark all modified or added songs */
+        break;
+    case E_RATING:
+        state->s->no_rating = FALSE;
+        break;
+    case E_COLOR:
+        state->s->no_color = FALSE;
+        break;
+    case E_FREQ:
+        if (get_element((gchar *) attribute_names[0]) == E_VOL_DIFF) 
+            state->s->volume_diff = strtod(attribute_values[0], NULL);
+        /* Fall into next case */
+    case E_BPM:
+        state->s->no_data = FALSE;
+        break;
+    default:
+        break;
+    }
+    state->element = element;
+}
+
+
+/* Called for close tags </foo> */
+void data_end_element (GMarkupParseContext *context,
+                       const gchar         *element_name,
+                       gpointer             user_data,
+                       GError             **error) {
+    song_parse_state * state = (song_parse_state *) user_data;
+    if (get_element((char *) element_name) == E_FILE) {
+        if (state->new && state->s) {
+            songs = g_list_append(songs, state->s);
+            g_hash_table_insert (song_name_hash,
+                                 state->s->path, 
+                                 state->s);            
+            g_hash_table_insert (song_checksum_hash,
+                                 &state->s->checksum,
+                                 state->s);
+        }
+        /* If there is a song and it itself is not copy of another
+         * song, check to see if it is the original upon which copies
+         * are based and set their attributes */
+        if (!(state->not_song || state->is_repeat))  
+            song_set_repeat_attrs(state->s);
+    }
+    state->element = E_LAST;
+}
+
+
+ 
+void data_text ( GMarkupParseContext *context,
+                 const gchar         *text,
+                 gsize                text_len,  
+                 gpointer             user_data,
+                 GError             **error) {
+    song_parse_state * state = (song_parse_state *) user_data;
+    gchar buffer[BUFFER_SIZE];
+    gchar * buffer_str;
+    int n;
+
+    memset(buffer, 0x00, BUFFER_SIZE);
+    memcpy(buffer, text, text_len);
+    
+    switch(state->element) {
+    case E_TITLE:
+        if (state->new) {
+            g_free(state->s->title);
+            state->s->title = g_strdup(buffer);
+        }
+        break;
+    case E_ARTIST:
+        if (state->new) {
+            g_free(state->s->artist);
+            state->s->artist = g_strdup(buffer);
+        }
+        break;
+    case E_ALBUM:
+        if (state->new) {
+            g_free(state->s->album);
+            state->s->album = g_strdup(buffer);
+        }
+        break;
+    case E_CHECKSUM:
+        state->s->checksum = atoi(buffer);
+        break;
+    case E_LENGTH:
+        state->s->length = atoi(buffer);
+        break;
+    case E_RATING:
+        state->s->rating = strtod(buffer, NULL);
+        break;
+    case E_BPM:
+        if (strcmp(buffer, "undef") == 0)
+            state->s->bpm_undef = TRUE;
+        else
+            state->s->bpm = strtod(buffer, NULL);
+        break;
+    case E_COLOR:
+        state->s->color.H = strtod(buffer, &buffer_str);
+        state->s->color.B = strtod(buffer_str, NULL);
+        break;
+    case E_FREQ:
+        buffer_str = buffer;
+        for (n = 0; n < NUM_FREQ_SAMPLES; n++) {
+            state->s->freq[n] = strtod(buffer_str, &buffer_str);
+        }
+        break;
+    default:
+        break;
+    }
+}
+
+
+
+
+
+
+
+static gboolean read_song_file_type ( char         * path, 
+                                      song_file_type type,
+                                      gint        * length,
+                                      gchar       ** title,
+                                      gchar       ** artist,
+                                      gchar       ** album) {
+    FILE * f; 
+    int i;
+    OggVorbis_File vf;
+    vorbis_comment * vc;
+    struct stat buf;
+    waveheaderstruct header;
+    char buffer[BUFFER_SIZE];
+    char quoted_fname[BUFFER_SIZE];
+
+    switch (type) {
+    case OGG:
+        f = fopen(path, "r");
+        if (!f) 
+            return FALSE;
+        if(ov_open(f, &vf, NULL, 0) == 0) {
+            vc = ov_comment(&vf, -1);
+            *length = ov_time_total(&vf, -1);
+            for (i = 0; i < vc->comments; i++) {
+                if (strncasecmp(vc->user_comments[i], "title=", 
+                                strlen("title=")) == 0) {
+                    *title = strdup_to_utf8(
+                        vc->user_comments[i] + strlen("title="));
+                } else if (strncasecmp(vc->user_comments[i], "artist=", 
+                                       strlen("artist=")) == 0) {
+                    *artist = strdup_to_utf8(
+                        vc->user_comments[i] + strlen("artist="));
+                } else if (strncasecmp(vc->user_comments[i], "album=", 
+                                       strlen("album=")) == 0) {
+                    *album = strdup_to_utf8(
+                        vc->user_comments[i] + strlen("album="));
+                }
+            }
+            ov_clear(&vf);
+            return TRUE;
+        }
+        fclose(f);
+        break;
+    case MP3:
+        quote_path(quoted_fname, BUFFER_SIZE, path);
+        snprintf(buffer, BUFFER_SIZE, 
+                 "mp3info -p \"frames:%%u\\n%%a\\n%%t\\n%%l\\n%%S\" \'%s\' %s",
+                 quoted_fname,
+                 verbosity ? "" : "2> /dev/null");
+        if (!(f = popen(buffer, "r"))) {
+            fprintf(stderr, "Unable to run %s\n", buffer);
+            return FALSE;
+        } 
+        read_line(f, buffer, BUFFER_SIZE);
+        if (strlen(buffer) <= strlen("frames:")) 
+            return FALSE;
+        read_line(f, buffer, BUFFER_SIZE);
+        if (strlen(buffer)) {
+            *artist = strdup_to_utf8(buffer);
+        }
+        read_line(f, buffer, BUFFER_SIZE);
+        if (strlen(buffer)) {
+            *title = strdup_to_utf8(buffer);
+        }
+        read_line(f, buffer, BUFFER_SIZE);
+        if (strlen(buffer)) {
+            *album = strdup_to_utf8(buffer);
+        }
+        read_line(f, buffer, BUFFER_SIZE);
+        if (strlen(buffer)) {
+            *length = atoi(buffer);
+        }
+        pclose(f);
+        return TRUE;
+    case WAV:
+        f = fopen(path, "r");
+        if (!f) 
+            return FALSE;
+        fread(&header, sizeof(waveheaderstruct), 1, f);
+        wav_header_swab(&header);
+        fclose(f);
+        if ((strncmp(header.chunk_type, "WAVE", 4) == 0) &&
+            (header.byte_p_spl / header.modus == 2)) {
+            stat(path, &buf);
+            *length = (buf.st_size - sizeof(waveheaderstruct)) / 176758;
+            return TRUE;
+        }
+        break;
+    default:
+        break;
+    }
+    return FALSE;
+}
+
+
+
 
 
 void gen_crc_table(void) {
@@ -787,18 +821,18 @@ void gen_crc_table(void) {
 }
 
 
-guint32 file_cksum ( char * fname ) { 
-    FILE * f;
-    guint32 crc;
+ guint32 file_checksum ( char * path ) { 
+     FILE * f;
+     guint32 crc;
     int count;
     int ch;
     
     if (!crc_table)
         gen_crc_table();
 
-    if (!(f = fopen(fname, "r"))) {
-         fprintf(stderr, "Unable to open file %s\n", fname);
-         return 0;
+    if (!(f = fopen(path, "r"))) {
+        fprintf(stderr, "Unable to open file %s\n", path);
+        return 0;
     } 
     
     for (crc = 0xFFFFFFFF, count = 0; 
@@ -807,5 +841,42 @@ guint32 file_cksum ( char * fname ) {
         crc = ((crc>>8) & 0x00FFFFFF) ^ crc_table[ (crc^ch) & 0xFF ];
     }
     return crc;
+ }
+
+
+
+static int get_element ( gchar * element_name ) {
+    int k;
+    for (k = 0; k < E_LAST; k++) {
+        if (strcasecmp(element_str[k], element_name) == 0)
+            return k;
+    }
+    return k;
+}
+
+#if 0
+void print_song ( song * s) {
+    int i;
+    printf("Path: '%s'\n", s->path);
+    printf("Fname: '%s'\n", s->fname);
+    printf("Title: '%s'\n", s->title);
+    printf("Artist: '%s'\n", s->artist);
+    printf("Album: '%s'\n", s->album);
+    printf("Length: %.2d:%.2d\n", s->length/60, s->length%60);
+    printf("Checksum: %lu\n", (long unsigned int) s->checksum); 
+    printf("Hue: %f\n", s->color.H);
+    printf("Brightness: %f\n", s->color.B);
+    printf("Rating: %f\n", s->rating);
+    printf("BPM: %f\n", s->bpm);
+    printf("No data: %d\n", s->no_data);
+    if (s->no_color) 
+        printf("No color attr\n");
+    if (s->no_rating) 
+        printf("No rating attr\n");
+    printf("Freq: ");
+    for (i = 0; i < NUM_FREQ_SAMPLES; i++) {
+        printf("%.3f ", s->freq[i]);
+    }
+    printf("\n");
 }
 #endif

@@ -53,12 +53,6 @@
 #define SLEEP_WHILE_IDLE 500
 
 
-typedef enum {
-    OGG = 0,
-    WAV,
-    MP3
-} ftype;
-
 typedef struct {
     FILE * f;
     waveheaderstruct header;
@@ -101,7 +95,7 @@ static time_t       last_ping;
 
 void          analyze(char * fname);
 FILE *        inflate_to_wav (gchar * path, 
-                              ftype type);
+                              song_file_type type);
 int           run_analysis     ( wav_file * wsfile,
                                  gdouble * freq_results,
                                  gdouble * volume_diff,
@@ -345,34 +339,42 @@ gboolean ui_pipe_input (GIOChannel *source,
 
 
 void analyze(char * fname) {
-    OggVorbis_File vf;
-    waveheaderstruct header;
+    FILE * f;
     wav_file wsfile;
     int result, i;
     char buffer[BUFFER_SIZE];
     gdouble freq[NUM_FREQ_SAMPLES], volume_diff, analyze_bpm;
-    FILE * f;
-    ftype type;
-    struct stat stat_buf;
+    gboolean is_song;
+    song_file_type type;
     time_t t;
 
     analyze_song = NULL;
     in_analysis = TRUE;
     send_ui_percent(0);
     
-    if (stat(fname, &stat_buf) != 0) {
+    if (access(fname, R_OK) != 0) {
         /* File ain't there! The UI thread will check for non-existant
            files periodically. */
+        if (verbosity)
+            fprintf(stderr, "File not found\n");
         in_analysis = FALSE;
         return;
     }
 
-   analyze_song = create_song_from_file(fname);
-    if (!analyze_song) {
-        /* File isn't a song */
-        result = append_daemon_file(fname, NULL);
-        if (result >= 0) 
-            send_ipc_int(daemon_pipe_fd, ADDED_FILE, result);
+    analyze_song = create_song();
+    song_set_path(analyze_song, fname);
+    file_info(fname, 
+              &is_song, 
+              &analyze_song->checksum,
+              &analyze_song->length,
+              &analyze_song->title,
+              &analyze_song->artist,
+              &analyze_song->album, 
+              &type);
+
+    if (!is_song) {
+        if (verbosity)
+            fprintf(stderr, "File not song\n");
         in_analysis = FALSE;
         return;
     }
@@ -380,30 +382,13 @@ void analyze(char * fname) {
     send_analyze_song_name();
     send_ipc_text(daemon_pipe_fd, ANIMATE_START, analyze_song->path);
 
-    /* Determine file type */
-    f = fopen(fname, "r");    
-    if(ov_open(f, &vf, NULL, 0) == 0) {
-        type = OGG;
-    } else {
-        rewind(f);
-        fread(&header, sizeof(waveheaderstruct), 1, f);
-        wav_header_swab(&header);
-        if ((strncmp(header.chunk_type, "WAVE", 4) == 0) &&
-            (header.byte_p_spl / header.modus == 2)) {
-            type = WAV;
-        }  else {
-            type = MP3;
-        }
-    }
-    fclose(f);
-
-    
     f = inflate_to_wav(fname, type);
     memset(&wsfile, 0x00, sizeof(wav_file));
     wsfile.f = f;
     fread(&wsfile.header, sizeof(waveheaderstruct), 1, f);
     wav_header_swab(&wsfile.header);
     wsfile.header.data_length = (MAX(1, analyze_song->length - 1)) * wsfile.header.byte_p_sec;
+
     if (verbosity) {
         printf("Analyzing %s\n", fname);
         t = time(NULL);
@@ -411,11 +396,9 @@ void analyze(char * fname) {
 
     result = run_analysis(&wsfile, freq, &volume_diff, &analyze_bpm); 
 
-
-    if (verbosity) {
+    if (verbosity) 
         printf("Analysis took %ld seconds\n", time(NULL) - t);
-    }
-
+    
     send_ui_percent(0);
 
     if (result && analyze_song) {
@@ -428,6 +411,7 @@ void analyze(char * fname) {
             analyze_song->bpm_undef = FALSE;
         }
         analyze_song->volume_diff = volume_diff;
+        analyze_song->no_data = FALSE;
     } 
 
     /* Finish reading rest of output */
@@ -438,7 +422,7 @@ void analyze(char * fname) {
     send_ipc(daemon_pipe_fd, ANIMATE_STOP);
     send_ipc_text(daemon_pipe_fd, STATUS_TEXT, "Idle");
     
-    result = append_daemon_file(analyze_song->path, analyze_song);
+    result = append_daemon_file(analyze_song);
     if (result >= 0) 
         send_ipc_int(daemon_pipe_fd, ADDED_FILE, result);
     delete_song(analyze_song);
@@ -449,7 +433,7 @@ void analyze(char * fname) {
 
 
 FILE * inflate_to_wav ( gchar * path,
-                        ftype type) {
+                        song_file_type type) {
     char buffer[BUFFER_SIZE];
     char quoted_path[BUFFER_SIZE];
     FILE * f;
@@ -465,6 +449,7 @@ FILE * inflate_to_wav ( gchar * path,
                  quoted_path);
         break;
     case WAV:
+    default:
         return fopen(path, "r");
     }
     if (!(f = popen(buffer, "r"))) {
@@ -847,13 +832,16 @@ void send_ui_percent (int percent) {
 
 void send_analyze_song_name ( void ) {
     char buffer[BUFFER_SIZE];
+    
     if (!analyze_song)
         return;
-    if (analyze_song->title && (strlen(analyze_song->title) > 1)) {
-        snprintf(buffer, BUFFER_SIZE, "%s : %s", analyze_song->artist, analyze_song->title);
+    if (analyze_song->title && analyze_song->artist) {
+        snprintf(buffer, BUFFER_SIZE, "%s : %s", 
+                 analyze_song->artist, 
+                 analyze_song->title);
     } else {
-        snprintf(buffer, BUFFER_SIZE, "%s", analyze_song->fname);
+        snprintf(buffer, BUFFER_SIZE, "%s", analyze_song->path);
     }
-    memcpy(buffer + 60, "...\0", 4);
+    strncpy(buffer + 60, "...\0", 4);
     send_ipc_text(daemon_pipe_fd, STATUS_TEXT, buffer);
 }

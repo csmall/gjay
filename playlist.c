@@ -40,7 +40,7 @@ GList * generate_playlist ( guint minutes ) {
     GList * working, * final, * rand_list, * list;
     gint i, time, l, r, min_distance_index;
     gdouble min_distance, s_distance;
-    song * s;
+    song * s, * repeat;
 
     time = 0;
     
@@ -57,12 +57,12 @@ GList * generate_playlist ( guint minutes ) {
     for (list = g_list_first(working); list; ) {
         current = SONG(list);
         /* OK, hold you breath here. We exclude songs which:
-         * 1. Are not marked, meaning they're not in the current file tree
+         * 1. Are not in the current file tree
          * 2. Are below the rating cutoff, if applied by the user
          * 3. Are not in the currently selected directory, if the user
          *    specified that s/he wanted to limit the playlist to the 
          *    current dir. */
-        if ((!current->marked) || 
+        if ((!current->in_tree) || 
             (prefs.rating_cutoff && (current->rating < prefs.rating)) ||
             (prefs.use_selected_dir && 
              selected_files && 
@@ -145,6 +145,15 @@ GList * generate_playlist ( guint minutes ) {
         final = g_list_append(final, current);
         rand_list = g_list_remove(rand_list, current);
         working = g_list_concat(working, rand_list);
+ 
+       /* If the song had any duplicates (symlinks) in the working
+        * list, remove them from the working list, too */
+        for (repeat = current->repeat_prev; repeat; 
+             repeat = repeat->repeat_prev) 
+            working = g_list_remove(working, repeat);
+        for (repeat = current->repeat_next; repeat; 
+             repeat = repeat->repeat_next) 
+            working = g_list_remove(working, repeat);
     }
     if (final && (time > minutes * 60)) {
         time -= SONG(g_list_last(final))->length;
