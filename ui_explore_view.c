@@ -798,8 +798,11 @@ static int gjay_ftw(const char *dir,
     } else {
         return -1;
     }
+    
+    if (! (d = opendir(dir))) {
+        return -1;[A
+    }
 
-    d = opendir(dir);
     while ((retval == 0) && (ent = readdir(d))) {
         d_name_len = strlen(ent->d_name);
         flag = 0;

@@ -1,4 +1,6 @@
-0.3.0 - June, 2003
+0.2.7 - June, 2003
+- Bugs:
+   - (Provided by Giacomo Catenazzi) verify opendir()
 - Architecture:
    - Removed dependancy on mp3info to read ID3 tags. This gives a significant
      speedup.
