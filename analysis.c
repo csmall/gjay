@@ -69,12 +69,11 @@ gboolean analyze(song * s) {
 
 void * analyze_thread(void* arg) {
     int result, i;
-    long fsize, fsize_est;
-    char * block;
+    guint16 song_len;
+    char buffer[BUFFER_SIZE];
     gchar * path;
     gdouble freq[NUM_FREQ_SAMPLES];
     gdouble song_bpm;
-    int block_size = 1024;
     waveheaderstruct header;
     OggVorbis_File vf;
     FILE * f;
@@ -85,6 +84,7 @@ void * analyze_thread(void* arg) {
     analyze_percent = 0;
     analyze_redraw_freq = FALSE;
     path = g_strdup(analyze_song->path);
+    song_len = analyze_song->length;
     pthread_mutex_unlock(&analyze_data_mutex);
 
     /* First, determine file type */
@@ -104,41 +104,14 @@ void * analyze_thread(void* arg) {
         rewind(f);
         fread(&header, sizeof(waveheaderstruct), 1, f);
         wav_header_swab(&header);
-            
         if ((strncmp(header.chunk_type, "WAVE", 4) == 0) &&
             (header.byte_p_spl / header.modus == 2)) {
             type = WAV;
-            fsize = header.length;
         }  else {
             type = MP3;
         }
     }
     fclose(f);
-
-
-    pthread_mutex_lock(&analyze_data_mutex);
-    /* If the file is an ogg or MP3, determine file length in the 
-       most gruesome manner possible */
-    if (analyze_song && (type == OGG || type == MP3)) {
-        fsize_est = (analyze_song->length ? analyze_song->length : 60*8) * 177373;  
-        analyze_state = ANALYZE_LEN;
-        pthread_mutex_unlock(&analyze_data_mutex);
-        
-        if (!(f = inflate_to_raw(path, type)))
-            return NULL;
-        block = g_malloc(block_size);
-        fsize = 0;
-        while ((result = fread(block, 1,  block_size, f))) {
-            fsize += result;
-            pthread_mutex_lock(&analyze_data_mutex);
-            analyze_percent = MAX(0, MIN(100, 100*(((double) fsize) / fsize_est )));
-            pthread_mutex_unlock(&analyze_data_mutex);
-        }
-        fclose(f);
-        g_free(block);
-    } else {
-        pthread_mutex_unlock(&analyze_data_mutex);
-    }
 
     pthread_mutex_lock(&analyze_data_mutex);
     if (analyze_song && (analyze_song->flags & FREQ_UNK)) {
@@ -146,8 +119,7 @@ void * analyze_thread(void* arg) {
         analyze_state = ANALYZE_FREQ;
         pthread_mutex_unlock(&analyze_data_mutex);
         f = inflate_to_wav(path, type);
-        result = spectrum(f, fsize, freq);
-        fclose(f);
+        result = spectrum(f, song_len, freq);
 
         pthread_mutex_lock(&analyze_data_mutex);
         if (result && analyze_song) {
@@ -155,10 +127,16 @@ void * analyze_thread(void* arg) {
                 analyze_song->freq[i] = freq[i];
             analyze_song->flags -= FREQ_UNK;
             analyze_redraw_freq = TRUE;
-        }
-    }  
-    pthread_mutex_unlock(&analyze_data_mutex);
-    
+        } 
+        pthread_mutex_unlock(&analyze_data_mutex);
+
+        /* Finish reading rest of output */
+        while ((result = fread(buffer, 1,  BUFFER_SIZE, f)))
+            ;
+        fclose(f);
+    } else {
+        pthread_mutex_unlock(&analyze_data_mutex);
+    }
 
     pthread_mutex_lock(&analyze_data_mutex);
     if (analyze_song && (analyze_song->flags & BPM_UNK)) {
@@ -166,8 +144,12 @@ void * analyze_thread(void* arg) {
         analyze_state = ANALYZE_BPM;
         pthread_mutex_unlock(&analyze_data_mutex);
 
-        f = inflate_to_raw(path, type);
-        song_bpm = bpm(f, fsize);
+        f = inflate_to_wav(path, type);
+        song_bpm = bpm(f, song_len);
+
+        /* Finish reading rest of output */
+        while ((result = fread(buffer, 1,  BUFFER_SIZE, f)))
+            ;
         fclose(f);
         
         pthread_mutex_lock(&analyze_data_mutex);
@@ -197,40 +179,6 @@ void * sys_thread(void* arg) {
 }
 
 
-FILE * inflate_to_raw ( gchar * path,
-                        ftype type) {
-    char buffer[BUFFER_SIZE];
-    char quoted_path[BUFFER_SIZE];
-    FILE * f; 
-    waveheaderstruct header;
-
-    quote_path(quoted_path, BUFFER_SIZE, path);
-
-    switch (type) {
-    case OGG:
-        snprintf(buffer, BUFFER_SIZE, "ogg123 \'%s\' -d raw -f - 2> /dev/null",
-                 quoted_path);
-        break;
-    case MP3:
-        snprintf(buffer, BUFFER_SIZE, "mpg321 -b 10000 -s \'%s\' 2> /dev/null ",
-                 quoted_path);
-        break;
-    case WAV: 
-        /* Read past the header */
-        f = fopen(path, "r");
-        if (f) {
-            fread(&header, sizeof(waveheaderstruct), 1, f);
-        }
-        return f;
-    }
-    if (!(f = popen(buffer, "r"))) {
-        fprintf(stderr, "Unable to run %s\n", buffer);
-        return NULL;
-    } 
-    return f;
-}
-
-
 FILE * inflate_to_wav ( gchar * path,
                         ftype type) {
     char buffer[BUFFER_SIZE];
@@ -249,7 +197,6 @@ FILE * inflate_to_wav ( gchar * path,
         break;
     case WAV:
         return fopen(path, "r");
-        break;
     }
     if (!(f = popen(buffer, "r"))) {
         fprintf(stderr, "Unable to run %s\n", buffer);

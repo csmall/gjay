@@ -51,15 +51,17 @@ static int step_size = 256;
 #define START_FREQ 100
 
 
-int spectrum (FILE * wav_file, long fsize, gdouble * results) {
-    waveheaderstruct header;
+int spectrum (FILE * wav_file, 
+              guint16 song_len,
+              gdouble * results) {
     int16_t *data;
     double *ch1 = NULL, *ch2 = NULL, *mags = NULL;
     int i, j, k, bin, percent = 0, old_percent = 0;
     double ch1max = 0, ch2max = 0;
     double *total_mags;
     double sum, g_factor, freq, g_freq;
-    
+    waveheaderstruct header;
+
     if (!wav_file) {
         fprintf (stderr, "Error - file not open for reading\n");
         _exit (-1);
@@ -67,14 +69,13 @@ int spectrum (FILE * wav_file, long fsize, gdouble * results) {
     
     read_buffer_size = sizeof (waveheaderstruct) + window_size*4;
     read_buffer = malloc(read_buffer_size);
-    fread (read_buffer, 1, read_buffer_size, wav_file);
     read_buffer_start = 0;
     read_buffer_end = read_buffer_size;
+    fread (read_buffer, 1, read_buffer_size, wav_file);
     memcpy(&header, read_buffer, sizeof (waveheaderstruct));
-
     wav_header_swab(&header);
+    header.data_length = (song_len - 1) * header.byte_p_sec;
     
-    header.data_length = fsize;
     if (header.modus != 1 && header.modus != 2) {
         fprintf (stderr, "Error: not a wav file...\n");
         return FALSE;

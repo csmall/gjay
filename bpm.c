@@ -58,83 +58,87 @@ unsigned long phasefit(long i)
 }
 
 
-double bpm (FILE * raw, 
-            long fsize) {
+double bpm (FILE * wav_file, 
+            guint16 song_len ) {
     char d[500];
     signed short buffer[bufsiz];
     long count,pos,i,redux,startpos,startpercent=0,stoppercent=100;
     int segment_percent;
+    waveheaderstruct header;
     
-   assert(raw);
+    assert(wav_file);
+    
+    fread (&header, 1, sizeof(waveheaderstruct), wav_file);
+    wav_header_swab(&header);
+    audiosize = (song_len - 1) * header.byte_p_sec;
 
-   audiosize = fsize;
-   startpercent=(long)((long long)audiosize*(long long)startpercent/(long long)100);
-   stoppercent=(long)((long long)audiosize*(long long)stoppercent/(long long)100);
-   audiosize=stoppercent-startpercent;
-   audiosize/=(4*(44100/audiorate));
-   audio=malloc(audiosize+1);
-   assert(audio);
-   pos=0;
-   /* YIKES! Fixme! */
-   fseek(raw,startpercent,SEEK_SET);
-   startpos = pos;
-   while(pos<audiosize)
-     {
-	count=fread(buffer,1,bufsiz,raw);
+    startpercent=(long)((long long)audiosize*(long long)startpercent/(long long)100);
+    stoppercent=(long)((long long)audiosize*(long long)stoppercent/(long long)100);
+    audiosize=stoppercent-startpercent;
+    audiosize/=(4*(44100/audiorate));
+    audio=malloc(audiosize+1);
+    assert(audio);
+    pos=0;
+    /* YIKES! Fixme! */
+    fseek(wav_file,startpercent,SEEK_SET);
+    startpos = pos;
+    while(pos<audiosize)
+    {
+	count=fread(buffer,1,bufsiz,wav_file);
 	for (i=0;i<count/2;i+=2*(44100/audiorate))
-	  {
-	     signed long int left, right,mean;
-	     left=abs(buffer[i]);
-	     right=abs(buffer[i+1]);
-	     mean=(left+right)/2;
-	     redux=abs(mean)/128;
-	     if (pos+i/(2*(44100/audiorate))>=audiosize) break;
-	     assert(pos+i/(2*(44100/audiorate))<audiosize);
-	     audio[pos+i/(2*(44100/audiorate))]=(unsigned char)redux;
-	  }
+        {
+            signed long int left, right,mean;
+            left=abs(buffer[i]);
+            right=abs(buffer[i+1]);
+            mean=(left+right)/2;
+            redux=abs(mean)/128;
+            if (pos+i/(2*(44100/audiorate))>=audiosize) break;
+            assert(pos+i/(2*(44100/audiorate))<audiosize);
+            audio[pos+i/(2*(44100/audiorate))]=(unsigned char)redux;
+        }
 	pos+=count/(4*(44100/audiorate));
    
         segment_percent = ((pos - startpos)*100)/(audiosize - startpos);
         pthread_mutex_lock(&analyze_data_mutex);
         analyze_percent = (bpm_loop_percents[0] * segment_percent) / 100;
         pthread_mutex_unlock(&analyze_data_mutex);
-     }
-   sprintf(d," ");
+    }
+    sprintf(d," ");
 //   index_addcomment(d);
-   stopshift=audiorate*60*4/startbpm;
-   startshift=audiorate*60*4/stopbpm;
-     {
+    stopshift=audiorate*60*4/startbpm;
+    startshift=audiorate*60*4/stopbpm;
+    {
 	unsigned long foutat[stopshift-startshift];
 	unsigned long fout, minimumfout=0, maximumfout,minimumfoutat,left,right;
 	memset(&foutat,0,sizeof(foutat));
 	for(i=startshift;i<stopshift;i+=50)
-	  {
-	     fout=phasefit(i);
-	     foutat[i-startshift]=fout;
+        {
+            fout=phasefit(i);
+            foutat[i-startshift]=fout;
 //	     printf(d,"# %d: %ld (%g BPM)\n",i,fout,
 //		    4.0*(double)audiorate*60.0/(double)i);
-	     if (minimumfout==0) maximumfout=minimumfout=fout;
-	     if (fout<minimumfout) 
-	       {
-		  minimumfout=fout;
-		  minimumfoutat=i;
-	       }
-	     if (fout>maximumfout) maximumfout=fout;
-             
-             segment_percent = 100 * (i - startshift) / 
-                 (stopshift - startshift);
-             pthread_mutex_lock(&analyze_data_mutex);
-             analyze_percent = bpm_loop_percents[0] + 
-                 (bpm_loop_percents[1] * segment_percent) / 100;
-             pthread_mutex_unlock(&analyze_data_mutex);
-	  }
+            if (minimumfout==0) maximumfout=minimumfout=fout;
+            if (fout<minimumfout) 
+            {
+                minimumfout=fout;
+                minimumfoutat=i;
+            }
+            if (fout>maximumfout) maximumfout=fout;
+            
+            segment_percent = 100 * (i - startshift) / 
+                (stopshift - startshift);
+            pthread_mutex_lock(&analyze_data_mutex);
+            analyze_percent = bpm_loop_percents[0] + 
+                (bpm_loop_percents[1] * segment_percent) / 100;
+            pthread_mutex_unlock(&analyze_data_mutex);
+        }
         left=minimumfoutat-100;
 	right=minimumfoutat+100;
 	if (left<startshift) left=startshift;
 	if (right>stopshift) right=stopshift;
 	for(i=left;i<right;i++) {
-	     fout=phasefit(i);
-	     foutat[i-startshift]=fout;
+            fout=phasefit(i);
+            foutat[i-startshift]=fout;
 //	     printf("# %d: %ld (%g BPM)\n",i,fout,
 //		    4.0*(double)audiorate*60.0/(double)i);
 	     if (minimumfout==0) maximumfout=minimumfout=fout;
@@ -156,15 +160,15 @@ double bpm (FILE * raw,
         for(i=startshift;i<stopshift;i++) {
             fout=foutat[i-startshift];
             if (fout)
-	       {
-                   fout-=minimumfout;
-                   // fout=(fout*100)/(maximumfout-minimumfout);
-                   sprintf(d,"%g  %ld",4.0*(double)audiorate*60.0/(double)i,fout);
-                   // index_addcomment(d);
-	       }
+            {
+                fout-=minimumfout;
+                // fout=(fout*100)/(maximumfout-minimumfout);
+                sprintf(d,"%g  %ld",4.0*(double)audiorate*60.0/(double)i,fout);
+                // index_addcomment(d);
+            }
         }
 	sprintf(d,"%g",4.0*(double)audiorate*60.0/(double)minimumfoutat);
         return 4.0*(double)audiorate*60.0/(double)minimumfoutat;
-     }
-     return 0;
+    }
+    return 0;
 }

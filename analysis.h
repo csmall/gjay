@@ -99,10 +99,12 @@ unsigned short swab_us(unsigned short s);
 int quote_path(char *buf, size_t bufsiz, const char *path);
 
 /* spectrum.c */
-int spectrum (FILE * f, long fsize, gdouble * results);
-
+int spectrum (FILE * f, 
+              guint16 song_len, 
+              gdouble * results);
 /* bpm.c */
-double bpm (FILE * f, long fsize);
+double bpm (FILE * f, 
+            guint16 song_len);
 
 #endif /* __ANALYSIS_H__ */
 
