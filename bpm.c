@@ -31,8 +31,9 @@
 
 unsigned char *audio;
 unsigned long audiosize;
-unsigned long audiorate=11025;  /* perfect measure, 5512 is too lossy,
-                                   22050 takes too much time */
+unsigned long audiorate=2756;  /* Author states that 11025 is perfect
+                                  measure, but we can tolerate more
+                                  lossiness for the sake of speed */
 unsigned long startbpm=120;
 unsigned long stopbpm=160;
 

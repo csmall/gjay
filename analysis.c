@@ -78,7 +78,7 @@ void * analyze_thread(void* arg) {
     FILE * f;
     ftype type;
     pthread_t thread;
-    
+
     pthread_mutex_lock(&analyze_data_mutex);
     analyze_song = (song *) arg;
     analyze_percent = 0;
@@ -127,7 +127,7 @@ void * analyze_thread(void* arg) {
     analyze_percent = 0;
     analyze_state = ANALYZE;
     pthread_mutex_unlock(&analyze_data_mutex);
-    
+
     /* Run the analysis */
     pthread_create(&thread, NULL, bpm, (void *) &wsfile);
     result = spectrum(&wsfile, freq);
@@ -140,7 +140,7 @@ void * analyze_thread(void* arg) {
     pthread_mutex_unlock(&analyze_data_mutex);
     
     pthread_join(thread, NULL);
-    
+
     pthread_mutex_lock(&analyze_data_mutex);
     if (result && analyze_song) {
         for (i = 0; i < NUM_FREQ_SAMPLES; i++) 
