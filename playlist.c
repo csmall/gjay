@@ -38,27 +38,45 @@ static gint    gaussian_rand ( gdouble deviation );
  * time, in minutes 
  */
 GList * generate_playlist ( guint minutes ) {
-    GList * working, * final, * rand_list, * ll;
+    GList * working, * final, * rand_list, * list;
     gint i, time, l, r, min_distance_index;
     gdouble min_distance, s_distance;
     song * s;
 
     time = 0;
+    
     if (!g_list_length(songs))
         return NULL;
 
     /* Create a working set, a copy of the songs list */
-    working = g_list_copy(songs); 
-    /* FIXME: Add support for limiting songs to current selection */
-    final = NULL;
+    if (prefs.use_selected_songs) 
+        working = g_list_copy(selected_songs); 
+    else
+        working = g_list_copy(songs); 
 
-    for (i = 0; i < g_list_length(working); i++) {
-        current = SONG(g_list_nth(working, i));
+    final = NULL;
+    for (list = g_list_first(working); list; ) {
+        current = SONG(list);
+        /* OK, hold you breath here. We exclude songs which:
+         * 1. Are not marked, meaning they're not in the current file tree
+         * 2. Are below the rating cutoff, if applied by the user
+         * 3. Are not in the currently selected directory, if the user
+         *    specified that s/he wanted to limit the playlist to the 
+         *    current dir. */
         if ((!current->marked) || 
-            ((prefs.rating_cutoff) && (current->rating < prefs.rating))) {
-            i--;
+            (prefs.rating_cutoff && (current->rating < prefs.rating)) ||
+            (prefs.use_selected_dir && 
+             selected_files && 
+             (strncmp((char *) selected_files->data, current->path,
+                      strlen((char *) selected_files->data)) != 0))) {
+            if (g_list_next(list))
+                list = g_list_next(list);
+            else 
+                list = g_list_previous(list);
             working = g_list_remove(working, current);
-        } 
+        } else {
+            list = g_list_next(list);
+        }
     }
     
     if (!working) {
@@ -66,11 +84,17 @@ GList * generate_playlist ( guint minutes ) {
         return NULL;
     }
     
-    
-
     /* Pick the first song */
-    /* FIXME: add support for selected song */
-    if (prefs.start_color) {
+    first = NULL;
+    if (prefs.start_selected) {
+        for (list = g_list_first(working); list && !first; 
+             list = g_list_next(list)) {
+            if (strncmp((char *) selected_files->data, SONG(list)->path,
+                        strlen((char *) selected_files->data)) == 0)
+                first = SONG(list);
+        }
+    } 
+    if (prefs.start_color || (prefs.start_selected && !first)) {
         s = g_malloc(sizeof(song));
         memset(s, 0x00, sizeof(song));
         s->color.H = prefs.color.H;
@@ -88,14 +112,14 @@ GList * generate_playlist ( guint minutes ) {
         else if (i >= g_list_length(working)) {
             i = g_list_length(working) - 1;
         }
-    } else {
+        first = SONG(g_list_nth(working, i));
+    } else if (!first) {
         i = rand() % g_list_length(working); 
+        first = SONG(g_list_nth(working, i));
     }
 
-    first = SONG(g_list_nth(working, i));
+    final = g_list_append(final, first);    
     working = g_list_remove (working, first);
-    final = g_list_append(final, first);
-
     current = first;
 
     /* Pick the rest of the songs */
