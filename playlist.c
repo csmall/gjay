@@ -34,7 +34,7 @@ static gint gaussian_rand( gdouble deviation );
 /* Generate a playlist no longer than the specified length */
 GList * generate_playlist ( guint minutes ) {
     GList * working, * final, *temp;
-    gint i, time, l;
+    gint i, time, l, r;
     song * s;
 
     time = 0;
@@ -112,7 +112,8 @@ GList * generate_playlist ( guint minutes ) {
         /* Sort list by distance to current song */
         working = g_list_sort (working, sort_dist);
         l = g_list_length(working) - 1;
-        i = MIN(l, gaussian_rand(prefs.variance));
+        r = gaussian_rand(prefs.variance);
+	i = MIN(l, r);
         current = SONG(g_list_nth(working, i));
         time += current->length;
         working = g_list_remove (working, current);
