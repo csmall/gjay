@@ -39,10 +39,11 @@
 
 pthread_mutex_t analyze_mutex;
 pthread_mutex_t analyze_data_mutex;
+pthread_mutex_t wav_file_shared_mutex;
 song * analyze_song = NULL;
 int analyze_percent = 0;
 analyze_mode analyze_state = ANALYZE_IDLE;
-gboolean analyze_redraw_freq = FALSE;
+gdouble analyze_bpm;
 
 
 typedef enum {
@@ -51,10 +52,8 @@ typedef enum {
     MP3
 } ftype;
 
-
 void *     analyze_thread(void* arg);
 FILE *     inflate_to_wav (gchar * path, ftype type);
-FILE *     inflate_to_raw (gchar * path, ftype type);
 
 gboolean analyze(song * s) {
     pthread_t thread;
@@ -68,21 +67,21 @@ gboolean analyze(song * s) {
 }
 
 void * analyze_thread(void* arg) {
+    OggVorbis_File vf;
+    waveheaderstruct header;
+    wav_file_shared wsfile;
     int result, i;
     guint16 song_len;
     char buffer[BUFFER_SIZE];
     gchar * path;
     gdouble freq[NUM_FREQ_SAMPLES];
-    gdouble song_bpm;
-    waveheaderstruct header;
-    OggVorbis_File vf;
     FILE * f;
     ftype type;
+    pthread_t thread;
     
     pthread_mutex_lock(&analyze_data_mutex);
     analyze_song = (song *) arg;
     analyze_percent = 0;
-    analyze_redraw_freq = FALSE;
     path = g_strdup(analyze_song->path);
     song_len = analyze_song->length;
     pthread_mutex_unlock(&analyze_data_mutex);
@@ -114,55 +113,53 @@ void * analyze_thread(void* arg) {
     fclose(f);
 
     pthread_mutex_lock(&analyze_data_mutex);
-    if (analyze_song && (analyze_song->flags & FREQ_UNK)) {
-        analyze_percent = 0;
-        analyze_state = ANALYZE_FREQ;
-        pthread_mutex_unlock(&analyze_data_mutex);
-        f = inflate_to_wav(path, type);
-        result = spectrum(f, song_len, freq);
+    if (!analyze_song)
+        return NULL;
+    f = inflate_to_wav(path, type);
+    memset(&wsfile, 0x00, sizeof(wav_file_shared));
+    wsfile.f = f;
+    fread(&wsfile.header, sizeof(waveheaderstruct), 1, f);
+    wav_header_swab(&wsfile.header);
+    wsfile.header.data_length = (analyze_song->length - 1) * wsfile.header.byte_p_sec;
+    pthread_mutex_init(&wsfile.end, NULL);
+    pthread_mutex_init(&wsfile.d_w, NULL);
+    fread(&wsfile.buffer, 1, WAV_BUF_SIZE, f);
+    analyze_percent = 0;
+    analyze_state = ANALYZE;
+    pthread_mutex_unlock(&analyze_data_mutex);
+    
+    /* Run the analysis */
+    pthread_create(&thread, NULL, bpm, (void *) &wsfile);
+    result = spectrum(&wsfile, freq);
 
-        pthread_mutex_lock(&analyze_data_mutex);
-        if (result && analyze_song) {
-            for (i = 0; i < NUM_FREQ_SAMPLES; i++) 
-                analyze_song->freq[i] = freq[i];
-            analyze_song->flags -= FREQ_UNK;
-            analyze_redraw_freq = TRUE;
-        } 
-        pthread_mutex_unlock(&analyze_data_mutex);
+    /* If the spectrum finishs before the BPM, set the status bar to
+     * say that we're finishing up */
+    pthread_mutex_lock(&analyze_data_mutex);
+    analyze_percent = 0;
+    analyze_state = ANALYZE_FINISH;
+    pthread_mutex_unlock(&analyze_data_mutex);
+    
+    pthread_join(thread, NULL);
+    
+    pthread_mutex_lock(&analyze_data_mutex);
+    if (result && analyze_song) {
+        for (i = 0; i < NUM_FREQ_SAMPLES; i++) 
+            analyze_song->freq[i] = freq[i];
+        analyze_song->flags -= FREQ_UNK;
+        analyze_song->flags -= BPM_UNK;
+        analyze_song->bpm = analyze_bpm;
+        if (isinf(analyze_song->bpm) || (analyze_song->bpm < MIN_BPM)) {
+            analyze_song->flags |= BPM_UNDEF;
+        }
+    } 
+    pthread_mutex_unlock(&analyze_data_mutex);
 
-        /* Finish reading rest of output */
-        while ((result = fread(buffer, 1,  BUFFER_SIZE, f)))
-            ;
-        fclose(f);
-    } else {
-        pthread_mutex_unlock(&analyze_data_mutex);
-    }
+    /* Finish reading rest of output */
+    while ((result = fread(buffer, 1,  BUFFER_SIZE, f)))
+        ;
+    fclose(f);
 
     pthread_mutex_lock(&analyze_data_mutex);
-    if (analyze_song && (analyze_song->flags & BPM_UNK)) {
-        analyze_percent = 0;
-        analyze_state = ANALYZE_BPM;
-        pthread_mutex_unlock(&analyze_data_mutex);
-
-        f = inflate_to_wav(path, type);
-        song_bpm = bpm(f, song_len);
-
-        /* Finish reading rest of output */
-        while ((result = fread(buffer, 1,  BUFFER_SIZE, f)))
-            ;
-        fclose(f);
-        
-        pthread_mutex_lock(&analyze_data_mutex);
-        if (analyze_song) {
-            analyze_song->bpm = song_bpm;
-            if (isinf(analyze_song->bpm) || (analyze_song->bpm < MIN_BPM)) {
-                analyze_song->flags |= BPM_UNDEF;
-            }
-            analyze_song->flags -= BPM_UNK;
-        }
-    }
-
-    // analyze_data_mutex is locked
     analyze_percent = 0;
     analyze_state = ANALYZE_DONE;
     pthread_mutex_unlock(&analyze_data_mutex);
@@ -242,3 +239,58 @@ int quote_path(char *buf, size_t bufsiz, const char *path) {
         buf[out++] = '\0';
     return out;
 }
+
+
+
+/* Both the frequency and BPM algorithms read the same decoded WAV.
+   They are run in separate threads, so we use a mutex lock so they
+   share the same input buffer. This is also where we update the
+   percent done. */
+int fread_wav_shared (void *ptr,  
+                      size_t size, 
+                      wav_file_shared * wsfile, 
+                      gboolean is_freq) {
+    long seek;
+    int result;
+
+    if (is_freq) {
+        seek = wsfile->freq_seek;
+    } else {
+        seek = wsfile->bpm_seek;
+    }
+
+    assert(seek + size <= wsfile->buffer_seek + WAV_BUF_SIZE);
+    memcpy(ptr, wsfile->buffer + seek - wsfile->buffer_seek, size);
+    
+    if (is_freq) {
+        wsfile->freq_seek += size;
+    } else {
+        wsfile->bpm_seek += size;
+    }
+    
+    if (seek + size == wsfile->buffer_seek + WAV_BUF_SIZE) {
+        pthread_mutex_lock(&wsfile->d_w);
+        if (wsfile->dont_wait || pthread_mutex_trylock(&wsfile->end)) {
+            pthread_mutex_unlock(&wsfile->d_w);
+            /* If the mutex was already locked, that means both
+               threads are ready for more data in buffer. */
+            result = fread(wsfile->buffer, 1, WAV_BUF_SIZE, wsfile->f);
+            wsfile->buffer_seek += result;
+
+            pthread_mutex_lock(&analyze_data_mutex);
+            analyze_percent = (wsfile->buffer_seek * 100) / 
+                wsfile->header.data_length;
+            pthread_mutex_unlock(&analyze_data_mutex);
+
+            pthread_mutex_unlock(&wsfile->end);
+        } else {
+            pthread_mutex_unlock(&wsfile->d_w);
+            /* The end mutex is unlocked, which means the other thread
+             * is still reading off the buffer. */
+            pthread_mutex_lock(&wsfile->end); /* Block; it's already locked */
+            pthread_mutex_unlock(&wsfile->end);
+        } 
+    } 
+    return size;
+}
+

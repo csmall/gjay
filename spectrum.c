@@ -36,9 +36,8 @@
 typedef unsigned long ulongT;
 typedef unsigned short ushortT;
 
-int read_header   (FILE *f, waveheaderstruct *header);
-int read_frames   (FILE *f, waveheaderstruct *header, 
-                   int start, int length, void *data);
+int read_frames   (wav_file_shared * wsfile, int start, 
+                   int length, void *data);
 
 static char * read_buffer;
 static int read_buffer_size;
@@ -51,64 +50,45 @@ static int step_size = 256;
 #define START_FREQ 100
 
 
-int spectrum (FILE * wav_file, 
-              guint16 song_len,
+int spectrum (wav_file_shared * wsfile,
               gdouble * results) {
     int16_t *data;
     double *ch1 = NULL, *ch2 = NULL, *mags = NULL;
-    int i, j, k, bin, percent = 0, old_percent = 0;
+    int i, j, k, bin;
     double ch1max = 0, ch2max = 0;
     double *total_mags;
     double sum, g_factor, freq, g_freq;
-    waveheaderstruct header;
-
-    if (!wav_file) {
-        fprintf (stderr, "Error - file not open for reading\n");
-        _exit (-1);
-    }
-
-    fread (&header, 1, sizeof(waveheaderstruct), wav_file);
-    wav_header_swab(&header);
-    header.data_length = (song_len - 1) * header.byte_p_sec;
     
     read_buffer_size = window_size*4;
     read_buffer = malloc(read_buffer_size);
     read_buffer_start = 0;
     read_buffer_end = read_buffer_size;
-    fread (read_buffer, 1, read_buffer_size, wav_file);
-    
-    if (header.modus != 1 && header.modus != 2) {
+    fread_wav_shared(read_buffer, read_buffer_size, wsfile, TRUE);
+
+    if (wsfile->header.modus != 1 && wsfile->header.modus != 2) {
         fprintf (stderr, "Error: not a wav file...\n");
         return FALSE;
     }
     
-    if (header.byte_p_spl / header.modus != 2) {
+    if (wsfile->header.byte_p_spl / wsfile->header.modus != 2) {
         fprintf (stderr, "Error: not 16-bit...\n");
         return FALSE;
     }
 
-    data = (int16_t*) malloc (window_size * header.byte_p_spl);
+    data = (int16_t*) malloc (window_size * wsfile->header.byte_p_spl);
     mags = (double*) malloc (window_size / 2 * sizeof (double));
     total_mags = (double*) malloc (window_size / 2 * sizeof (double));
     memset (total_mags, 0x00, window_size / 2 * sizeof (double));
     memset (results, 0x00, NUM_FREQ_SAMPLES * sizeof(double));
     ch1 = (double*) malloc (window_size * sizeof (double));
     
-    if (header.modus == 2)
+    if (wsfile->header.modus == 2)
         ch2 = (double*) malloc (window_size * sizeof (double));
     
-    for (i = -window_size; i < window_size + (int)(header.data_length / header.byte_p_spl); i += step_size) {
-        percent = ((i + window_size)*100)/(window_size*2 + (int)(header.data_length / header.byte_p_spl));
-        if (old_percent != percent) {
-            pthread_mutex_lock(&analyze_data_mutex);
-            analyze_percent = percent;
-            pthread_mutex_unlock(&analyze_data_mutex);
-            old_percent = percent;
-        }
+    for (i = -window_size; i < window_size + (int)(wsfile->header.data_length / wsfile->header.byte_p_spl); i += step_size) {
+        read_frames (wsfile, i, window_size, (char *)data);
         
-        read_frames (wav_file, &header, i, window_size, (char *)data);
-        
-        if (header.modus == 1) {
+        if (wsfile->header.modus == 1) {
             for (j = 0; j < window_size; j++)
                 ch1 [j] = (int16_t)le16_to_cpu(data[j]);
             
@@ -139,7 +119,7 @@ int spectrum (FILE * wav_file,
         for (k = 0; k < window_size / 2; k++) 
             total_mags[k] += mags[k];
         
-        if (header.modus == 2) {
+        if (wsfile->header.modus == 2) {
             mags [0] = fabs (ch2 [0]);
             
             for (j = 0; j < window_size / 2; j++) {
@@ -178,13 +158,17 @@ int spectrum (FILE * wav_file,
     free (mags);
     free (total_mags);
     free (read_buffer);
+
+    pthread_mutex_lock(&wsfile->d_w);
+    wsfile->dont_wait = TRUE;
+    pthread_mutex_trylock(&wsfile->end);
+    pthread_mutex_unlock(&wsfile->end);
+    pthread_mutex_unlock(&wsfile->d_w);
     return TRUE;
 }
 
 
-
-int read_frames (FILE *f, 
-                 waveheaderstruct *header,
+int read_frames (wav_file_shared * wsfile,
                  int start, 
                  int length, 
                  void *data)
@@ -194,29 +178,29 @@ int read_frames (FILE *f,
 	int offset = 0;
         int seek, len;
 	
-	if (start + length < 0 || start > (int)(header->data_length / header->byte_p_spl)) {
-		memset (data, 0, length * header->byte_p_spl);
+	if (start + length < 0 || start > (int)(wsfile->header.data_length / wsfile->header.byte_p_spl)) {
+		memset (data, 0, length * wsfile->header.byte_p_spl);
 		return 0;
 	}
 		
 	if (start < 0) {
 		offset = -start;
-		memset (data, 0, offset * header->byte_p_spl);
+		memset (data, 0, offset * wsfile->header.byte_p_spl);
 		realstart = 0;
 		reallength += start;
 	}
 
-	if (start + length > (int)(header->data_length / header->byte_p_spl)) {
-		reallength -= start + length - (header->data_length / header->byte_p_spl);
-		memset (data, 0, reallength * header->byte_p_spl);
+	if (start + length > (int)(wsfile->header.data_length / wsfile->header.byte_p_spl)) {
+		reallength -= start + length - (wsfile->header.data_length / wsfile->header.byte_p_spl);
+		memset (data, 0, reallength * wsfile->header.byte_p_spl);
 	}
 
-        seek = ((realstart + offset) * header->byte_p_spl);
-        len = header->byte_p_spl * reallength;
+        seek = ((realstart + offset) * wsfile->header.byte_p_spl);
+        len = wsfile->header.byte_p_spl * reallength;
         if (seek + len <= read_buffer_size) {
-            memcpy(data + offset * header->byte_p_spl,
+            memcpy(data + offset * wsfile->header.byte_p_spl,
                    read_buffer + seek,
-                   header->byte_p_spl * reallength);
+                   wsfile->header.byte_p_spl * reallength);
         } else {
             if (seek + len > read_buffer_end) {
                 char * new_buffer = malloc(read_buffer_size);
@@ -226,17 +210,18 @@ int read_frames (FILE *f,
                        read_buffer_size - shift);
                 free(read_buffer);
                 read_buffer = new_buffer;
-                fread(read_buffer + read_buffer_size - shift, 
-                      1,
-                      shift,
-                      f);
+                fread_wav_shared(read_buffer + read_buffer_size - shift, 
+                                 shift,
+                                 wsfile,
+                                 TRUE);
                 read_buffer_start += shift;
                 read_buffer_end += shift;
             }
-            memcpy(data + offset * header->byte_p_spl,
+            memcpy(data + offset * wsfile->header.byte_p_spl,
                    read_buffer + seek - read_buffer_start,
-                   header->byte_p_spl * reallength);
+                   wsfile->header.byte_p_spl * reallength);
         }
 	return 1;
 }
+
 

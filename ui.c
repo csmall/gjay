@@ -62,7 +62,7 @@ static GtkWidget * song_list_swin;
 GList     * dialog_list = NULL;
 
 
-static gint        analyize_timer_callback ( gpointer data );
+static gint        analyze_timer_callback ( gpointer data );
 static gint        add_files_dialog ( GtkWidget *widget,
                                       GdkEventButton *event,
                                       gpointer user_data);
@@ -556,7 +556,7 @@ GtkWidget * make_app_ui ( void ) {
     gtk_notebook_set_page(GTK_NOTEBOOK(notebook),
                           1);
 
-    gtk_timeout_add(ANALYZE_TIME, analyize_timer_callback, NULL);
+    gtk_timeout_add(ANALYZE_TIME, analyze_timer_callback, NULL);
     return app_window;
 }
 
@@ -711,50 +711,34 @@ static gboolean song_list_key_press (GtkWidget *widget,
 }
 
 
-static gint analyize_timer_callback ( gpointer data ) {
+static gint analyze_timer_callback ( gpointer data ) {
     song * s;
     GList * current;
     gchar buffer[BUFFER_SIZE];
     char * str;
-    char * len_str = "Decode: ";
-    char * freq_str = "Freq analysis: ";
-    char * bpm_str = "BPM analysis: ";
+    char * analyze_str = "Analyze: ";
+    char * analyze_finish_str = "Finishing: ";
 
     pthread_mutex_lock(&analyze_data_mutex);
     gtk_label_get(GTK_LABEL(analysis_label), &str);
     switch (analyze_state) {
-    case ANALYZE_LEN:
-        gtk_progress_bar_update (GTK_PROGRESS_BAR(analysis_progress), 
-                                 MIN(1.0, analyze_percent/100.0));
-        if (!strstr(str, len_str)) {
+    case ANALYZE:
+        gtk_progress_bar_update (GTK_PROGRESS_BAR(analysis_progress),
+                                 analyze_percent/100.0); 
+        if (!strstr(str, analyze_str)) {
             snprintf(buffer, 120, "%s%s",
-                     len_str,
+                     analyze_str,
                      (strcmp(analyze_song->title, "?") ? analyze_song->title :
                       analyze_song->fname));
             gtk_label_set_text(GTK_LABEL(analysis_label), buffer);
         }
         break;
-    case ANALYZE_FREQ:
+    case ANALYZE_FINISH:
         gtk_progress_bar_update (GTK_PROGRESS_BAR(analysis_progress),
-                                 MIN(1.0, analyze_percent/100.0)); 
-        if (!strstr(str, freq_str)) {
+                                 analyze_percent/100.0); 
+        if (!strstr(str, analyze_finish_str)) {
             snprintf(buffer, 120, "%s%s",
-                     freq_str,
-                     (strcmp(analyze_song->title, "?") ? analyze_song->title :
-                      analyze_song->fname));
-            gtk_label_set_text(GTK_LABEL(analysis_label), buffer);
-        }
-        break;
-    case ANALYZE_BPM: 
-        if (analyze_redraw_freq && analyze_song) {
-            rebuild_song_in_list(analyze_song);
-            analyze_redraw_freq = FALSE;
-        }
-        gtk_progress_bar_update (GTK_PROGRESS_BAR(analysis_progress),
-                                 MIN(1.0, analyze_percent/100.0));  
-        if (!strstr(str, bpm_str)) {
-            snprintf(buffer, 120, "%s%s",
-                     bpm_str,
+                     analyze_finish_str,
                      (strcmp(analyze_song->title, "?") ? analyze_song->title :
                       analyze_song->fname));
             gtk_label_set_text(GTK_LABEL(analysis_label), buffer);
