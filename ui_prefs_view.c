@@ -132,9 +132,6 @@ GtkWidget * make_prefs_view ( void ) {
 }
 
 
-
-
-
 /**
  * No root view
  *
@@ -244,6 +241,7 @@ static void set_base_dir ( GtkButton *button,
         send_ipc(ui_pipe_fd, CLEAR_ANALYSIS_QUEUE);
     }
     prefs.song_root_dir = g_strdup(base_dir);     
+    prefs_update_song_dir();
     gtk_idle_add(explore_view_set_root_idle, prefs.song_root_dir);
 
     set_add_files_progress("Scanning tree...", 0);
@@ -260,10 +258,16 @@ static void toggle_no_filter (GtkToggleButton *togglebutton,
 
 static void parent_set_callback (GtkWidget *widget,
                                  gpointer user_data) {
+    prefs_update_song_dir();
+}
+
+
+void prefs_update_song_dir ( void ) {
     char buffer[BUFFER_SIZE];
     if (prefs.song_root_dir) {
         snprintf(buffer, BUFFER_SIZE,
                  "Base directory is '%s'",  prefs.song_root_dir);   
+        save_prefs();
     } else {
         snprintf(buffer, BUFFER_SIZE, "No base directory set");
     }
@@ -276,6 +280,7 @@ static void radio_toggled ( GtkToggleButton *togglebutton,
     gint state = (gint) user_data;
     if (gtk_toggle_button_get_active(togglebutton)) {
         prefs.daemon_action = state;
+        save_prefs();
     }
 }
 
@@ -286,4 +291,6 @@ static void tooltips_toggled ( GtkToggleButton *togglebutton,
         gtk_tooltips_disable(tips);  
     else
         gtk_tooltips_enable(tips);
+    save_prefs();
 }
+

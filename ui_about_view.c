@@ -24,7 +24,7 @@
 #include "gjay.h"
 #include "ui.h"
 
-#define ABOUT_WIDTH  240
+#define ABOUT_WIDTH  260
 #define ABOUT_HEIGHT 180
 
 static gboolean expose_about_view (GtkWidget *widget, 

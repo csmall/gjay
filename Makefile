@@ -15,7 +15,8 @@ HEADERS = \
 	playlist.h \
 	ipc.h \
 	constants.h \
-	vorbis.h 
+	vorbis.h \
+	mp3.h 
 OBJECTS = \
 	gjay.o \
 	ipc.o \
@@ -33,7 +34,8 @@ OBJECTS = \
 	gjay_xmms.o \
 	analysis.o \
 	playlist.o \
-	vorbis.o 
+	vorbis.o \
+	mp3.o
 
 
 INSTALL = /usr/bin/install -o root -g root -m

@@ -22,8 +22,8 @@
 
 #include "gjay.h"
 
-#define APP_WIDTH  600
-#define APP_HEIGHT 440
+#define APP_WIDTH  620
+#define APP_HEIGHT 470
 #define PLAYLIST_WIDTH  500
 #define PLAYLIST_HEIGHT 250
 #define MSG_WIDTH  250
@@ -100,6 +100,7 @@ GtkWidget * make_prefs_view ( void );
 GtkWidget * make_about_view ( void );
 void        show_about_window (void );
 void        show_prefs_window (void );
+void        prefs_update_song_dir ( void );
 void        set_analysis_progress_visible  ( gboolean visible );
 void        set_add_files_progress_visible ( gboolean visible );
 void        set_add_files_progress         ( char * str,

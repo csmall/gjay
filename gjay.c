@@ -63,10 +63,10 @@ int ui_pipe_fd;
 int verbosity;
 
 
-static gboolean app_exists (gchar * app);
-static void kill_signal(int sig);
-static int open_pipe(const char* filepath);
-
+static gboolean app_exists  ( gchar * app );
+static void     kill_signal ( int sig );
+static int      open_pipe   ( const char* filepath );
+static gint     ping_daemon ( gpointer data );
 
 
 int main( int argc, char *argv[] ) {
@@ -90,6 +90,9 @@ int main( int argc, char *argv[] ) {
         if ((strncmp(argv[i], "-h", 2) == 0) || 
             (strncmp(argv[i], "--help", 6) == 0)) {
             printf(HELP_TEXT);
+            return 0;
+        } else if (strncmp(argv[i], "--version", 9) == 0) {
+            printf("GJay version %s\n", GJAY_VERSION);
             return 0;
         } else if (strncmp(argv[i], "-l", 2) == 0) {
             if (i + 1 < argc) {
@@ -225,6 +228,10 @@ int main( int argc, char *argv[] ) {
                         daemon_pipe_input,
                         NULL);
 
+        /* Ping the daemon ocassionally to let it know that the UI 
+         * process is still around */
+        gtk_timeout_add( UI_PING, ping_daemon, NULL);
+        
         widget = make_app_ui();
         gtk_widget_show_all(widget);
         set_add_files_progress_visible(FALSE);
@@ -444,4 +451,15 @@ gchar * parent_dir ( const char * path ) {
     if (path[len - 1] == '/')
         len--;
     return g_strndup(path, len);
+}
+
+
+/**
+ * We make sure to ping the daemon periodically such that it knows the
+ * UI process is still attached. Otherwise, it will timeout after
+ * about 20 seconds and quit.
+ */
+static gint ping_daemon ( gpointer data ) {
+    send_ipc(ui_pipe_fd, ACK);
+    return TRUE;
 }

@@ -61,7 +61,6 @@ static void     respond_quit_analysis ( GtkDialog *dialog,
                                         gint arg1,
                                         gpointer user_data );
 static void     destroy_app           ( void);    
-static gint     ping_daemon           ( gpointer data );
 
 
 GtkWidget * make_app_ui ( void ) {
@@ -167,10 +166,6 @@ GtkWidget * make_app_ui ( void ) {
     gtk_signal_connect (GTK_OBJECT (about_window), "delete_event",
 			GTK_SIGNAL_FUNC (gtk_widget_hide), NULL);
 
-    /* Ping the daemon ocassionally to let it know that the UI 
-     * process is still around */
-    gtk_timeout_add( UI_PING, ping_daemon, NULL);
-    
     return window;
 }
 
@@ -480,17 +475,6 @@ static void destroy_app (void) {
     gtk_widget_destroy(about_window);
     gtk_widget_destroy(paned);
     gtk_main_quit();
-}
-
-
-/**
- * We make sure to ping the daemon periodically such that it knows the
- * UI process is still attached. Otherwise, it will timeout after
- * about 20 seconds and quit.
- */
-static gint ping_daemon ( gpointer data ) {
-    send_ipc(ui_pipe_fd, ACK);
-    return TRUE;
 }
 
 
