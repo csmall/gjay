@@ -336,6 +336,7 @@ void data_start_element  (GMarkupParseContext *context,
                 prefs.rating_cutoff = TRUE;
             break;
         default:
+            break;
         }
     }
 }    
@@ -422,6 +423,7 @@ void data_text ( GMarkupParseContext *context,
         prefs.time = atoi(buffer);
         break;
     default:
+        break;
     }
     *element = PE_LAST;
 }

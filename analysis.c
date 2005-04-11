@@ -333,6 +333,7 @@ gboolean ui_pipe_input (GIOChannel *source,
         break;
     default:
         // Do nothing
+        break;
     }
     return TRUE;
 }
