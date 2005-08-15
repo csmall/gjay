@@ -328,7 +328,6 @@ gboolean ui_pipe_input (GIOChannel *source,
             if (verbosity)
                 printf("Daemon Quitting\n");
             g_main_quit ((GMainLoop * ) data);
-            exit(0);
         }
         break;
     default:

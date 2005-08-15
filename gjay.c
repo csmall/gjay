@@ -183,9 +183,38 @@ int main( int argc, char *argv[] ) {
     }
 
     if (mode != PLAYLIST) {
+        /* Create the named pipes for the daemon and ui processes to 
+         * communicate through */
+         
+        /* Create a per-username directory for the daemon and UI pipes */
+        char * login = getlogin();
+        gjay_pipe_dir = (char *) malloc(sizeof(char) * (
+            strlen(GJAY_PIPE_DIR_TEMPLATE) +
+            strlen(login) + 1));
+        sprintf(gjay_pipe_dir, "%s%s", GJAY_PIPE_DIR_TEMPLATE, login);
+
+        /* Create directory if one doesn't already exist */
+        struct stat buf;
+        if (stat(gjay_pipe_dir, &buf) != 0) {
+            if (mkdir(gjay_pipe_dir, 0700)) {
+                fprintf(stderr, "Couldn't create %s\n", gjay_pipe_dir);
+                return -1;
+            }
+        }
+
+        /* Setup pipe names */
+        ui_pipe = (char *) malloc(sizeof(char) * (
+            strlen(gjay_pipe_dir) + 
+            strlen(UI_PIPE_FILE)) + 2);
+        daemon_pipe = (char *) malloc(sizeof(char) * (
+            strlen(gjay_pipe_dir) + 
+            strlen(DAEMON_PIPE_FILE)) + 2);
+        sprintf(ui_pipe, "%s/%s", gjay_pipe_dir, UI_PIPE_FILE);
+        sprintf(daemon_pipe, "%s/%s", gjay_pipe_dir, DAEMON_PIPE_FILE);
+
         /* Both daemon and UI app open an end of a pipe */
-        daemon_pipe_fd = open_pipe(DAEMON_PIPE);
-        ui_pipe_fd = open_pipe(UI_PIPE);
+        ui_pipe_fd = open_pipe(ui_pipe);
+        daemon_pipe_fd = open_pipe(daemon_pipe);
     }
 
     /* Try to load libvorbis; this is a soft dependancy */
@@ -324,8 +353,9 @@ int main( int argc, char *argv[] ) {
         /* Daemon cleans up pipes on quit */
         close(daemon_pipe_fd);
         close(ui_pipe_fd);
-        unlink(DAEMON_PIPE);
-        unlink(UI_PIPE);
+        unlink(daemon_pipe);
+        unlink(ui_pipe);
+        rmdir(gjay_pipe_dir);
     }
     return(0);
 }

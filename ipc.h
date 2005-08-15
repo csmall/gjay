@@ -31,8 +31,12 @@ typedef enum {
 
 
 /* Pipes are named by the sending process */
-#define DAEMON_PIPE "/tmp/gjay_daemon"
-#define UI_PIPE     "/tmp/gjay_ui"
+#define DAEMON_PIPE_FILE "gjay_daemon"
+#define UI_PIPE_FILE     "gjay_ui"
+#define GJAY_PIPE_DIR_TEMPLATE  "/tmp/gjay-"
+extern char * daemon_pipe;
+extern char * ui_pipe;
+extern char * gjay_pipe_dir;
 
 /* The UI will send a message to an attached daemon at least every
  *  UI_PING ms. If an attached daemon hasn't heard from the UI in
