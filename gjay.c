@@ -153,6 +153,22 @@ int main( int argc, char *argv[] ) {
             }
         }
     }
+
+    /* Check to see if we have all the apps we'll need for analysis */
+    if (!app_exists(OGG_DECODER_APP)) {
+        fprintf(stderr, "Sorry, GJay requires %s; quitting\n", 
+                OGG_DECODER_APP); 
+        return -1;
+    }
+    if (!app_exists(MP3_DECODER_APP)) {
+        if (app_exists(MP3_DECODER_APP_ALTERNATIVE)) {
+            MP3_DECODER_APP = MP3_DECODER_APP_ALTERNATIVE;
+        } else {
+            fprintf(stderr, "Sorry, GJay requires %s; quitting\n", 
+                    MP3_DECODER_APP); 
+            return -1;
+        }
+    }
     
     /* Make sure there is a "~/.gjay" directory */
     snprintf(buffer, BUFFER_SIZE, "%s/%s", getenv("HOME"), GJAY_DIR);
@@ -303,19 +319,6 @@ int main( int argc, char *argv[] ) {
         signal(SIGKILL, kill_signal);
         signal(SIGINT,  kill_signal);
         
-        /* Check to see if we have all the apps we'll need for analysis */
-        if (!app_exists(OGG_DECODER_APP)) {
-  	    fprintf(stderr, "GJay requires %s\n", OGG_DECODER_APP); 
-	    return -1;
-	}
-	if (!app_exists(MP3_DECODER_APP)) {
-	    if (app_exists(MP3_DECODER_APP_ALTERNATIVE)) {
-	        MP3_DECODER_APP = MP3_DECODER_APP_ALTERNATIVE;
-	    } else {
-	       fprintf(stderr, "GJay requires %s\n", MP3_DECODER_APP); 
-	       return -1;
-	    }
-	}
         analysis_daemon();
 
         /* Daemon cleans up pipes on quit */
