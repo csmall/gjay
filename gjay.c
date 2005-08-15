@@ -54,9 +54,9 @@ int ui_pipe_fd;
 gint verbosity;
 gint skip_verify;
 
-char * OGG_DECODER_APP = "ogg123";
-char * MP3_DECODER_APP = "mpg321";
-char * MP3_DECODER_APP_ALTERNATIVE =" mpg123";
+char * ogg_decoder_app = "ogg123";
+char * mp3_decoder_app = "mpg321";
+char * mp3_decoder_app_alternative =" mpg123";
 
 static gboolean app_exists  ( gchar * app );
 static void     kill_signal ( int sig );
@@ -155,17 +155,17 @@ int main( int argc, char *argv[] ) {
     }
 
     /* Check to see if we have all the apps we'll need for analysis */
-    if (!app_exists(OGG_DECODER_APP)) {
+    if (!app_exists(ogg_decoder_app)) {
         fprintf(stderr, "Sorry, GJay requires %s; quitting\n", 
-                OGG_DECODER_APP); 
+                ogg_decoder_app); 
         return -1;
     }
-    if (!app_exists(MP3_DECODER_APP)) {
-        if (app_exists(MP3_DECODER_APP_ALTERNATIVE)) {
-            MP3_DECODER_APP = MP3_DECODER_APP_ALTERNATIVE;
+    if (!app_exists(mp3_decoder_app)) {
+        if (app_exists(mp3_decoder_app_alternative)) {
+            mp3_decoder_app = mp3_decoder_app_alternative;
         } else {
             fprintf(stderr, "Sorry, GJay requires %s; quitting\n", 
-                    MP3_DECODER_APP); 
+                    mp3_decoder_app); 
             return -1;
         }
     }

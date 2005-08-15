@@ -50,8 +50,8 @@ extern gint      verbosity;
 extern gint      skip_verify;
 
 /* App names */
-extern char * OGG_DECODER_APP;
-extern char * MP3_DECODER_APP;
+extern char * ogg_decoder_app;
+extern char * mp3_decoder_app;
 
 /* Utilities */
 void    read_line             ( FILE * f, 

@@ -450,12 +450,12 @@ FILE * inflate_to_wav ( gchar * path,
     switch (type) {
     case OGG:
         snprintf(buffer, BUFFER_SIZE, "%s \'%s\' -d wav -f - 2> /dev/null",
-                 OGG_DECODER_APP,
+                 ogg_decoder_app,
                  quoted_path);
         break;
     case MP3:
         snprintf(buffer, BUFFER_SIZE, "%s -b 10000 \'%s\' -w - 2> /dev/null",
-                 MP3_DECODER_APP,
+                 mp3_decoder_app,
                  quoted_path);
         break;
     case WAV:
