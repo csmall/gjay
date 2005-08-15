@@ -49,7 +49,11 @@ extern gint      xmms_session;
 extern gint      verbosity;
 extern gint      skip_verify;
 
-/* utilities */
+/* App names */
+extern char * OGG_DECODER_APP;
+extern char * MP3_DECODER_APP;
+
+/* Utilities */
 void    read_line             ( FILE * f, 
                                 char * buffer, 
                                 int buffer_len);

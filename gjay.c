@@ -47,13 +47,6 @@
 #include "vorbis.h"
 
 
-#define NUM_APPS 2
-static gchar * apps[NUM_APPS] = {
-    "mpg321",
-    "ogg123"
-};
-
-
 gjay_mode mode; /* UI, DAEMON, PLAYLIST */
 
 int daemon_pipe_fd;
@@ -61,6 +54,9 @@ int ui_pipe_fd;
 gint verbosity;
 gint skip_verify;
 
+char * OGG_DECODER_APP = "ogg123";
+char * MP3_DECODER_APP = "mpg321";
+char * MP3_DECODER_APP_ALTERNATIVE =" mpg123";
 
 static gboolean app_exists  ( gchar * app );
 static void     kill_signal ( int sig );
@@ -308,12 +304,18 @@ int main( int argc, char *argv[] ) {
         signal(SIGINT,  kill_signal);
         
         /* Check to see if we have all the apps we'll need for analysis */
-        for (i = 0; i < NUM_APPS; i++) {
-            if (!app_exists(apps[i])) {
-                fprintf(stderr, "GJay requires %s\n", apps[i]); 
-                return -1;
-            } 
-        } 
+        if (!app_exists(OGG_DECODER_APP)) {
+  	    fprintf(stderr, "GJay requires %s\n", OGG_DECODER_APP); 
+	    return -1;
+	}
+	if (!app_exists(MP3_DECODER_APP)) {
+	    if (app_exists(MP3_DECODER_APP_ALTERNATIVE)) {
+	        MP3_DECODER_APP = MP3_DECODER_APP_ALTERNATIVE;
+	    } else {
+	       fprintf(stderr, "GJay requires %s\n", MP3_DECODER_APP); 
+	       return -1;
+	    }
+	}
         analysis_daemon();
 
         /* Daemon cleans up pipes on quit */
