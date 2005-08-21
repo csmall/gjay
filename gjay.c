@@ -62,14 +62,17 @@ static gboolean app_exists  ( gchar * app );
 static void     kill_signal ( int sig );
 static int      open_pipe   ( const char* filepath );
 static gint     ping_daemon ( gpointer data );
-
+static gboolean create_ui_daemon_pipe(void);
+static gboolean mode_attached ( gjay_mode m );
+static void     fork_or_connect_to_daemon(void);
+static void     run_as_ui      ( int argc, char * argv[]);
+static void     run_as_daemon  ( void );
+static void     run_as_playlist  ( gboolean m3u_format, 
+                                   gboolean playlist_in_xmms );
 
 int main( int argc, char *argv[] ) {
-    GList * list;
     char buffer[BUFFER_SIZE];
-    GtkWidget * widget;
     struct stat stat_buf;
-    FILE * f;
     gint i, k, hex;
     gboolean m3u_format, playlist_in_xmms;
 
@@ -91,6 +94,7 @@ int main( int argc, char *argv[] ) {
             printf("GJay version %s\n", GJAY_VERSION);
             return 0;
         } else if (strncmp(argv[i], "-l", 2) == 0) {
+            /* Set the playlist length, in minutes */
             if (i + 1 < argc) {
                 prefs.time = atoi(argv[i + 1]);
                 i++;
@@ -99,6 +103,7 @@ int main( int argc, char *argv[] ) {
                 return -1;
             }
         } else if (strncmp(argv[i], "-c", 2) == 0) {
+            /* Start the playlist at a particular color */
             RGB rgb;
             if (i + 1 < argc) {
                 strncpy(buffer, argv[i+1], BUFFER_SIZE);
@@ -117,6 +122,7 @@ int main( int argc, char *argv[] ) {
                 return -1;
             }            
         } else if (strncmp(argv[i], "-f", 2) == 0) {
+            /* Start the playlist at a particular file. */
             char fname[BUFFER_SIZE];
             char * path;
             if (i + 1 < argc) {
@@ -130,23 +136,38 @@ int main( int argc, char *argv[] ) {
                 fprintf(stderr, "Usage: -f filename\n");
                 return -1;
             }  
+        } else if (strncmp(argv[i], "--analyze-standalone", 20) == 0) {
+            /* Analyze just one file in standalone mode, dump results as
+             * XML to stdout */
+            if (i + 1 < argc) {
+                i++;
+                printf("analyze-standalone not yet implemented\n");
+            } else {
+                fprintf(stderr, "Usage: --analyze-standalone filename\n");
+                return -1;
+            }  
         } else if (argv[i][0] == '-') {
             for (k = 1; argv[i][k]; k++) {
                 if (argv[i][k] == 'd') {
+                    /* Run just the analysis daemon, detached */
                     mode = DAEMON_DETACHED;
                     printf("Running as daemon. Ctrl+c to stop.\n");
                 }
                 if (argv[i][k] == 'v')
                     verbosity++;
                 if (argv[i][k] == 's') {
+                    /* Skip file verification step */
                     printf("Skipping verification for debugging only.\n");
                     skip_verify = 1; 
                 }
                 if (argv[i][k] == 'u')
+                    /* Playlist mode: Use the M3U playlist format */
                     m3u_format = TRUE;
                 if (argv[i][k] == 'x')
+                    /* Playlist mode: Play the generated playlist in XMMS */
                     playlist_in_xmms = TRUE;
                 if (argv[i][k] == 'p') {
+                    /* Generate a playlist */
                     prefs.start_color = FALSE;
                     mode = PLAYLIST;
                 }
@@ -182,181 +203,49 @@ int main( int argc, char *argv[] ) {
         }
     }
 
-    if (mode != PLAYLIST) {
-        /* Create the named pipes for the daemon and ui processes to 
-         * communicate through */
-         
-        /* Create a per-username directory for the daemon and UI pipes */
-        char * login = getlogin();
-        gjay_pipe_dir = (char *) malloc(sizeof(char) * (
-            strlen(GJAY_PIPE_DIR_TEMPLATE) +
-            strlen(login) + 1));
-        sprintf(gjay_pipe_dir, "%s%s", GJAY_PIPE_DIR_TEMPLATE, login);
-
-        /* Create directory if one doesn't already exist */
-        struct stat buf;
-        if (stat(gjay_pipe_dir, &buf) != 0) {
-            if (mkdir(gjay_pipe_dir, 0700)) {
-                fprintf(stderr, "Couldn't create %s\n", gjay_pipe_dir);
-                return -1;
-            }
+    if (mode_attached(mode)) {
+        if (create_ui_daemon_pipe() == FALSE) {
+            return -1;
         }
-
-        /* Setup pipe names */
-        ui_pipe = (char *) malloc(sizeof(char) * (
-            strlen(gjay_pipe_dir) + 
-            strlen(UI_PIPE_FILE)) + 2);
-        daemon_pipe = (char *) malloc(sizeof(char) * (
-            strlen(gjay_pipe_dir) + 
-            strlen(DAEMON_PIPE_FILE)) + 2);
-        sprintf(ui_pipe, "%s/%s", gjay_pipe_dir, UI_PIPE_FILE);
-        sprintf(daemon_pipe, "%s/%s", gjay_pipe_dir, DAEMON_PIPE_FILE);
-
-        /* Both daemon and UI app open an end of a pipe */
-        ui_pipe_fd = open_pipe(ui_pipe);
-        daemon_pipe_fd = open_pipe(daemon_pipe);
     }
 
     /* Try to load libvorbis; this is a soft dependancy */
     if (gjay_vorbis_dlopen() == 0) {
         printf("Ogg not supported; %s", gjay_vorbis_error());
     }
-   
-    if(mode == UI) {
-        /* Make sure a daemon is running. If not, fork. */
-        gboolean fork_daemon = FALSE;
-        pid_t pid;
-        
-        snprintf(buffer, BUFFER_SIZE, "%s/%s/%s", 
-                 getenv("HOME"), GJAY_DIR, GJAY_PID);
-        f = fopen(buffer, "r");
-        if (f) {
-            fscanf(f, "%d", &i);
-            fclose(f);
-            snprintf(buffer, BUFFER_SIZE, "/proc/%d/stat", i);
-            if (access(buffer, R_OK))
-                fork_daemon = TRUE; 
-        } else {
-            fork_daemon = TRUE;
-        }
-        if (fork_daemon) {
-            pid = fork();
-            if (pid < 0) {
-                fprintf(stderr, "Unable to fork daemon.\n");
-            } else if (pid == 0) {
-                /* Daemon */
-                mode = DAEMON_INIT;
-            }
-        }
-    }
 
-    if ((mode == UI) || (mode == PLAYLIST)) {
-        songs = NULL;
-        not_songs = NULL;
-        songs_dirty = FALSE;
-        song_name_hash    = g_hash_table_new(g_str_hash, g_str_equal);
-        song_inode_dev_hash = g_hash_table_new(g_int_hash, g_int_equal);
-        not_song_hash     = g_hash_table_new(g_str_hash, g_str_equal);
-
-        read_data_file();
-   }
+    songs = NULL;
+    not_songs = NULL;
+    songs_dirty = FALSE;
+    song_name_hash    = g_hash_table_new(g_str_hash, g_str_equal);
+    song_inode_dev_hash = g_hash_table_new(g_int_hash, g_int_equal);
+    not_song_hash     = g_hash_table_new(g_str_hash, g_str_equal);
 
     if (mode == UI) {
-        if (!app_exists("xmms")) {
-            fprintf(stderr, "GJay strongly suggests xmms\n"); 
-        } 
-
-        gtk_init (&argc, &argv);
-        
-        g_io_add_watch (g_io_channel_unix_new (daemon_pipe_fd),
-                        G_IO_IN,
-                        daemon_pipe_input,
-                        NULL);
-
-        /* Ping the daemon ocassionally to let it know that the UI 
-         * process is still around */
-        gtk_timeout_add( UI_PING, ping_daemon, NULL);
-        
-        widget = make_app_ui();
-        gtk_widget_show_all(widget);
-        set_selected_rating_visible(prefs.use_ratings);
-        set_playlist_rating_visible(prefs.use_ratings);
-        set_add_files_progress_visible(FALSE);
-
-        /* Periodically write song data to disk, if it has changed */
-        gtk_timeout_add( SONG_DIRTY_WRITE_TIMEOUT, 
-                         write_dirty_song_timeout, NULL);
-                         
-        send_ipc(ui_pipe_fd, ATTACH);
-        if (skip_verify) {
-            GList * llist;
-            for (llist = g_list_first(songs); llist; llist = g_list_next(llist)) {
-                SONG(llist)->in_tree = TRUE;
-                SONG(llist)->access_ok = TRUE;
-            }        
-        } else {
-            explore_view_set_root(prefs.song_root_dir);
-        }        
-
-        set_selected_file(NULL, NULL, FALSE);
-
-        gtk_main();
-
-        save_prefs();
-        if (songs_dirty)
-            write_data_file();
-
-        if (prefs.detach || (prefs.daemon_action == PREF_DAEMON_DETACH)) {
-            send_ipc(ui_pipe_fd, DETACH);
-            send_ipc(ui_pipe_fd, UNLINK_DAEMON_FILE);
-        } else {
-            send_ipc(ui_pipe_fd, UNLINK_DAEMON_FILE);
-            send_ipc(ui_pipe_fd, QUIT_IF_ATTACHED);
-        }
-  
-        close(daemon_pipe_fd);
-        close(ui_pipe_fd);
-    } else if (mode == PLAYLIST) {
-        /* Playlist mode */
-        prefs.use_selected_songs = FALSE;
-        prefs.rating_cutoff = FALSE;
-        for (list = g_list_first(songs); list;  list = g_list_next(list)) {
-            SONG(list)->in_tree = TRUE;
-        }
-        list = generate_playlist(prefs.time);
-        if (playlist_in_xmms) {
-            join_or_start_xmms();
-            play_songs(list);
-        } else {
-            write_playlist(list, stdout, m3u_format);
-        }
-        g_list_free(list);
-    } else {
-        /* Daemon process */
-        /* Write pid to ~/.gjay/gjay.pid */
-        snprintf(buffer, BUFFER_SIZE, "%s/%s/%s", 
-                 getenv("HOME"), GJAY_DIR, GJAY_PID);
-        f = fopen(buffer, "w");
-        if (f) {
-            fprintf(f, "%d", getpid());
-            fclose(f);
-        } else {
-            fprintf(stderr, "Unable to write to %s\n", GJAY_PID);
-        }
-        
-        signal(SIGTERM, kill_signal);
-        signal(SIGKILL, kill_signal);
-        signal(SIGINT,  kill_signal);
-        
-        analysis_daemon();
-
-        /* Daemon cleans up pipes on quit */
-        close(daemon_pipe_fd);
-        close(ui_pipe_fd);
-        unlink(daemon_pipe);
-        unlink(ui_pipe);
-        rmdir(gjay_pipe_dir);
+        fork_or_connect_to_daemon();
     }
+
+    switch(mode) {
+    case UI:
+        read_data_file();
+        run_as_ui(argc, argv);
+        break;
+    case PLAYLIST:
+        read_data_file();
+        run_as_playlist(m3u_format, playlist_in_xmms);
+        break;
+    case DAEMON_INIT:
+    case DAEMON_DETACHED: 
+        run_as_daemon();
+        break;
+    case ANALYZE_DETACHED:
+        break;
+    default:
+        fprintf(stderr, "Error: app mode %d not supported\n", mode);
+        return -1;
+        break;
+    }
+
     return(0);
 }
 
@@ -512,4 +401,200 @@ gchar * parent_dir ( const char * path ) {
 static gint ping_daemon ( gpointer data ) {
     send_ipc(ui_pipe_fd, ACK);
     return TRUE;
+}
+
+
+/**
+ * Create the named pipes for the daemon and ui processes to 
+ * communicate through. Return true on success. */
+static gboolean create_ui_daemon_pipe(void)
+{
+    /* Create a per-username directory for the daemon and UI pipes */
+    char * login = getlogin();
+    gjay_pipe_dir = (char *) malloc(sizeof(char) * (
+        strlen(GJAY_PIPE_DIR_TEMPLATE) +
+        strlen(login) + 1));
+    sprintf(gjay_pipe_dir, "%s%s", GJAY_PIPE_DIR_TEMPLATE, login);
+    
+    /* Create directory if one doesn't already exist */
+    struct stat buf;
+    if (stat(gjay_pipe_dir, &buf) != 0) {
+        if (mkdir(gjay_pipe_dir, 0700)) {
+            fprintf(stderr, "Couldn't create %s\n", gjay_pipe_dir);
+            return FALSE;
+        }
+    }
+    
+    /* Setup pipe names */
+    ui_pipe = (char *) malloc(sizeof(char) * (
+        strlen(gjay_pipe_dir) + 
+        strlen(UI_PIPE_FILE)) + 2);
+    daemon_pipe = (char *) malloc(sizeof(char) * (
+        strlen(gjay_pipe_dir) + 
+        strlen(DAEMON_PIPE_FILE)) + 2);
+    sprintf(ui_pipe, "%s/%s", gjay_pipe_dir, UI_PIPE_FILE);
+    sprintf(daemon_pipe, "%s/%s", gjay_pipe_dir, DAEMON_PIPE_FILE);
+    
+    /* Both daemon and UI app open an end of a pipe */
+    ui_pipe_fd = open_pipe(ui_pipe);
+    daemon_pipe_fd = open_pipe(daemon_pipe);
+
+    return TRUE;
+}
+
+/* Return true if the current mode attaches the daemon to the UI */
+static gboolean mode_attached ( gjay_mode m )
+{
+    switch(m) {
+    case PLAYLIST:
+    case ANALYZE_DETACHED:
+        return FALSE;
+    default:
+        return TRUE;
+    }
+}
+
+
+/* Fork a new daemon if one isn't running */
+static void fork_or_connect_to_daemon(void) {
+    /* Make sure a daemon is running. If not, fork. */
+    char buffer[BUFFER_SIZE];
+    gboolean fork_daemon = FALSE;
+    pid_t pid;
+    FILE * f;
+    gint i;
+    
+    snprintf(buffer, BUFFER_SIZE, "%s/%s/%s", 
+             getenv("HOME"), GJAY_DIR, GJAY_PID);
+    f = fopen(buffer, "r");
+    if (f) {
+        fscanf(f, "%d", &i);
+        fclose(f);
+        snprintf(buffer, BUFFER_SIZE, "/proc/%d/stat", i);
+        if (access(buffer, R_OK))
+            fork_daemon = TRUE; 
+    } else {
+        fork_daemon = TRUE;
+    }
+    if (fork_daemon) {
+        pid = fork();
+        if (pid < 0) {
+            fprintf(stderr, "Unable to fork daemon.\n");
+        } else if (pid == 0) {
+            /* Daemon */
+            mode = DAEMON_INIT;
+        }
+    }
+}
+
+
+static void run_as_ui( int argc, char *argv[] ) 
+{    
+    GtkWidget * widget;
+    
+    if (!app_exists("xmms")) {
+        fprintf(stderr, "GJay strongly suggests xmms\n"); 
+    } 
+    
+    gtk_init (&argc, &argv);
+    
+    g_io_add_watch (g_io_channel_unix_new (daemon_pipe_fd),
+                    G_IO_IN,
+                    daemon_pipe_input,
+                    NULL);
+    
+    /* Ping the daemon ocassionally to let it know that the UI 
+     * process is still around */
+    gtk_timeout_add( UI_PING, ping_daemon, NULL);
+    
+    widget = make_app_ui();
+    gtk_widget_show_all(widget);
+    set_selected_rating_visible(prefs.use_ratings);
+    set_playlist_rating_visible(prefs.use_ratings);
+    set_add_files_progress_visible(FALSE);
+    
+    /* Periodically write song data to disk, if it has changed */
+    gtk_timeout_add( SONG_DIRTY_WRITE_TIMEOUT, 
+                     write_dirty_song_timeout, NULL);
+    
+    send_ipc(ui_pipe_fd, ATTACH);
+    if (skip_verify) {
+        GList * llist;
+        for (llist = g_list_first(songs); llist; llist = g_list_next(llist)) {
+            SONG(llist)->in_tree = TRUE;
+            SONG(llist)->access_ok = TRUE;
+        }        
+    } else {
+        explore_view_set_root(prefs.song_root_dir);
+    }        
+    
+    set_selected_file(NULL, NULL, FALSE);
+    
+    gtk_main();
+    
+    save_prefs();
+    if (songs_dirty)
+        write_data_file();
+    
+    if (prefs.detach || (prefs.daemon_action == PREF_DAEMON_DETACH)) {
+        send_ipc(ui_pipe_fd, DETACH);
+        send_ipc(ui_pipe_fd, UNLINK_DAEMON_FILE);
+    } else {
+        send_ipc(ui_pipe_fd, UNLINK_DAEMON_FILE);
+        send_ipc(ui_pipe_fd, QUIT_IF_ATTACHED);
+    }
+    
+    close(daemon_pipe_fd);
+    close(ui_pipe_fd);
+}
+
+
+static void run_as_daemon(void)
+{
+    char buffer[BUFFER_SIZE];
+    FILE * f;
+
+    /* Write pid to ~/.gjay/gjay.pid */
+    snprintf(buffer, BUFFER_SIZE, "%s/%s/%s", 
+             getenv("HOME"), GJAY_DIR, GJAY_PID);
+    f = fopen(buffer, "w");
+    if (f) {
+        fprintf(f, "%d", getpid());
+        fclose(f);
+    } else {
+        fprintf(stderr, "Unable to write to %s\n", GJAY_PID);
+    }
+    
+    signal(SIGTERM, kill_signal);
+    signal(SIGKILL, kill_signal);
+    signal(SIGINT,  kill_signal);
+    
+    analysis_daemon();
+    
+    /* Daemon cleans up pipes on quit */
+    close(daemon_pipe_fd);
+    close(ui_pipe_fd);
+    unlink(daemon_pipe);
+    unlink(ui_pipe);
+    rmdir(gjay_pipe_dir);
+}
+
+
+/* Playlist mode */
+static void run_as_playlist(gboolean m3u_format, gboolean playlist_in_xmms)
+{
+    GList * list;
+    prefs.use_selected_songs = FALSE;
+    prefs.rating_cutoff = FALSE;
+    for (list = g_list_first(songs); list;  list = g_list_next(list)) {
+        SONG(list)->in_tree = TRUE;
+    }
+    list = generate_playlist(prefs.time);
+    if (playlist_in_xmms) {
+        join_or_start_xmms();
+        play_songs(list);
+    } else {
+        write_playlist(list, stdout, m3u_format);
+    }
+    g_list_free(list);
 }
