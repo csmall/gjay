@@ -612,5 +612,9 @@ static void run_as_playlist(gboolean m3u_format, gboolean playlist_in_xmms)
 
 static void run_as_analyze_detached  ( char * analyze_detached_fname )
 {
+    if (access(analyze_detached_fname, R_OK) != 0)
+    {
+        fprintf(stderr, "File %s not found\n", analyze_detached_fname);
+    }
     analyze(analyze_detached_fname, TRUE);
 }
