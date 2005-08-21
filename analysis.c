@@ -91,7 +91,6 @@ static GList      * queue = NULL;
 static GHashTable * queue_hash = NULL;
 static time_t       last_ping;
 
-void          analyze(char * fname);
 FILE *        inflate_to_wav (gchar * path, 
                               song_file_type type);
 int           run_analysis     ( wav_file * wsfile,
@@ -122,7 +121,7 @@ void analysis_daemon(void) {
     loop = g_main_new(FALSE);
     last_ping = time(NULL);
     queue_hash = g_hash_table_new(g_str_hash, g_str_equal);
-    
+
     /* Read analysis queue, if any */
     snprintf(buffer, BUFFER_SIZE, "%s/%s/%s", getenv("HOME"), 
              GJAY_DIR, GJAY_QUEUE);
@@ -138,13 +137,11 @@ void analysis_daemon(void) {
         }
         fclose(f);
     }
-    
     ui_io = g_io_channel_unix_new (ui_pipe_fd);
     g_io_add_watch (ui_io,
                     G_IO_IN,
                     ui_pipe_input,
                     loop);
-
     g_idle_add (daemon_idle, loop);
     // FIXME: add G_IO_HUP watcher
 
@@ -172,7 +169,7 @@ gboolean daemon_idle (gpointer data) {
     
     if (queue) {
         file = g_list_first(queue)->data;
-        analyze(file);
+        analyze(file, FALSE);
         g_hash_table_remove(queue_hash, file);
         queue = g_list_remove(queue, file);
         g_free(file);
@@ -339,7 +336,10 @@ gboolean ui_pipe_input (GIOChannel *source,
 
 
 
-void analyze(char * fname) {
+void analyze(char * fname,            /* File to analyze */
+             gboolean result_to_stdout) /* Write result to stdout? 
+                                           (Default FALSE means to disk */ 
+{
     FILE * f;
     gchar * utf8;
     wav_file wsfile;
@@ -352,6 +352,7 @@ void analyze(char * fname) {
 
     analyze_song = NULL;
     in_analysis = TRUE;
+    
     send_ui_percent(0);
     
     if (access(fname, R_OK) != 0) {
@@ -385,7 +386,7 @@ void analyze(char * fname) {
         in_analysis = FALSE;
         return;
     }
-
+    
     send_analyze_song_name();
     send_ipc_text(daemon_pipe_fd, ANIMATE_START, analyze_song->path);
 
@@ -428,8 +429,12 @@ void analyze(char * fname) {
 
     send_ipc(daemon_pipe_fd, ANIMATE_STOP);
     send_ipc_text(daemon_pipe_fd, STATUS_TEXT, "Idle");
-    
-    result = append_daemon_file(analyze_song);
+
+    if (result_to_stdout) {
+        write_song_data(stdout, analyze_song);
+    } else {
+        result = append_daemon_file(analyze_song);
+    }
     if (result >= 0) 
         send_ipc_int(daemon_pipe_fd, ADDED_FILE, result);
     delete_song(analyze_song);

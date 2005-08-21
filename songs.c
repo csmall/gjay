@@ -100,7 +100,6 @@ GHashTable * song_inode_dev_hash;
 GHashTable * not_song_hash;
 
 
-static void     write_song_data     ( FILE * f, song * s );
 static void     write_not_song_data ( FILE * f, gchar * path );
 static gboolean read_song_file_type ( char * path, 
                                       song_file_type type,
@@ -444,7 +443,7 @@ int append_daemon_file (song * s) {
  *   <bpm>float</bpm>
  * </file>
  */
-static void write_song_data (FILE * f, song * s) {
+void write_song_data (FILE * f, song * s) {
     gchar * escape; /* Escape XML elements from text */
     int k;
 

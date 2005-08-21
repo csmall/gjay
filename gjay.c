@@ -69,9 +69,12 @@ static void     run_as_ui      ( int argc, char * argv[]);
 static void     run_as_daemon  ( void );
 static void     run_as_playlist  ( gboolean m3u_format, 
                                    gboolean playlist_in_xmms );
+static void     run_as_analyze_detached  ( char * analyze_detached_fname );
+
 
 int main( int argc, char *argv[] ) {
     char buffer[BUFFER_SIZE];
+    char * analyze_detached_fname;
     struct stat stat_buf;
     gint i, k, hex;
     gboolean m3u_format, playlist_in_xmms;
@@ -140,8 +143,8 @@ int main( int argc, char *argv[] ) {
             /* Analyze just one file in standalone mode, dump results as
              * XML to stdout */
             if (i + 1 < argc) {
-                i++;
-                printf("analyze-standalone not yet implemented\n");
+                analyze_detached_fname = strdup(argv[++i]);
+                mode = ANALYZE_DETACHED;
             } else {
                 fprintf(stderr, "Usage: --analyze-standalone filename\n");
                 return -1;
@@ -174,6 +177,17 @@ int main( int argc, char *argv[] ) {
             }
         }
     }
+
+
+    /* Intialize vars */
+    daemon_pipe_fd = -1;
+    ui_pipe_fd = -1;
+    songs = NULL;
+    not_songs = NULL;
+    songs_dirty = FALSE;
+    song_name_hash    = g_hash_table_new(g_str_hash, g_str_equal);
+    song_inode_dev_hash = g_hash_table_new(g_int_hash, g_int_equal);
+    not_song_hash     = g_hash_table_new(g_str_hash, g_str_equal);
 
     /* Check to see if we have all the apps we'll need for analysis */
     if (!app_exists(ogg_decoder_app)) {
@@ -214,20 +228,15 @@ int main( int argc, char *argv[] ) {
         printf("Ogg not supported; %s", gjay_vorbis_error());
     }
 
-    songs = NULL;
-    not_songs = NULL;
-    songs_dirty = FALSE;
-    song_name_hash    = g_hash_table_new(g_str_hash, g_str_equal);
-    song_inode_dev_hash = g_hash_table_new(g_int_hash, g_int_equal);
-    not_song_hash     = g_hash_table_new(g_str_hash, g_str_equal);
-
     if (mode == UI) {
+        /* UI needs a daemon */
         fork_or_connect_to_daemon();
     }
 
     switch(mode) {
     case UI:
         read_data_file();
+        sleep(1);
         run_as_ui(argc, argv);
         break;
     case PLAYLIST:
@@ -239,6 +248,7 @@ int main( int argc, char *argv[] ) {
         run_as_daemon();
         break;
     case ANALYZE_DETACHED:
+        run_as_analyze_detached(analyze_detached_fname);
         break;
     default:
         fprintf(stderr, "Error: app mode %d not supported\n", mode);
@@ -597,4 +607,10 @@ static void run_as_playlist(gboolean m3u_format, gboolean playlist_in_xmms)
         write_playlist(list, stdout, m3u_format);
     }
     g_list_free(list);
+}
+
+
+static void run_as_analyze_detached  ( char * analyze_detached_fname )
+{
+    analyze(analyze_detached_fname, TRUE);
 }

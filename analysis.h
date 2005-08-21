@@ -78,8 +78,11 @@ extern int             analyze_percent;
 
 /* Analysis.c */
 void     analysis_daemon(void);
-//gboolean analyze(song * s);
 int      quote_path(char *buf, size_t bufsiz, const char *path);
+
+/* Run the analysis of one song */
+void     analyze( char * fname, 
+                  gboolean result_to_stdout );
 
 /* Endian stuff */
 void     wav_header_swab(waveheaderstruct * header); 

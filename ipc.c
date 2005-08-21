@@ -8,7 +8,7 @@ char * gjay_pipe_dir;
 
 void send_ipc_text(int fd, ipc_type type, char * text) {
     int len, slen;
-    if (mode == DAEMON_DETACHED)
+    if (fd == -1)
         return;
 
     slen = strlen(text);
@@ -21,7 +21,7 @@ void send_ipc_text(int fd, ipc_type type, char * text) {
 
 void send_ipc_int (int fd, ipc_type type, int val) {
     int len;
-    if (mode == DAEMON_DETACHED)
+    if (fd == -1)
         return;
     
     len = sizeof(ipc_type) + sizeof(int);
@@ -33,7 +33,8 @@ void send_ipc_int (int fd, ipc_type type, int val) {
 
 void send_ipc (int fd, ipc_type type) {
     int len;
-    if (mode == DAEMON_DETACHED)
+
+    if (fd == -1)
         return;
 
     len = sizeof(ipc_type);

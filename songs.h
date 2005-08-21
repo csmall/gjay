@@ -127,6 +127,8 @@ gdouble     song_mass              ( song * s );
 void        write_data_file        ( void );
 int         write_dirty_song_timeout ( gpointer data );
 int         append_daemon_file     ( song * s );
+void        write_song_data        ( FILE * f, song * s );
+
 
 void        read_data_file         ( void );
 gboolean    add_from_daemon_file_at_seek ( int seek );
