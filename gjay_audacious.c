@@ -85,17 +85,22 @@ play_files ( GList *list) {
 
 song *
 get_current_audacious_song(void) {
-  gchar *path;
+  gchar *playlist_file;
+  gchar *uri;
   gint pos;
   song *s;
 
   audacious_connect();
   pos = audacious_remote_get_playlist_pos(gjay->audacious_proxy);
-  path = g_filename_from_uri(audacious_remote_get_playlist_file(gjay->audacious_proxy, pos), NULL, NULL);
-  if (path == NULL)
+  playlist_file = audacious_remote_get_playlist_file(gjay->audacious_proxy, pos);
+  if (playlist_file == NULL)
     return NULL;
-  s = g_hash_table_lookup(song_name_hash, path);
-  free(path);
+  uri = g_filename_from_uri(playlist_file, NULL, NULL);
+  if (uri == NULL)
+    return NULL;
+  s = g_hash_table_lookup(song_name_hash, uri);
+  g_free(playlist_file);
+  g_free(uri);
   return s;
 }
 

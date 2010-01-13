@@ -47,6 +47,7 @@
 #include "playlist.h"
 #include "vorbis.h"
 #include "ui.h"
+#include "gjay_audacious.h"
 
 GjayApp *gjay;
 
@@ -67,7 +68,7 @@ static void     fork_or_connect_to_daemon(void);
 static void     run_as_ui      (int argc, char * argv[]);
 static void     run_as_daemon  ( void );
 static void     run_as_playlist  ( gboolean m3u_format, 
-                                   gboolean playlist_in_xmms );
+                                   gboolean playlist_in_audacious );
 static void     run_as_analyze_detached  ( char * analyze_detached_fname );
 
 
@@ -76,7 +77,7 @@ int main( int argc, char *argv[] ) {
     char * analyze_detached_fname;
     struct stat stat_buf;
     gint i, k, hex;
-    gboolean m3u_format, playlist_in_xmms;
+    gboolean m3u_format, playlist_in_audacious;
 
     srand(time(NULL));
     
@@ -89,7 +90,7 @@ int main( int argc, char *argv[] ) {
     verbosity = 0;    
     skip_verify = 0;
     m3u_format = FALSE;
-    playlist_in_xmms = FALSE;
+    playlist_in_audacious = FALSE;
     gjay->prefs = load_prefs();
    
     for (i = 0; i < argc; i++) {
@@ -171,8 +172,8 @@ int main( int argc, char *argv[] ) {
                     /* Playlist mode: Use the M3U playlist format */
                     m3u_format = TRUE;
                 if (argv[i][k] == 'x')
-                    /* Playlist mode: Play the generated playlist in XMMS */
-                    playlist_in_xmms = TRUE;
+                    /* Playlist mode: Play the generated playlist in Audacious */
+                    playlist_in_audacious = TRUE;
                 if (argv[i][k] == 'p') {
                     /* Generate a playlist */
                     gjay->prefs->start_color = FALSE;
@@ -245,7 +246,7 @@ int main( int argc, char *argv[] ) {
         break;
     case PLAYLIST:
         read_data_file();
-        run_as_playlist(m3u_format, playlist_in_xmms);
+        run_as_playlist(m3u_format, playlist_in_audacious);
         break;
     case DAEMON_INIT:
     case DAEMON_DETACHED: 
@@ -506,8 +507,8 @@ static void run_as_ui(int argc, char *argv[] )
 {    
 
     
-  if (!app_exists("xmms")) {
-    fprintf(stderr, "GJay strongly suggests xmms\n"); 
+  if (!app_exists("audacious")) {
+    fprintf(stderr, "GJay strongly suggests audacious\n"); 
   } 
     
   gtk_init (&argc, &argv);
@@ -599,7 +600,7 @@ static void run_as_daemon(void)
 
 
 /* Playlist mode */
-static void run_as_playlist(gboolean m3u_format, gboolean playlist_in_xmms)
+static void run_as_playlist(gboolean m3u_format, gboolean playlist_in_audacious)
 {
     GList * list;
     gjay->prefs->use_selected_songs = FALSE;
@@ -608,7 +609,7 @@ static void run_as_playlist(gboolean m3u_format, gboolean playlist_in_xmms)
         SONG(list)->in_tree = TRUE;
     }
     list = generate_playlist(gjay->prefs->time);
-    if (playlist_in_xmms) {
+    if (playlist_in_audacious) {
         play_songs(list);
     } else {
         write_playlist(list, stdout, m3u_format);

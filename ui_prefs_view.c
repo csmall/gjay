@@ -310,26 +310,6 @@ click_daemon_radio ( GtkToggleButton *togglebutton, gpointer user_data )
     }
 }
 
-static void
-click_daemon_detach ( GtkToggleButton *togglebutton, gpointer user_data )
-{
-
-  if (gtk_toggle_button_get_active(togglebutton)) {
-        gjay->prefs->daemon_action = PREF_DAEMON_DETACH;
-        save_prefs();
-    }
-}
-
-static void
-click_daemon_ask ( GtkToggleButton *togglebutton, gpointer user_data )
-{
-
-  if (gtk_toggle_button_get_active(togglebutton)) {
-        gjay->prefs->daemon_action = PREF_DAEMON_ASK;
-        save_prefs();
-    }
-}
-
 static void tooltips_toggled ( GtkToggleButton *togglebutton,
                                gpointer user_data ) {
     /* FIXME

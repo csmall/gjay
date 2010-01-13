@@ -23,8 +23,9 @@
 
 #include "gjay.h" 
 
-void        play_song             (song * s );
-void        play_songs            (GList * slist );
-song *      get_current_audacious_song (void);
+void      play_song             (song * s );
+void      play_songs            (GList * slist );
+song *    get_current_audacious_song (void);
+gboolean  audacious_is_running(void);
 
 #endif /* _GJAY_AUDACIOUS_H_ */

@@ -1,7 +1,7 @@
 PREFIX = /usr/local
 CC = gcc
 LINK = $(CC)
-CFLAGS = -g -Wall `pkg-config --cflags gtk+-2.0 dbus-glib-1`
+CFLAGS += -g -Wall `pkg-config --cflags gtk+-2.0 dbus-glib-1`
 LFLAGS = `pkg-config --libs gtk+-2.0 dbus-glib-1` -lgsl -lgslcblas -lm -lpthread -laudclient
 TARGET = gjay
 

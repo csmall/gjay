@@ -66,15 +66,16 @@ typedef enum {
     PM_BUTTON_PLAY,
     PM_BUTTON_DIR,
     PM_BUTTON_ALL,
-    PM_ABOUT,
     PM_COLOR_SEL,
     PM_NOT_SET,
     PM_LAST
 } pm;
 
+#define PM_ABOUT    "about.png"
 
 
 /* UI utils */
+GdkPixbuf * load_gjay_pixbuf(const char *filename);
 GtkWidget * new_button_label_pixbuf      ( char * label_text, 
                                            int pm_type);
 void        switch_page (GtkNotebook *notebook,

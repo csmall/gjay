@@ -22,12 +22,12 @@
 #include "ui.h"
 
 
-static void menuitem_xmms (void);
+static void menuitem_currentsong (void);
 static void menuitem_quit (void);
 
 static GtkItemFactoryEntry menu_items[] = {
     //{ "/_Application", NULL, NULL, 0, "<Branch>" },
-    { "/_File/_Go to current song", "<control>G", menuitem_xmms, 
+    { "/_File/_Go to current song", "<control>G", menuitem_currentsong, 
       0, "<Item>" },
     { "/_Edit/_Preferences...", NULL, show_prefs_window, 0, "<Item>" },
     { "/_File/_Quit", "<control>Q", menuitem_quit, 0, "<Item>" },
@@ -48,7 +48,7 @@ GtkWidget * make_menubar ( void ) {
 }
 
 
-void menuitem_xmms (void) {
+void menuitem_currentsong (void) {
     song * s;
     gchar * msg; 
     GtkWidget * dialog;
@@ -57,10 +57,10 @@ void menuitem_xmms (void) {
     if (s) {
         explore_select_song(s);
     } else {
-        if (1) {//(xmms_is_running()) {
+        if (audacious_is_running()) {
             msg = "Sorry, GJay doesn't appear to know that song";
         } else {
-            msg = "Sorry, unable to connect to XMMS.\nIs XMMS running?";
+            msg = "Sorry, unable to connect to Audacious.\nIs Audacious running?";
         }
         dialog = gtk_message_dialog_new(
             GTK_WINDOW(gjay->window),

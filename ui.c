@@ -27,8 +27,6 @@ static GtkWidget * msg_text_view = NULL;
 static GtkWidget * plugin_pane[1];
 static gboolean    destroy_window_flag = FALSE;
 
-GdkPixbuf * pixbufs[PM_LAST];
-
 static char * pixbuf_files[] = {
     "file_pending.png",
     "file_pending2.png",
@@ -49,7 +47,6 @@ static char * pixbuf_files[] = {
     "button_play.png",
     "button_dir.png",
     "button_all.png",
-    "about.png",
     "color_sel.png",
     "not_set.png"
 };
@@ -156,20 +153,6 @@ void make_app_ui ( void ) {
     gtk_signal_connect (GTK_OBJECT (gjay->prefs_window), "delete_event",
 			GTK_SIGNAL_FUNC (gtk_widget_hide), NULL);
     gtk_container_add (GTK_CONTAINER (gjay->prefs_window), view);
-
-    /*about_window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
-    gtk_window_set_title(GTK_WINDOW(about_window), "About GJay");
-    view = make_about_view();
-    gtk_widget_show_all(view);
-    gtk_container_add (GTK_CONTAINER (about_window), view);
-    gtk_signal_connect (GTK_OBJECT (about_window), "delete_event",
-			GTK_SIGNAL_FUNC (gtk_widget_hide), NULL);
-    gtk_widget_add_events(about_window, GDK_BUTTON_PRESS_MASK);
-    g_signal_connect(GTK_OBJECT(about_window),
-                     "button_press_event",
-                     G_CALLBACK(gtk_widget_hide),
-                     NULL);
-*/
 }
 
 
@@ -373,6 +356,45 @@ void switch_page (GtkNotebook *notebook,
     }
 }
 
+GdkPixbuf *
+load_gjay_pixbuf(const char *filename)
+{
+  GdkPixbuf *pb = NULL;
+  gchar *path;
+  GError *error=NULL;
+  int i=0;
+
+  while(1)
+  {
+    switch(i++)
+    {
+      case 0:
+        path = g_strdup_printf("icons/%s", filename);
+        break;
+      case 1:
+        path = g_strdup_printf("%s/%s/%s", getenv("HOME"), GJAY_DIR, filename);
+        break;
+      case 2:
+        path = g_strdup_printf("/usr/share/gjay/icons/%s", filename);
+        break;
+      case 3:
+        path = g_strdup_printf("/usr/local/share/gjay/icons/%s", filename);
+        break;
+      default:
+        return NULL;
+    }
+    pb =  gdk_pixbuf_new_from_file(path, &error);
+    if (pb != NULL)
+      return pb;
+    error = NULL;
+    g_free(path);
+  } /* while */
+  /* should never get here */
+  return NULL;
+}
+      
+
+
 
 
 /* Load a pixbuf from...
@@ -410,7 +432,7 @@ void load_pixbufs(void) {
                      file);
             pb =  gdk_pixbuf_new_from_file(buffer, &error);
         }
-        pixbufs[type] = pb;
+        gjay->pixbufs[type] = pb;
     }
 } 
 
@@ -425,7 +447,7 @@ GtkWidget * new_button_label_pixbuf ( char * label_text,
     hbox = gtk_hbox_new (FALSE, 2);
     gtk_container_add(GTK_CONTAINER(button), hbox);
     
-    image = gtk_image_new_from_pixbuf(pixbufs[type]);
+    image = gtk_image_new_from_pixbuf(gjay->pixbufs[type]);
     label = gtk_label_new (label_text);
     gtk_box_pack_start(GTK_BOX(hbox), image, TRUE, TRUE, 2);
     gtk_box_pack_start(GTK_BOX(hbox), label, TRUE, TRUE, 2);    
@@ -480,7 +502,6 @@ static void destroy_app ( void ) {
     gtk_widget_destroy(selection_view);
     gtk_widget_destroy(gjay->prefs_window);
     gtk_widget_destroy(no_root_view);
-    //gtk_widget_destroy(about_window);
     gtk_widget_destroy(paned);
     gtk_main_quit();
 }
@@ -539,20 +560,18 @@ void show_about_window( void ) {
   };
   static const gchar copyright[] = \
     "Copyright \xc2\xa9 2004 Chuck Groom\n"
-    "Copyright \xc2\xa9 2009 Craig Small";
+    "Copyright \xc2\xa9 2010 Craig Small";
 
   static const gchar comments[] = \
     "GTK+ playlist generator for a collection of music based upon "
     "automatically analyzed song characteristics as well as "
     "user-assigned categorizations.";
 
-
-
   gtk_show_about_dialog(NULL,
       "authors", authors,
       "comments", comments,
       "copyright", copyright,
-      "logo", pixbufs[PM_ABOUT],
+      "logo", load_gjay_pixbuf(PM_ABOUT),
       "version", GJAY_VERSION,
       "website", "http://gjay.sourceforge.net/",
       "program-name", "GJay",
