@@ -56,24 +56,23 @@
 
 /* WAV file header */
 typedef struct {  
-	char		main_chunk[4];	/* 'RIFF' */
-	unsigned long	length;		/* length of file */
-	char		chunk_type[4];	/* 'WAVE' */
-	char		sub_chunk[4];	/* 'fmt' */
-	unsigned long	length_chunk;	/* length sub_chunk, always 16 bytes */
-	unsigned short	format;		/* always 1 = PCM-Code */
-	unsigned short	modus;		/* 1 = Mono, 2 = Stereo */
-	unsigned long	sample_fq;	/* Sample Freq */
-	unsigned long	byte_p_sec;	/* Data per sec */
-	unsigned short	byte_p_spl;	/* Bytes per sample */
-	unsigned short	bit_p_spl;	/* bits per sample, 8, 12, 16 */
-	char		data_chunk[4];	/* 'data' */
-	unsigned long	data_length;	/* length of data */
+	unsigned char		main_chunk[4];	/* 'RIFF' */
+	uint32_t    	  length;		/* length of file */
+	unsigned char		chunk_type[4];	/* 'WAVE' */
+	unsigned char		sub_chunk[4];	/* 'fmt' */
+	uint32_t    	length_chunk;	/* length sub_chunk, always 16 bytes */
+	uint16_t	format;		/* always 1 = PCM-Code */
+	uint16_t	modus;		/* 1 = Mono, 2 = Stereo */
+	uint32_t sample_fq;	/* Sample Freq */
+	uint32_t	byte_p_sec;	/* Data per sec */
+	uint16_t	byte_p_spl;	/* Bytes per sample */
+	uint16_t	bit_p_spl;	/* bits per sample, 8, 12, 16 */
+	unsigned char		data_chunk[4];	/* 'data' */
+	uint32_t	data_length;	/* length of data */
 } waveheaderstruct;
 
 
 /* Mutex lock for analysis data */
-extern song          * analyze_song;
 extern int             analyze_percent;
 
 /* Analysis.c */

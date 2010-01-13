@@ -45,12 +45,7 @@ GtkWidget    * tree_view = NULL;
 GQueue       * iter_stack = NULL;
 GQueue       * parent_name_stack = NULL; /* Stack of file name (one level
                                             down from parent_stack) */
-gint           tree_depth;               /* How deep does the tree go */
 
-/* We store a list of the directories which contain new songs (ie. lack
- * rating/color info */
-GList        * new_song_dirs = NULL;
-GHashTable   * new_song_dirs_hash = NULL;
 
 
 /* We hash each file and directory name to the corresponding GtkCTreeNode */
@@ -64,8 +59,8 @@ static gint         animate_frame = 0;
 static gchar      * animate_file = NULL;
 static gint         total_files_to_add, file_to_add_count;
 
-static int    gjay_ftw(const char *dir, 
-                       int (*fn)(const char *file, 
+static int    gjay_ftw( const char *dir, 
+                       int (*fn)( const char *file, 
                                  const struct stat *sb, 
                                  int flag), 
                        int depth);
@@ -147,7 +142,7 @@ NULL);
  * 
  * Note that root_dir is UTF8 encoded
  */
-void explore_view_set_root ( char * root_dir ) {
+void explore_view_set_root (const gchar* root_dir ) {
     GList * llist;
     char buffer[BUFFER_SIZE];
 
@@ -155,7 +150,7 @@ void explore_view_set_root ( char * root_dir ) {
         return;
 
     gtk_tree_store_clear(store);
-    tree_depth = 0;
+    gjay->tree_depth = 0;
     
     /* Unmark current songs */
     for (llist = g_list_first(songs); llist; llist = g_list_next(llist)) {
@@ -173,13 +168,13 @@ void explore_view_set_root ( char * root_dir ) {
         files_to_add_queue  = g_queue_new();
     }
     
-    for (llist = new_song_dirs; llist; llist = g_list_next(llist))
+    for (llist = gjay->new_song_dirs; llist; llist = g_list_next(llist))
         g_free(llist->data);
-    g_list_free(new_song_dirs);
-    new_song_dirs = NULL;
-    if (new_song_dirs_hash)
-        g_hash_table_destroy(new_song_dirs_hash);
-    new_song_dirs_hash = g_hash_table_new(g_str_hash, g_str_equal);
+    g_list_free(gjay->new_song_dirs);
+    gjay->new_song_dirs = NULL;
+    if (gjay->new_song_dirs_hash)
+        g_hash_table_destroy(gjay->new_song_dirs_hash);
+    gjay->new_song_dirs_hash = g_hash_table_new(g_str_hash, g_str_equal);
 
     if (name_iter_hash)
         g_hash_table_destroy(name_iter_hash);
@@ -231,12 +226,13 @@ void explore_view_set_root ( char * root_dir ) {
 
 
 gint explore_view_set_root_idle ( gpointer data ) {
-    explore_view_set_root((gchar *) data);
-    if (gtk_notebook_get_current_page(GTK_NOTEBOOK(notebook)) !=
+
+  explore_view_set_root(gjay->prefs->song_root_dir);
+    if (gtk_notebook_get_current_page(GTK_NOTEBOOK(gjay->notebook)) !=
         TAB_EXPLORE) {
-        gtk_notebook_set_current_page(GTK_NOTEBOOK(notebook), TAB_EXPLORE);
+        gtk_notebook_set_current_page(GTK_NOTEBOOK(gjay->notebook), TAB_EXPLORE);
     } else {
-        switch_page(GTK_NOTEBOOK(notebook),
+        switch_page(GTK_NOTEBOOK(gjay->notebook),
                     NULL,
                     TAB_EXPLORE,
                     NULL);
@@ -246,7 +242,7 @@ gint explore_view_set_root_idle ( gpointer data ) {
 
 
 
-static int tree_walk (const char *file, 
+static int tree_walk ( const char *file, 
                       const struct stat *sb, 
                       int flag ) {
     file_to_add * fta;
@@ -255,7 +251,7 @@ static int tree_walk (const char *file,
     if ((flag != FTW_F) && (flag != FTW_D))
         return 0;
     
-    if ((flag == FTW_F) && (prefs.extension_filter)) {
+    if ((flag == FTW_F) && (gjay->prefs->extension_filter)) {
         len = strlen(file);
         if (!((strncasecmp(".mp3", file + len - 4, 4) == 0) ||
               (strncasecmp(".ogg", file + len - 4, 4) == 0) ||
@@ -317,7 +313,7 @@ static int tree_add_idle (gpointer data) {
         /* If an entire directory contains any songs which have not 
          * been ranked/colored, set its icon to show that its contents
          * are new */
-        explore_mark_new_dirs(prefs.song_root_dir);
+        explore_mark_new_dirs(gjay->prefs->song_root_dir);
 
         set_add_files_progress_visible(FALSE);
         set_analysis_progress_visible(TRUE);
@@ -411,7 +407,7 @@ static int tree_add_idle (gpointer data) {
         gtk_tree_store_append (store, current, parent);
         gtk_tree_store_set (store, current,
                             NAME_COLUMN, display_name,
-                            IMAGE_COLUMN, pixbufs[pm_type],
+                            IMAGE_COLUMN, gjay->pixbufs[pm_type],
                             -1);
         
         str = strdup(fta->fname);
@@ -437,7 +433,7 @@ static int tree_add_idle (gpointer data) {
         gtk_tree_store_append (store, current, parent);
         gtk_tree_store_set (store, current,
                             NAME_COLUMN, display_name,
-                            IMAGE_COLUMN, pixbufs[PM_DIR_CLOSED],
+                            IMAGE_COLUMN, gjay->pixbufs[PM_DIR_CLOSED],
                             -1);
         str = strdup(fta->fname);
         file_name_in_tree = g_list_append(file_name_in_tree, str);
@@ -447,7 +443,7 @@ static int tree_add_idle (gpointer data) {
                 
         g_queue_push_tail(iter_stack, current);
         g_queue_push_tail(parent_name_stack, str);
-        tree_depth = MAX(tree_depth, g_list_length(parent_name_stack->head));
+        gjay->tree_depth = MAX(gjay->tree_depth, g_list_length(parent_name_stack->head));
     }
     
     g_queue_pop_tail(files_to_add_queue);
@@ -531,7 +527,7 @@ gboolean explore_update_path_pm ( char * path, int type ) {
         gtk_tree_store_set (store, 
                             iter,
                             IMAGE_COLUMN,
-                            pixbufs[type], 
+                            gjay->pixbufs[type], 
                             -1);
         return TRUE;
     } 
@@ -752,11 +748,11 @@ static void explore_mark_new_dirs ( char * dir ) {
     if (len && (buffer[len - 1] == '/'))
         buffer[len - 1] = '\0';
     
-    if (strcmp(dir, prefs.song_root_dir) != 0) {
+    if (strcmp(dir, gjay->prefs->song_root_dir) != 0) {
         if (explore_dir_has_new_songs(dir)) {
             str = g_strdup(dir); 
-            new_song_dirs = g_list_append(new_song_dirs, str);
-            g_hash_table_insert(new_song_dirs_hash, str, str);
+            gjay->new_song_dirs = g_list_append(gjay->new_song_dirs, str);
+            g_hash_table_insert(gjay->new_song_dirs_hash, str, str);
             explore_update_path_pm(dir, PM_DIR_CLOSED_NEW);
         }
     }

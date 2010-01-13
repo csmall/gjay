@@ -18,7 +18,7 @@
  */
 
 #include "gjay.h"
-#include "gjay_xmms.h"
+#include "gjay_audacious.h"
 #include "ui.h"
 
 
@@ -26,12 +26,12 @@ static void menuitem_xmms (void);
 static void menuitem_quit (void);
 
 static GtkItemFactoryEntry menu_items[] = {
-    { "/_Application", NULL, NULL, 0, "<Branch>" },
-    { "/Application/_Go to current XMMS song", "<control>G", menuitem_xmms, 
+    //{ "/_Application", NULL, NULL, 0, "<Branch>" },
+    { "/_File/_Go to current song", "<control>G", menuitem_xmms, 
       0, "<Item>" },
-    { "/Application/_About...", NULL, show_about_window, 0, "<Item>" },
-    { "/Application/_Preferences...", NULL, show_prefs_window, 0, "<Item>" },
-    { "/Application/Quit", "<control>Q", menuitem_quit, 0, "<Item>" }
+    { "/_Edit/_Preferences...", NULL, show_prefs_window, 0, "<Item>" },
+    { "/_File/_Quit", "<control>Q", menuitem_quit, 0, "<Item>" },
+    { "/_Help/_About...", NULL, show_about_window, 0, "<Item>" }
 };
 static gint nmenu_items = sizeof(menu_items) / sizeof(GtkItemFactoryEntry);
 
@@ -42,7 +42,7 @@ GtkWidget * make_menubar ( void ) {
     accel_group = gtk_accel_group_new();
     factory = gtk_item_factory_new(GTK_TYPE_MENU_BAR, "<main>", accel_group);
     gtk_item_factory_create_items(factory, nmenu_items, menu_items, NULL);
-    gtk_window_add_accel_group(GTK_WINDOW(window), accel_group);
+    gtk_window_add_accel_group(GTK_WINDOW(gjay->main_window), accel_group);
     
     return gtk_item_factory_get_widget(factory, "<main>");
 }
@@ -53,17 +53,17 @@ void menuitem_xmms (void) {
     gchar * msg; 
     GtkWidget * dialog;
 
-    s = get_current_xmms_song();
+    s = get_current_audacious_song();
     if (s) {
         explore_select_song(s);
     } else {
-        if (xmms_is_running()) {
+        if (1) {//(xmms_is_running()) {
             msg = "Sorry, GJay doesn't appear to know that song";
         } else {
             msg = "Sorry, unable to connect to XMMS.\nIs XMMS running?";
         }
         dialog = gtk_message_dialog_new(
-            GTK_WINDOW(window),
+            GTK_WINDOW(gjay->window),
             GTK_DIALOG_DESTROY_WITH_PARENT,
             GTK_MESSAGE_WARNING,
             GTK_BUTTONS_OK,

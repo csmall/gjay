@@ -40,12 +40,15 @@
 #include <string.h>
 #include <ctype.h>
 #include "gjay.h"
-#include "gjay_xmms.h"
+#include "gjay_audacious.h"
+#include "dbus.h"
 #include "analysis.h"
 #include "ipc.h"
 #include "playlist.h"
 #include "vorbis.h"
+#include "ui.h"
 
+GjayApp *gjay;
 
 gjay_mode mode; /* UI, DAEMON, PLAYLIST */
 
@@ -54,10 +57,6 @@ int ui_pipe_fd;
 gint verbosity;
 gint skip_verify;
 
-char * ogg_decoder_app = "ogg123";
-char * mp3_decoder_app = "mpg321";
-char * mp3_decoder_app_alternative =" mpg123";
-
 static gboolean app_exists  ( gchar * app );
 static void     kill_signal ( int sig );
 static int      open_pipe   ( const char* filepath );
@@ -65,7 +64,7 @@ static gint     ping_daemon ( gpointer data );
 static gboolean create_ui_daemon_pipe(void);
 static gboolean mode_attached ( gjay_mode m );
 static void     fork_or_connect_to_daemon(void);
-static void     run_as_ui      ( int argc, char * argv[]);
+static void     run_as_ui      (int argc, char * argv[]);
 static void     run_as_daemon  ( void );
 static void     run_as_playlist  ( gboolean m3u_format, 
                                    gboolean playlist_in_xmms );
@@ -81,13 +80,18 @@ int main( int argc, char *argv[] ) {
 
     srand(time(NULL));
     
+  if ((gjay = g_malloc0(sizeof(GjayApp))) == NULL) {
+    fprintf(stderr, "Unable to allocate memory for app.\n");
+    exit(1);
+  }
+
     mode = UI;
     verbosity = 0;    
     skip_verify = 0;
     m3u_format = FALSE;
     playlist_in_xmms = FALSE;
-    load_prefs();
-    
+    gjay->prefs = load_prefs();
+   
     for (i = 0; i < argc; i++) {
         if ((strncmp(argv[i], "-h", 2) == 0) || 
             (strncmp(argv[i], "--help", 6) == 0)) {
@@ -99,7 +103,7 @@ int main( int argc, char *argv[] ) {
         } else if (strncmp(argv[i], "-l", 2) == 0) {
             /* Set the playlist length, in minutes */
             if (i + 1 < argc) {
-                prefs.time = atoi(argv[i + 1]);
+                gjay->prefs->time = atoi(argv[i + 1]);
                 i++;
             } else {
                 fprintf(stderr, "Usage: -l length (in minutes)\n");
@@ -114,11 +118,11 @@ int main( int argc, char *argv[] ) {
                     rgb.R = ((hex & 0xFF0000) >> 16) / 255.0;
                     rgb.G = ((hex & 0x00FF00) >> 8) / 255.0;
                     rgb.B = (hex & 0x0000FF) / 255.0;
-                    prefs.start_color = TRUE;
+                    gjay->prefs->start_color = TRUE;
                 } else if (get_named_color(buffer, &rgb)) {
-                    prefs.start_color = TRUE;
+                    gjay->prefs->start_color = TRUE;
                 }
-                prefs.color = rgb_to_hsv(rgb);
+                gjay->prefs->color = rgb_to_hsv(rgb);
                 i++;
             } else {
                 fprintf(stderr, "Usage: -c color, where color is a hex number in the form 0xRRGGBB or a color name:\n%s\n", known_colors());
@@ -131,9 +135,9 @@ int main( int argc, char *argv[] ) {
             if (i + 1 < argc) {
                 strncpy(buffer, argv[i+1], BUFFER_SIZE);
                 sscanf(buffer, "%s", fname);
-                prefs.start_selected = TRUE;
+                gjay->prefs->start_selected = TRUE;
                 path = strdup_to_utf8(fname);
-                selected_files = g_list_append(NULL, path);
+                gjay->selected_files = g_list_append(NULL, path);
                 i++;
             } else {
                 fprintf(stderr, "Usage: -f filename\n");
@@ -171,7 +175,7 @@ int main( int argc, char *argv[] ) {
                     playlist_in_xmms = TRUE;
                 if (argv[i][k] == 'p') {
                     /* Generate a playlist */
-                    prefs.start_color = FALSE;
+                    gjay->prefs->start_color = FALSE;
                     mode = PLAYLIST;
                 }
             }
@@ -190,20 +194,20 @@ int main( int argc, char *argv[] ) {
     not_song_hash     = g_hash_table_new(g_str_hash, g_str_equal);
 
     /* Check to see if we have all the apps we'll need for analysis */
-    if (!app_exists(ogg_decoder_app)) {
+    if (!app_exists(OGG_DECODER_APP)) {
         fprintf(stderr, "Sorry, GJay requires %s; quitting\n", 
-                ogg_decoder_app); 
+                OGG_DECODER_APP); 
         return -1;
     }
-    if (!app_exists(mp3_decoder_app)) {
-        if (app_exists(mp3_decoder_app_alternative)) {
-            mp3_decoder_app = mp3_decoder_app_alternative;
-        } else {
-            fprintf(stderr, "Sorry, GJay requires %s; quitting\n", 
-                    mp3_decoder_app); 
-            return -1;
-        }
-    }
+    if (app_exists(MP3_DECODER_APP1)) {
+      gjay->mp3_decoder_app = g_strdup(MP3_DECODER_APP1);
+    } else if (app_exists(MP3_DECODER_APP2)) {
+        gjay->mp3_decoder_app = g_strdup(MP3_DECODER_APP2);
+      } else {
+         fprintf(stderr, "Sorry, GJay requires %s; quitting\n", 
+                    MP3_DECODER_APP1); 
+         return -1;
+      }
     
     /* Make sure there is a "~/.gjay" directory */
     snprintf(buffer, BUFFER_SIZE, "%s/%s", getenv("HOME"), GJAY_DIR);
@@ -383,11 +387,11 @@ float strtof_gjay ( const char *nptr, char **endptr) {
  * Get the parent directory of path. The returned value should be freed.
  * If the parent is above root, return NULL.
  */
-gchar * parent_dir ( const char * path ) {
+gchar * parent_dir (const char * path ) {
     int len, rootlen;
     
     len = strlen(path);
-    rootlen = strlen(prefs.song_root_dir);
+    rootlen = strlen(gjay->prefs->song_root_dir);
     if (len <= rootlen)
         return NULL;
     if (!len)
@@ -498,29 +502,32 @@ static void fork_or_connect_to_daemon(void) {
 }
 
 
-static void run_as_ui( int argc, char *argv[] ) 
+static void run_as_ui(int argc, char *argv[] ) 
 {    
-    GtkWidget * widget;
+
     
-    if (!app_exists("xmms")) {
-        fprintf(stderr, "GJay strongly suggests xmms\n"); 
-    } 
+  if (!app_exists("xmms")) {
+    fprintf(stderr, "GJay strongly suggests xmms\n"); 
+  } 
     
-    gtk_init (&argc, &argv);
+  gtk_init (&argc, &argv);
     
-    g_io_add_watch (g_io_channel_unix_new (daemon_pipe_fd),
-                    G_IO_IN,
-                    daemon_pipe_input,
-                    NULL);
+  g_io_add_watch (g_io_channel_unix_new (daemon_pipe_fd),
+                  G_IO_IN,
+                  daemon_pipe_input,
+                  NULL);
     
-    /* Ping the daemon ocassionally to let it know that the UI 
-     * process is still around */
-    gtk_timeout_add( UI_PING, ping_daemon, NULL);
+  /* Ping the daemon ocassionally to let it know that the UI 
+   * process is still around */
+  gtk_timeout_add( UI_PING, ping_daemon, NULL);
     
-    widget = make_app_ui();
-    gtk_widget_show_all(widget);
-    set_selected_rating_visible(prefs.use_ratings);
-    set_playlist_rating_visible(prefs.use_ratings);
+    make_app_ui();
+    gtk_widget_show_all(gjay->main_window);
+
+    gjay->connection = gjay_dbus_connection();
+
+    set_selected_rating_visible(gjay->prefs->use_ratings);
+    set_playlist_rating_visible(gjay->prefs->use_ratings);
     set_add_files_progress_visible(FALSE);
     
     /* Periodically write song data to disk, if it has changed */
@@ -535,10 +542,11 @@ static void run_as_ui( int argc, char *argv[] )
             SONG(llist)->access_ok = TRUE;
         }        
     } else {
-        explore_view_set_root(prefs.song_root_dir);
+        explore_view_set_root(gjay->prefs->song_root_dir);
     }        
     
     set_selected_file(NULL, NULL, FALSE);
+    audacious_is_running();
     
     gtk_main();
     
@@ -546,7 +554,7 @@ static void run_as_ui( int argc, char *argv[] )
     if (songs_dirty)
         write_data_file();
     
-    if (prefs.detach || (prefs.daemon_action == PREF_DAEMON_DETACH)) {
+    if (gjay->prefs->detach || (gjay->prefs->daemon_action == PREF_DAEMON_DETACH)) {
         send_ipc(ui_pipe_fd, DETACH);
         send_ipc(ui_pipe_fd, UNLINK_DAEMON_FILE);
     } else {
@@ -594,14 +602,13 @@ static void run_as_daemon(void)
 static void run_as_playlist(gboolean m3u_format, gboolean playlist_in_xmms)
 {
     GList * list;
-    prefs.use_selected_songs = FALSE;
-    prefs.rating_cutoff = FALSE;
+    gjay->prefs->use_selected_songs = FALSE;
+    gjay->prefs->rating_cutoff = FALSE;
     for (list = g_list_first(songs); list;  list = g_list_next(list)) {
         SONG(list)->in_tree = TRUE;
     }
-    list = generate_playlist(prefs.time);
+    list = generate_playlist(gjay->prefs->time);
     if (playlist_in_xmms) {
-        join_or_start_xmms();
         play_songs(list);
     } else {
         write_playlist(list, stdout, m3u_format);

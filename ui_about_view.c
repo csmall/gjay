@@ -51,11 +51,12 @@ static gboolean expose_about_view (GtkWidget *widget,
     gint width, height, w, h;
     GdkGC * gc; 
     GdkFont * font;
+    GjayApp *app = (GjayApp*)data;
     
     width = widget->allocation.width;
     height = widget->allocation.height;
     
-    gc = gdk_gc_new(window->window);
+    gc = gdk_gc_new(app->window->window);
     gdk_rgb_gc_set_foreground(gc, 0xFFFFFF);
     gdk_gc_set_clip_rectangle (gc,
                                &event->area);
@@ -65,10 +66,10 @@ static gboolean expose_about_view (GtkWidget *widget,
                         0, 0, 
                         width, height);
 
-    w = gdk_pixbuf_get_width (pixbufs[PM_ABOUT]);
-    h = gdk_pixbuf_get_height (pixbufs[PM_ABOUT]);
+    w = gdk_pixbuf_get_width (app->pixbufs[PM_ABOUT]);
+    h = gdk_pixbuf_get_height (app->pixbufs[PM_ABOUT]);
     
-    gdk_pixbuf_render_to_drawable ( pixbufs[PM_ABOUT],
+    gdk_pixbuf_render_to_drawable ( app->ixbufs[PM_ABOUT],
                                     widget->window,
                                     gc,
                                     0, 0,

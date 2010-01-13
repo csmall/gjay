@@ -108,7 +108,6 @@ char * pref_element_strs[PE_LAST] = {
 };
 
 
-app_prefs prefs;
 static void     data_start_element  ( GMarkupParseContext *context,
                                       const gchar         *element_name,
                                       const gchar        **attribute_names,
@@ -123,7 +122,8 @@ static void     data_text           ( GMarkupParseContext *context,
 static int      get_element         ( gchar * element_name );
 
 
-void load_prefs ( void ) {
+GjayPrefs*
+load_prefs ( void ) {
     GMarkupParseContext * parse_context;
     GMarkupParser parser;
     gboolean result = TRUE;
@@ -132,26 +132,29 @@ void load_prefs ( void ) {
     FILE * f;
     gssize text_len;
     pref_element_type element;
+    GjayPrefs *prefs;
 
     /* Set default values */
-    memset(&prefs, 0x00, sizeof(app_prefs));
-    prefs.rating = DEFAULT_RATING;
-    prefs.use_ratings = FALSE;
-    prefs.time = DEFAULT_PLAYLIST_TIME;
-    prefs.variance =
-        prefs.hue = 
-        prefs.brightness =
-        prefs.bpm =
-        prefs.freq =
-        prefs.path_weight = DEFAULT_CRITERIA;
-    prefs.saturation = 1;
-    prefs.extension_filter = TRUE;
-    prefs.color.H = 0;
-    prefs.color.S = 0.5;
-    prefs.color.V = 1.0;
-    prefs.use_hsv = FALSE;
-    prefs.daemon_action = PREF_DAEMON_QUIT;
-    prefs.hide_tips = FALSE;
+    prefs = g_malloc0(sizeof(GjayPrefs));
+    gjay->prefs = prefs;
+
+    prefs->rating = DEFAULT_RATING;
+    prefs->use_ratings = FALSE;
+    prefs->time = DEFAULT_PLAYLIST_TIME;
+    prefs->variance =
+        prefs->hue = 
+        prefs->brightness =
+        prefs->bpm =
+        prefs->freq =
+        prefs->path_weight = DEFAULT_CRITERIA;
+    prefs->saturation = 1;
+    prefs->extension_filter = TRUE;
+    prefs->color.H = 0;
+    prefs->color.S = 0.5;
+    prefs->color.V = 1.0;
+    prefs->use_hsv = FALSE;
+    prefs->daemon_action = PREF_DAEMON_QUIT;
+    prefs->hide_tips = FALSE;
     snprintf(buffer, BUFFER_SIZE, "%s/%s/%s", getenv("HOME"), 
              GJAY_DIR, GJAY_PREFS);
 
@@ -173,6 +176,7 @@ void load_prefs ( void ) {
         g_markup_parse_context_free(parse_context);
         fclose(f);
     } 
+    return prefs;
 }
 
 
@@ -181,6 +185,7 @@ void save_prefs ( void ) {
     char buffer[BUFFER_SIZE], buffer_temp[BUFFER_SIZE];
     char * utf8;
     FILE * f;
+    GjayPrefs *prefs=gjay->prefs;
     
     snprintf(buffer, BUFFER_SIZE, "%s/%s/%s", getenv("HOME"), 
              GJAY_DIR, GJAY_PREFS);
@@ -188,102 +193,102 @@ void save_prefs ( void ) {
     f = fopen(buffer_temp, "w");
     if (f) {
         fprintf(f, "<gjay_prefs version=\"%s\">\n", GJAY_VERSION);
-        if (prefs.song_root_dir) {
+        if (prefs->song_root_dir) {
             fprintf(f, "<%s", pref_element_strs[PE_ROOTDIR]);
-            if (prefs.extension_filter)
+            if (prefs->extension_filter)
                 fprintf(f, " %s=\"t\"", pref_element_strs[PE_EXTENSION_FILTER]);
-            utf8 = strdup_to_utf8(prefs.song_root_dir);
+            utf8 = strdup_to_utf8(prefs->song_root_dir);
             fprintf(f, ">%s</%s>\n", 
                     utf8,
                     pref_element_strs[PE_ROOTDIR]);
             g_free(utf8);
         }
         fprintf(f, "<%s", pref_element_strs[PE_FLAGS]);
-        if (prefs.hide_tips)
+        if (prefs->hide_tips)
             fprintf(f, " %s=\"t\"", pref_element_strs[PE_HIDE_TIP]);
-        if (prefs.wander)
+        if (prefs->wander)
             fprintf(f, " %s=\"t\"", pref_element_strs[PE_WANDER]);
-        if (prefs.use_ratings)
+        if (prefs->use_ratings)
             fprintf(f, " %s=\"t\"", pref_element_strs[PE_USE_RATINGS]);
         fprintf(f, "></%s>\n", pref_element_strs[PE_FLAGS]);
         
         fprintf(f, "<%s>%d</%s>\n", 
                 pref_element_strs[PE_DAEMON_ACTION],
-                prefs.daemon_action,
+                prefs->daemon_action,
                 pref_element_strs[PE_DAEMON_ACTION]);
 
         fprintf(f, "<%s>", pref_element_strs[PE_START]);
-        if (prefs.start_selected)
+        if (prefs->start_selected)
             fprintf(f, "%s", pref_element_strs[PE_SELECTED]);
-        else if (prefs.start_color)
+        else if (prefs->start_color)
             fprintf(f, "%s", pref_element_strs[PE_COLOR]);
         else
             fprintf(f, "%s", pref_element_strs[PE_RANDOM]);
         fprintf(f, "</%s>\n", pref_element_strs[PE_START]);
 
         fprintf(f, "<%s>", pref_element_strs[PE_SELECTION_LIMIT]);        
-        if (prefs.use_selected_songs)
+        if (prefs->use_selected_songs)
             fprintf(f, "%s", pref_element_strs[PE_SONGS]);
-        else if (prefs.use_selected_dir) 
+        else if (prefs->use_selected_dir) 
             fprintf(f, "%s", pref_element_strs[PE_DIR]);
         fprintf(f, "</%s>\n", pref_element_strs[PE_SELECTION_LIMIT]);        
         
         fprintf(f, "<%s>%d</%s>\n",
                 pref_element_strs[PE_TIME],
-                prefs.time,
+                prefs->time,
                 pref_element_strs[PE_TIME]);
 
         fprintf(f, "<%s %s=\"hsv\">%f %f %f</%s>\n",
                 pref_element_strs[PE_COLOR],
                 pref_element_strs[PE_TYPE],
-                prefs.color.H,
-                prefs.color.S, 
-                prefs.color.V, 
+                prefs->color.H,
+                prefs->color.S, 
+                prefs->color.V, 
                 pref_element_strs[PE_COLOR]);
                 
-        if (prefs.rating_cutoff) {
+        if (prefs->rating_cutoff) {
             fprintf(f, "<%s %s=\"t\">", 
                     pref_element_strs[PE_RATING],
                     pref_element_strs[PE_CUTOFF]);
         } else {
             fprintf(f, "<%s>", pref_element_strs[PE_RATING]);
         }
-        fprintf(f, "%f", prefs.rating);
+        fprintf(f, "%f", prefs->rating);
         fprintf(f, "</%s>\n", pref_element_strs[PE_RATING]);
         
         fprintf(f, "<%s>%f</%s>\n",
                 pref_element_strs[PE_VARIANCE],
-                prefs.variance, 
+                prefs->variance, 
                 pref_element_strs[PE_VARIANCE]);
 
         fprintf(f, "<%s>%f</%s>\n",
                 pref_element_strs[PE_HUE],
-                prefs.hue,
+                prefs->hue,
                 pref_element_strs[PE_HUE]);
 
         fprintf(f, "<%s>%f</%s>\n",
                 pref_element_strs[PE_BRIGHTNESS],
-                prefs.brightness,
+                prefs->brightness,
                 pref_element_strs[PE_BRIGHTNESS]);
 
         fprintf(f, "<%s>%f</%s>\n",
                 pref_element_strs[PE_SATURATION],
-                prefs.saturation,
+                prefs->saturation,
                 pref_element_strs[PE_SATURATION]);
         
         fprintf(f, "<%s>%f</%s>\n",
                 pref_element_strs[PE_BPM],
-                prefs.bpm,
+                prefs->bpm,
                 pref_element_strs[PE_BPM]);
 
         fprintf(f, "<%s>%f</%s>\n",
                 pref_element_strs[PE_FREQ],
-                prefs.freq,
+                prefs->freq,
                 pref_element_strs[PE_FREQ]);
 
         fprintf(f, "<%s>%f</%s>\n",
                 pref_element_strs[PE_PATH_WEIGHT],
-                prefs.path_weight,
+                prefs->path_weight,
                 pref_element_strs[PE_PATH_WEIGHT]);
 
         fprintf(f, "</gjay_prefs>\n");
@@ -312,28 +317,28 @@ void data_start_element  (GMarkupParseContext *context,
         switch(attr) {
         case PE_TYPE:
             if (strcasecmp(attribute_values[k], "hsv") == 0) {
-                prefs.use_hsv = TRUE;
+                gjay->prefs->use_hsv = TRUE;
             }
             break;
         case PE_EXTENSION_FILTER:
             if (*element == PE_ROOTDIR)
-                prefs.extension_filter = TRUE;
+                gjay->prefs->extension_filter = TRUE;
             break;
         case PE_HIDE_TIP:
             if (*element == PE_FLAGS)
-                prefs.hide_tips = TRUE;
+                gjay->prefs->hide_tips = TRUE;
             break;
         case PE_WANDER:
             if (*element == PE_FLAGS)
-                prefs.wander = TRUE;
+                gjay->prefs->wander = TRUE;
             break;
         case PE_USE_RATINGS:
             if (*element == PE_FLAGS)
-                prefs.use_ratings = TRUE;
+                gjay->prefs->use_ratings = TRUE;
             break;
         case PE_CUTOFF:
             if (*element == PE_RATING)
-                prefs.rating_cutoff = TRUE;
+                gjay->prefs->rating_cutoff = TRUE;
             break;
         default:
             break;
@@ -356,26 +361,26 @@ void data_text ( GMarkupParseContext *context,
 
     switch(*element) {
     case PE_ROOTDIR:
-        prefs.song_root_dir = strdup_to_latin1(buffer); 
+        gjay->prefs->song_root_dir = strdup_to_latin1(buffer); 
         break;
     case PE_DAEMON_ACTION:
-        prefs.daemon_action = atoi(buffer);
+        gjay->prefs->daemon_action = atoi(buffer);
         break;
     case PE_START:
     case PE_SELECTION_LIMIT:
         val = get_element((char *) buffer);
         switch(val) {
         case PE_SELECTED:
-            prefs.start_selected = TRUE;
+            gjay->prefs->start_selected = TRUE;
             break;
         case PE_COLOR:
-            prefs.start_color = TRUE;
+            gjay->prefs->start_color = TRUE;
             break;
         case PE_SONGS:
-            prefs.use_selected_songs = TRUE;
+            gjay->prefs->use_selected_songs = TRUE;
             break;  
         case PE_DIR:
-            prefs.use_selected_dir = TRUE;
+            gjay->prefs->use_selected_dir = TRUE;
             break;
         case PE_RANDOM:
             /* Don't do anything */
@@ -384,43 +389,43 @@ void data_text ( GMarkupParseContext *context,
         }
         break;
     case PE_RATING:
-        prefs.rating = strtof_gjay(buffer, NULL);
+        gjay->prefs->rating = strtof_gjay(buffer, NULL);
         break;
     case PE_HUE:
-        prefs.hue = strtof_gjay(buffer, NULL);
+        gjay->prefs->hue = strtof_gjay(buffer, NULL);
         break;
     case PE_BRIGHTNESS:
-        prefs.brightness = strtof_gjay(buffer, NULL);
+        gjay->prefs->brightness = strtof_gjay(buffer, NULL);
         break;
     case PE_SATURATION:
-        prefs.saturation = strtof_gjay(buffer, NULL);
+        gjay->prefs->saturation = strtof_gjay(buffer, NULL);
         break;
     case PE_BPM:
-        prefs.bpm = strtof_gjay(buffer, NULL);
+        gjay->prefs->bpm = strtof_gjay(buffer, NULL);
         break;
     case PE_FREQ:
-        prefs.freq = strtof_gjay(buffer, NULL);
+        gjay->prefs->freq = strtof_gjay(buffer, NULL);
         break;
     case PE_VARIANCE:
-        prefs.variance = strtof_gjay(buffer, NULL);
+        gjay->prefs->variance = strtof_gjay(buffer, NULL);
         break;
     case PE_PATH_WEIGHT:
-        prefs.path_weight = strtof_gjay(buffer, NULL);  
+        gjay->prefs->path_weight = strtof_gjay(buffer, NULL);  
         break;
     case PE_COLOR:
-        if (prefs.use_hsv) {
-            prefs.color.H = strtof_gjay(buffer, &buffer_str);
-            prefs.color.S = strtof_gjay(buffer_str, &buffer_str);
-            prefs.color.V = strtof_gjay(buffer_str, NULL);
+        if (gjay->prefs->use_hsv) {
+            gjay->prefs->color.H = strtof_gjay(buffer, &buffer_str);
+            gjay->prefs->color.S = strtof_gjay(buffer_str, &buffer_str);
+            gjay->prefs->color.V = strtof_gjay(buffer_str, NULL);
         } else {
             HB hb;
             hb.H = strtof_gjay(buffer, &buffer_str);
             hb.B = strtof_gjay(buffer_str, NULL);
-            prefs.color = hb_to_hsv(hb);
+            gjay->prefs->color = hb_to_hsv(hb);
         }
         break;
     case PE_TIME:
-        prefs.time = atoi(buffer);
+        gjay->prefs->time = atoi(buffer);
         break;
     default:
         break;

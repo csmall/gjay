@@ -1,8 +1,8 @@
 PREFIX = /usr/local
 CC = gcc
 LINK = $(CC)
-CFLAGS = -g -Wall `pkg-config --cflags gtk+-2.0`
-LFLAGS = `pkg-config --libs gtk+-2.0` -lxmms -lgsl -lgslcblas -lm -lpthread
+CFLAGS = -g -Wall `pkg-config --cflags gtk+-2.0 dbus-glib-1`
+LFLAGS = `pkg-config --libs gtk+-2.0 dbus-glib-1` -lgsl -lgslcblas -lm -lpthread -laudclient
 TARGET = gjay
 
 HEADERS = \
@@ -19,12 +19,12 @@ HEADERS = \
 	mp3.h 
 OBJECTS = \
 	gjay.o \
+	dbus.o \
 	ipc.o \
 	prefs.o \
 	songs.o \
 	rgbhsv.o \
 	ui.o \
-	ui_about_view.o \
 	ui_explore_view.o \
 	ui_prefs_view.o \
 	ui_selection_view.o \
@@ -32,11 +32,13 @@ OBJECTS = \
 	ui_colorwheel.o \
 	ui_colorbox.o \
 	ui_menubar.o \
-	gjay_xmms.o \
 	analysis.o \
 	playlist.o \
+	gjay_audacious.o \
 	vorbis.o \
 	mp3.o
+#	gjay_xmms.o \
+	#ui_about_view.o \
 
 
 INSTALL = /usr/bin/install -o root -g root -m

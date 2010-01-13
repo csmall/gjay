@@ -67,13 +67,12 @@ typedef struct {
 
     /* Store how a color was loaded */
     gboolean use_hsv;
-} app_prefs;
+} GjayPrefs;
 
 
-extern app_prefs prefs;
 
 
-void load_prefs ( void );
+GjayPrefs *load_prefs ( void );
 void save_prefs ( void );
 
 #endif /* __PREFS_H__ */

@@ -1,0 +1,176 @@
+Changes in 0.3.0
+================
+	* New maintainer Craig Small <csmall@enc.com.au>
+	* Updated mp3info code from mp3info
+	* forced vbr analysis - stops crashes on vbr mp3 files
+	* Minor fixes SF#1441319
+	* Check fopen succeeds in read_song_file_type - Kevin Turner SF#1282527
+	* Works with Audacious
+	* Moved some of the globals into one global struct
+
+Changes in 0.2.8-3 - January 2004
+=================================
+	* Bugs:
+	- Color saturation was being factored in _way_ too much for playlist
+	  generation (thanks to William Thomas for pointing this out)
+	- Fix case where some long analysis runs were not getting written to 
+	  data.xml properly (sourceforge bug 698761)
+	* Features:
+	- Make playlist time 4 digits wide so users can have extra-long
+	  list (sourceforge bug 745364)
+	- Use both inode and dev for identifying symlinks (debian bug 227122)
+
+Changes in 0.2.8-2 - December 2003
+==================================
+	* Patch: 
+	- Apply Udi Meiri's patch to escape not_song paths.
+
+Changes in 0.2.8 - December 2003
+=============================
+	* Bugs:
+	- Some (evil) ID3 tags were not readable and caused a core dump. 
+	  (Debian bug 222195)
+	* UI:
+	- Support full HSV model for song color selection.
+
+Changes in 0.2.7 - November 2003
+================================
+	*  Bugs:
+	- (Provided by Giacomo Catenazzi) verify opendir()
+	* Architecture:
+	- Removed dependancy on mp3info to read ID3 tags. This gives a significant
+	  speedup. 
+	- Along the way, allow us to read styles not supported by mp3info, notably
+	  iTunes-ripped mp3s
+	- Ogg vorbis is now optional (though highly desired, of course)
+	* UI:
+	- Added menubar, moved prefs and about into there
+	- Improved directory selection dialog
+	- Jump to song currently playing in XMMS 
+
+Changes in 0.2.6 - January 19, 2003
+===================================
+	* Features:
+	- Display highlight icon next to directories containing new songs (those
+	  which haven't been had rank or color set)
+	* Bugs: 
+	- Empty directories do not cause crashes when clicked upon (doh!)
+	- Avoid localization alltogether w/r/t reading data ("." vs "," decimal)
+	  by writing local strtof function which is decimal locale agnostic
+	- Found recursive directory scan bug 
+	- Fixed very serious bug in which new repeat songs would not be shown
+
+Changes in 0.2.5 - January 07, 2003
+===================================
+	* Features:
+	- Tweaked UI: removed "select directory contents non-recursively" option
+	  for the sake of simplicity. All selection is recursive.
+	- Command-line playlists accept filename starting points (-f option)
+	* Bugs:
+	- Did not properly escape all the fields in the XML data file
+	- While I wasn't able to fix a certain class of rare hard-to-diagnose
+	  cases having to do with file selection in wacky trees, it now fails
+	  gracefully instead of catastrophically.
+	- If a filename has gone bad, remove the file from the GJay data file
+	  and don't use it for playlist generation. 
+
+Changes in 0.2.4 - December 15, 2002
+====================================
+	* Features:
+	- Playlists can be generated from the command-line
+	- Command line options are more forgiving
+	- Added manpage installation to install process
+	* Bugs:
+	- More problems with internationalized decimal format
+	- Playlists didn't pick up latin1/UTF-8 changes
+	- Should build on IA64
+	
+0.2.3 - December 3, 2002
+========================
+	- Song data, prefs stored in XML
+	- Periodically write song data to disk, if it has changed
+	- Display friendly feedback as songs are added to GJay
+	- Check for duplicate songs such that analysis won't be repeated. Repeat
+	  songs show up in the file view, but only one repeat will be chosen in a 
+	  playlist.
+	- Assume Latin1 encoding for song names such that we can convert them to 
+	  UTF8 for user-visible display (prevents Pango from freaking out)
+	- Nice the analysis daemon to 19
+	* Bugs: 
+	 - Analysis updates weren't showing up for the selected song
+	 
+0.2.2 - November 24, 2002
+=========================
+	* Minor fixes:
+	- Fixed compiler warnings
+	- Locale could affect whether prefs and song data files write decimal
+	  numbers using a comma or period, which could lead to a seg fault. Now
+	  we always use a period. (Erich Schubert)
+	- Analysis would hang on extremely short files (Erich Schubert)
+
+0.2 - November 19, 2002
+=======================
+	* Complete overhaul (Chuck Groom) :
+	- Switched from Gtk-1.2 to Gtk-2.0
+	- UI: The main screen is an "explorer" folder view. The user sets a root
+	  music directory, GJay takes it from there.
+	- Daemon: GJay analysis runs in a separate process which can be separated
+	  from the UI for background processing.
+	- Format: All file formats have changed. Files are now human-readable. 
+	  There are now separate files for song attributes and song data (ie.
+	  stuff that changes and stuff that doesn't changes). Files are
+	  generally appended, not overwritten. When a file needs to be overwritten,
+	  we write to a temporary file and rename. 
+
+0.1.4.1 - October 15, 2002 
+==========================
+	- Ogg attributes are discovered w/o case sensitivity (Sean Perry,
+	  Joshua Judson Rosen)
+	- Messages are displayed in single window containing scrolling text display,
+	  not a (potential) multitude of cascading windows (Joshua Judson Rosen)
+
+0.1.4 - September 21, 2002 (Chuck Groom)
+========================================
+	- Analysis is much faster. Single decode and faster BPM and spectrum analysis.
+	- In frequency pass, also record difference between max frame
+	  vol. and average frame volume. This information is used to nudge
+	  frequency matches to improve song matching.
+	- We now save periodically (every 5 min)
+	- The next song's randomness is now decided from a gaussian instead of 
+	  strictly linear random distribution. 
+	
+
+0.1.3 - September 9, 2002
+=========================
+	- Solve frequency endian issues; won't crash PPC (Devin Carraway)
+	- Change to log freq scale, redo freq. matching and dist. algorithms. 
+	  If you load an older version data file, freq. data will be
+		re-calculated. (Chuck Groom)
+	- Minor fix -- once freq. is calculated, redraw song s.t. you don't have
+	  to wait for BPM to see the pretty frequency drawing.
+	- Sprintf file names surrounded by single quote, after single quote chars 
+	  (Andrew Baumann)
+	- Increase fixed len buffer size to max POSIX filename len, to avoid any
+	  nastiness there
+
+0.1.2 - September 4, 2002
+=========================
+
+	- Make GJay threadsafe (Devin Carraway)
+	- Song delete is threadsafe w/r/t analysis (CG)
+	- Makefile improvements (DC and Andrew Baumann)
+	- Song delete actually frees memory (CG)
+	- File names can now contain spaces and quotes (CG and Andrew Baumann)
+	- Adds some system includes (AB)
+	- The ~/.gjay directory is created with user read permissions (AB)
+	- Fixed segfault by initializing pointer to null (AB)
+	- Fixed song delete behavior (AB and CG)
+
+	
+0.1.1 - September 3, 2002
+=========================
+	-Fixed creation of ~/.gjay directory
+
+0.1 - September 2, 2002
+=======================
+	- Initial release

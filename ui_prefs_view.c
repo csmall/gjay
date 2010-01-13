@@ -21,6 +21,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <errno.h>
 #include <sys/stat.h>
 #include "gjay.h"
 #include "ui.h"
@@ -40,48 +41,52 @@ static char * welcome_str =
 ;
 
 
-static GtkWidget * prefs_label;
 
-static void choose_base_dir  ( GtkButton *button,
+static void choose_base_dir (GtkWidget *button, gpointer user_data);
+static void file_chooser_cb  ( GtkWidget *button,
                                gpointer user_data );
-static void set_base_dir     ( GtkButton *button,
-                               gpointer user_data );
+static void set_base_dir (char *filename);
 static void toggle_no_filter ( GtkToggleButton *togglebutton,
                                gpointer user_data );
 static void parent_set_callback (GtkWidget *widget,
                                  gpointer user_data);
-static void radio_toggled ( GtkToggleButton *togglebutton,
-                            gpointer user_data );
+static void click_daemon_radio ( GtkToggleButton *togglebutton,
+                                gpointer user_data );
 static void tooltips_toggled ( GtkToggleButton *togglebutton,
                                gpointer user_data );
 static void useratings_toggled ( GtkToggleButton *togglebutton,
                                  gpointer user_data );
 
 GtkWidget * make_prefs_view ( void ) {
-    GtkWidget * vbox1, * vbox2, * alignment, * button, *label;
+    GtkWidget * vbox1, * vbox2, * alignment, *dir_label, * button, *label;
     GtkWidget * radio1, * radio2, * radio3;
     GtkWidget * hseparator;
     
     vbox1 = gtk_vbox_new (FALSE, 2);
+
     alignment = gtk_alignment_new(0, 0, 0, 0);
     gtk_box_pack_start(GTK_BOX(vbox1), alignment, TRUE, TRUE, 2);
-    
     vbox2 = gtk_vbox_new (FALSE, 2);
     gtk_container_add(GTK_CONTAINER(alignment), vbox2);
 
-    prefs_label = gtk_label_new("");
-    gtk_box_pack_start(GTK_BOX(vbox2), prefs_label, TRUE, TRUE, 2);
-    
+    dir_label = gtk_label_new(NULL);
+    gtk_label_set_markup(GTK_LABEL(dir_label),"<b>Base Directory</b>");
+    gtk_box_pack_start(GTK_BOX(vbox2), dir_label, TRUE, TRUE, 2);
+
+
     alignment = gtk_alignment_new(0, 0, 1, 0);
-    button = new_button_label_pixbuf("Set base music directory",
-                                     PM_BUTTON_DIR);    
-    g_signal_connect (G_OBJECT (button),
-                      "clicked",
-                      G_CALLBACK (choose_base_dir),
-                      NULL);
-    gtk_container_add(GTK_CONTAINER(alignment), button);
-    gtk_box_pack_start(GTK_BOX(vbox2), alignment, TRUE, TRUE, 2);
-    
+    gtk_box_pack_start(GTK_BOX(vbox1), alignment, TRUE, TRUE, 2);
+    vbox2 = gtk_vbox_new (FALSE, 2);
+    gtk_container_add(GTK_CONTAINER(alignment), vbox2);
+
+    button = gtk_file_chooser_button_new("Set base music directory",
+        GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER);
+    gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER(button),
+        (gjay->prefs->song_root_dir?gjay->prefs->song_root_dir:g_get_home_dir()));
+    gtk_signal_connect(GTK_OBJECT(button), "file-set",
+        GTK_SIGNAL_FUNC (file_chooser_cb), gjay->main_window);
+    gtk_box_pack_start(GTK_BOX(vbox2), button, TRUE, TRUE, 2);
+
     g_signal_connect (G_OBJECT (vbox1), "parent_set",
                       G_CALLBACK (parent_set_callback), NULL);
 
@@ -104,9 +109,9 @@ GtkWidget * make_prefs_view ( void ) {
     radio3 = gtk_radio_button_new_with_label_from_widget (
         GTK_RADIO_BUTTON (radio2),
         "Ask");
-    if (prefs.daemon_action == PREF_DAEMON_QUIT) 
+    if (gjay->prefs->daemon_action == PREF_DAEMON_QUIT) 
         gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(radio1), TRUE);
-    else if (prefs.daemon_action == PREF_DAEMON_DETACH) 
+    else if (gjay->prefs->daemon_action == PREF_DAEMON_DETACH) 
         gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(radio2), TRUE);
     else
         gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(radio3), TRUE);
@@ -115,15 +120,15 @@ GtkWidget * make_prefs_view ( void ) {
     gtk_box_pack_start(GTK_BOX(vbox2), radio1, FALSE, TRUE, 0);
     gtk_box_pack_start(GTK_BOX(vbox2), radio2, FALSE, TRUE, 0);
     gtk_box_pack_start(GTK_BOX(vbox2), radio3, FALSE, TRUE, 0);
-    g_signal_connect (G_OBJECT (radio1), "toggled",
-                      G_CALLBACK (radio_toggled), 
-                      (void *) PREF_DAEMON_QUIT);
-    g_signal_connect (G_OBJECT (radio2), "toggled",
-                      G_CALLBACK (radio_toggled), 
-                      (void *) PREF_DAEMON_DETACH);
-    g_signal_connect (G_OBJECT (radio3), "toggled",
-                      G_CALLBACK (radio_toggled), 
-                      (void *) PREF_DAEMON_ASK);
+    g_signal_connect (G_OBJECT (radio1), "clicked",
+                      G_CALLBACK (click_daemon_radio), 
+                      (gpointer)PREF_DAEMON_QUIT);
+    g_signal_connect (G_OBJECT (radio2), "clicked",
+                      G_CALLBACK (click_daemon_radio), 
+                      (gpointer)PREF_DAEMON_DETACH);
+    g_signal_connect (G_OBJECT (radio3), "clicked",
+                      G_CALLBACK (click_daemon_radio), 
+                      (gpointer)PREF_DAEMON_ASK);
 
     hseparator = gtk_hseparator_new();
     gtk_box_pack_start(GTK_BOX(vbox1), hseparator, TRUE, TRUE, 2);
@@ -133,7 +138,7 @@ GtkWidget * make_prefs_view ( void ) {
 
     button = gtk_check_button_new_with_label("Show popup tips");
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(button),
-                                 !prefs.hide_tips);
+                                 !(gjay->prefs->hide_tips));
     g_signal_connect (G_OBJECT (button), "toggled",
                       G_CALLBACK (tooltips_toggled), NULL);
     gtk_container_add(GTK_CONTAINER(alignment), button);
@@ -147,7 +152,7 @@ GtkWidget * make_prefs_view ( void ) {
 
     button = gtk_check_button_new_with_label("Use song ratings");
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(button),
-                                 prefs.use_ratings);
+                                 gjay->prefs->use_ratings);
     g_signal_connect (G_OBJECT (button), "toggled",
                       G_CALLBACK (useratings_toggled), NULL);
     gtk_container_add(GTK_CONTAINER(alignment), button);
@@ -179,7 +184,7 @@ GtkWidget * make_prefs_view ( void ) {
  * here.
  */
 GtkWidget * make_no_root_view ( void ) {
-    GtkWidget * vbox1, * vbox2, * alignment, * label, * button;
+    GtkWidget * vbox1, * vbox2, * alignment, * label, *button;
     
     vbox1 = gtk_vbox_new (FALSE, 2);
 
@@ -196,111 +201,75 @@ GtkWidget * make_no_root_view ( void ) {
     
     vbox2 = gtk_vbox_new (FALSE, 2);  
     gtk_container_add(GTK_CONTAINER(alignment), vbox2);
-
     button = new_button_label_pixbuf("Choose base music directory",
-                                     PM_BUTTON_DIR);    
-    g_signal_connect (G_OBJECT (button),
-                      "clicked",
-                      G_CALLBACK (choose_base_dir),
-                      NULL);
-
+        PM_BUTTON_DIR);
+    gtk_signal_connect(GTK_OBJECT(button), "clicked",
+        G_CALLBACK (choose_base_dir), NULL);
     gtk_box_pack_start(GTK_BOX(vbox2), button, FALSE, FALSE, 5);
-  
     return vbox1;
 }
 
+static void choose_base_dir (GtkWidget *button, gpointer user_data) {
+  GtkWidget *dialog;
 
-static void choose_base_dir  ( GtkButton *button,
-                               gpointer user_data ) {
-    GtkWidget * file_selector, * button_filter;
-    file_selector = gtk_file_selection_new("Select the base music directory");
-    
-    gtk_tree_selection_set_mode (gtk_tree_view_get_selection(
-        GTK_TREE_VIEW((GTK_FILE_SELECTION(file_selector))->dir_list)),
-        GTK_SELECTION_BROWSE);
-    gtk_tree_selection_set_mode (gtk_tree_view_get_selection(
-        GTK_TREE_VIEW((GTK_FILE_SELECTION(file_selector))->file_list)),
-        GTK_SELECTION_NONE);
-    gtk_signal_connect (
-        GTK_OBJECT (GTK_FILE_SELECTION(file_selector)->ok_button),
-        "clicked",
-        GTK_SIGNAL_FUNC (set_base_dir), 
-        (gpointer) GTK_OBJECT(file_selector)); 
-    gtk_signal_connect_object (
-        GTK_OBJECT (GTK_FILE_SELECTION(file_selector)->ok_button),
-        "clicked", 
-        GTK_SIGNAL_FUNC (gtk_widget_destroy),
-        (gpointer) file_selector);
-    gtk_signal_connect_object (
-        GTK_OBJECT (GTK_FILE_SELECTION(file_selector)->cancel_button),
-        "clicked", 
-        GTK_SIGNAL_FUNC (gtk_widget_destroy),
-        (gpointer) file_selector);
-    gtk_file_selection_hide_fileop_buttons(
-        GTK_FILE_SELECTION(file_selector));
-    
-    button_filter = gtk_check_button_new_with_label(
-        "Filter only .mp3, .ogg, or .wav extension");
-    g_signal_connect (
-        G_OBJECT (button_filter),
-        "toggled",
-        G_CALLBACK (toggle_no_filter),
-        NULL);
-    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(button_filter),
-                                 prefs.extension_filter);
-    gtk_box_pack_start(GTK_BOX(GTK_FILE_SELECTION(file_selector)->main_vbox), 
-                       button_filter, FALSE, FALSE, 5);
-    
-    gtk_widget_show (file_selector);
-    gtk_widget_show (button_filter);
-    gtk_widget_hide (GTK_FILE_SELECTION(file_selector)->selection_entry);
-    gtk_widget_hide (GTK_FILE_SELECTION(file_selector)->selection_text);
+  dialog = gtk_file_chooser_dialog_new("Set base music directory",
+      GTK_WINDOW(gjay->main_window), GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER,
+      GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
+      GTK_STOCK_OPEN, GTK_RESPONSE_ACCEPT,
+      NULL);
+  if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT)
+  {
+    char *filename;
+    filename = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(dialog));
+    set_base_dir(filename);
+  }
+  gtk_widget_destroy(dialog);
+}
+
+static void file_chooser_cb (GtkWidget *button, void *user_data) {
+  char *path;
+  path = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(button));
+  set_base_dir(path);
+  g_free(path);
 }
 
 
-static void set_base_dir ( GtkButton *button,
-                           gpointer user_data ) {
-    gchar * base_dir;
+static void set_base_dir  (  char *path ) {
+    GtkWidget * dialog;
     struct stat stat_buf;
-    GtkFileSelection * file_sel;
-    GtkTreeSelection * select;
-    GtkTreeModel * model;
-    GtkTreeIter iter;    
-    char path[BUFFER_SIZE];
-    bzero(path, BUFFER_SIZE);
 
-    file_sel = GTK_FILE_SELECTION(user_data);
-    base_dir = (gchar *) gtk_file_selection_get_filename (file_sel);
-    strncpy(path, base_dir, BUFFER_SIZE);
 
-    select = gtk_tree_view_get_selection(GTK_TREE_VIEW(file_sel->dir_list));
-    
-    if (gtk_tree_selection_get_selected(select, &model, &iter)) {
-        gchar * dir_data = NULL;
-        gtk_tree_model_get(model, &iter, 0, &dir_data, -1);
-        if ((strcmp(dir_data, "./") != 0) && (strcmp(dir_data, "../") != 0)) {
-            snprintf(path, BUFFER_SIZE, "%s%s", base_dir, dir_data);
-        }
-        g_free(dir_data);
-    }
-    
-    if (stat (path, &stat_buf)) {
-        fprintf(stderr, "Could not stat %s\n", path); 
-        return;
+    if (stat (path, &stat_buf) != 0) {
+      dialog = gtk_message_dialog_new(GTK_WINDOW(gjay->main_window),
+          GTK_DIALOG_DESTROY_WITH_PARENT,
+          GTK_MESSAGE_ERROR,
+          GTK_BUTTONS_CLOSE,
+          "Error getting status of directory '%s': %s",
+          path, g_strerror(errno));
+      gtk_dialog_run(GTK_DIALOG(dialog));
+      gtk_widget_destroy(dialog);
+      return;
     }
     if (!S_ISDIR(stat_buf.st_mode)) {
-        fprintf(stderr, "%s is not a directory\n", path); 
-        return;
+      dialog = gtk_message_dialog_new(GTK_WINDOW(gjay->main_window),
+          GTK_DIALOG_DESTROY_WITH_PARENT,
+          GTK_MESSAGE_ERROR,
+          GTK_BUTTONS_CLOSE,
+          "Path '%s' is not a directory.",
+          path);
+      gtk_dialog_run(GTK_DIALOG(dialog));
+      gtk_widget_destroy(dialog);
+      return;
     }
-    if (prefs.song_root_dir) {
-        g_free(prefs.song_root_dir);
+    if (gjay->prefs->song_root_dir) {
+        g_free(gjay->prefs->song_root_dir);
         /* Clear out old stuff the daemon may have been thinking about
          * doing */
         send_ipc(ui_pipe_fd, CLEAR_ANALYSIS_QUEUE);
     }
-    prefs.song_root_dir = g_strdup(path);     
+    gjay->prefs->song_root_dir = g_strdup(path);     
     prefs_update_song_dir();
-    gtk_idle_add(explore_view_set_root_idle, prefs.song_root_dir);
+    gtk_idle_add(explore_view_set_root_idle, NULL);
 
     set_add_files_progress("Scanning tree...", 0);
     set_analysis_progress_visible(FALSE);
@@ -310,56 +279,77 @@ static void set_base_dir ( GtkButton *button,
 
 static void toggle_no_filter (GtkToggleButton *togglebutton,
                               gpointer user_data) {
-    prefs.extension_filter = gtk_toggle_button_get_active(togglebutton);
+    gjay->prefs->extension_filter = gtk_toggle_button_get_active(togglebutton);
 }
 
 
 static void parent_set_callback (GtkWidget *widget,
                                  gpointer user_data) {
-    prefs_update_song_dir();
+  prefs_update_song_dir();
 }
 
 
 void prefs_update_song_dir ( void ) {
     char buffer[BUFFER_SIZE];
-    if (prefs.song_root_dir) {
+    if (gjay->prefs->song_root_dir) {
         snprintf(buffer, BUFFER_SIZE,
-                 "Base directory is '%s'",  prefs.song_root_dir);   
+                 "Base directory is '%s'",  gjay->prefs->song_root_dir);   
         save_prefs();
     } else {
         snprintf(buffer, BUFFER_SIZE, "No base directory set");
     }
-    gtk_label_set_text(GTK_LABEL(prefs_label), buffer);
 }
 
+static void
+click_daemon_radio ( GtkToggleButton *togglebutton, gpointer user_data )
+{
 
-static void radio_toggled ( GtkToggleButton *togglebutton,
-                            gpointer user_data ) {
-    gint state = (gint) user_data;
-    if (gtk_toggle_button_get_active(togglebutton)) {
-        prefs.daemon_action = state;
+  if (gtk_toggle_button_get_active(togglebutton)) {
+        gjay->prefs->daemon_action = (pref_daemon_action)user_data;
         save_prefs();
     }
 }
 
+static void
+click_daemon_detach ( GtkToggleButton *togglebutton, gpointer user_data )
+{
+
+  if (gtk_toggle_button_get_active(togglebutton)) {
+        gjay->prefs->daemon_action = PREF_DAEMON_DETACH;
+        save_prefs();
+    }
+}
+
+static void
+click_daemon_ask ( GtkToggleButton *togglebutton, gpointer user_data )
+{
+
+  if (gtk_toggle_button_get_active(togglebutton)) {
+        gjay->prefs->daemon_action = PREF_DAEMON_ASK;
+        save_prefs();
+    }
+}
 
 static void tooltips_toggled ( GtkToggleButton *togglebutton,
                                gpointer user_data ) {
+    /* FIXME
     prefs.hide_tips = !gtk_toggle_button_get_active(togglebutton);
     if (prefs.hide_tips) 
-        gtk_tooltips_disable(tips);  
+         gtk_tooltips_disable(tips);  
     else
-        gtk_tooltips_enable(tips);
+         gtk_tooltips_enable(tips);
     save_prefs();
+         */
 }
 
 
 static void useratings_toggled ( GtkToggleButton *togglebutton,
                                gpointer user_data ) {
-    prefs.use_ratings = gtk_toggle_button_get_active(togglebutton);
-    set_selected_rating_visible ( prefs.use_ratings );
-    set_playlist_rating_visible ( prefs.use_ratings );
-    save_prefs();
+
+  gjay->prefs->use_ratings = gtk_toggle_button_get_active(togglebutton);
+  set_selected_rating_visible ( gjay->prefs->use_ratings );
+  set_playlist_rating_visible ( gjay->prefs->use_ratings );
+  save_prefs();
 }
 
 

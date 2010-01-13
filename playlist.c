@@ -59,8 +59,8 @@ GList * generate_playlist ( guint minutes ) {
         return NULL;
 
     /* Create a working set, a copy of the songs list */
-    if (prefs.use_selected_songs) 
-        working = g_list_copy(selected_songs); 
+    if (gjay->prefs->use_selected_songs) 
+        working = g_list_copy(gjay->selected_songs); 
     else
         working = g_list_copy(songs); 
 
@@ -76,12 +76,12 @@ GList * generate_playlist ( guint minutes ) {
          *    current dir. */
         if ((!current->in_tree) || 
             (!current->access_ok) ||
-            (prefs.use_ratings && prefs.rating_cutoff && 
-             (current->rating < prefs.rating)) ||
-            (prefs.use_selected_dir && 
-             selected_files && 
-             (strncmp((char *) selected_files->data, current->path,
-                      strlen((char *) selected_files->data)) != 0))) {
+            (gjay->prefs->use_ratings && gjay->prefs->rating_cutoff && 
+             (current->rating < gjay->prefs->rating)) ||
+            (gjay->prefs->use_selected_dir && 
+             gjay->selected_files && 
+             (strncmp((char *) gjay->selected_files->data, current->path,
+                      strlen((char *) gjay->selected_files->data)) != 0))) {
             if (g_list_next(list))
                 list = g_list_next(list);
             else 
@@ -99,28 +99,28 @@ GList * generate_playlist ( guint minutes ) {
     
     /* Pick the first song */
     first = NULL;
-    if (prefs.start_selected) {
+    if (gjay->prefs->start_selected) {
         for (list = g_list_first(working); list && !first; 
              list = g_list_next(list)) {
-            if (strncmp((char *) selected_files->data, SONG(list)->path,
-                        strlen((char *) selected_files->data)) == 0)
+            if (strncmp((char *) gjay->selected_files->data, SONG(list)->path,
+                        strlen((char *) gjay->selected_files->data)) == 0)
                 first = SONG(list);
         }
         if (!first) {
             gchar * latin1;
-            latin1 = strdup_to_latin1((char *) selected_files->data);
+            latin1 = strdup_to_latin1((char *) gjay->selected_files->data);
             fprintf(stderr, "File '%s' not found in data file;\n"\
                     "perhaps it has not been analyzed. Using random starting song.\n",
                     latin1);
             g_free(latin1);
         }
     } 
-    if (prefs.start_color) {
+    if (gjay->prefs->start_color) {
         song temp_song;
         bzero(&temp_song, sizeof(song));
         temp_song.no_data = TRUE;
         temp_song.no_rating = TRUE;
-        temp_song.color = prefs.color;
+        temp_song.color = gjay->prefs->color;
         for (max_force = -1000, list = g_list_first(working); 
              list; 
              list = g_list_next(list)) {
@@ -163,7 +163,7 @@ GList * generate_playlist ( guint minutes ) {
         max_force = -10000;
         max_force_index = -1;
         l = g_list_length(working);
-        r = MAX(1, (l * prefs.variance) / MAX_CRITERIA );
+        r = MAX(1, (l * gjay->prefs->variance) / MAX_CRITERIA );
         /* Reduce copy of working to size of random list */
         len = g_list_length(working);
         while(r--) {
@@ -172,7 +172,7 @@ GList * generate_playlist ( guint minutes ) {
             rand_list = g_list_append(rand_list, s);
             len--;
             /* Find the closest song */
-            if (prefs.wander) 
+            if (gjay->prefs->wander) 
                 s_force = song_force(s, current);
             else
                 s_force = song_force(s, first);

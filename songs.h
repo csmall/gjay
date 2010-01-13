@@ -16,11 +16,12 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
  * USA
  */
-#include "gjay.h"
 
 #ifndef __SONGS_H__
 #define __SONGS_H__
 
+#include "gjay.h"
+#include "prefs.h"
 
 typedef enum {
     OGG = 0, 
@@ -121,7 +122,6 @@ void        file_info              ( gchar          * path,
  */
 gdouble     song_force             ( song * a, song  * b );
 gdouble     song_attraction        ( song * a, song  * b );
-gdouble     song_mass              ( song * s );
 
 
 void        write_data_file        ( void );

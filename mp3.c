@@ -269,12 +269,12 @@ int get_header(FILE *file,mp3header *header)
     if(buffer[1] & 0x10) header->version=(buffer[1] >> 3) & 1;
     else header->version=2;
     header->layer=(buffer[1] >> 1) & 3;
-    if((header->sync != 0xFFE) || (header->layer != 1)) {
+    header->bitrate=(buffer[2] >> 4) & 0x0F;
+    if((header->sync != 0xFFE) || (header->layer != 1) || (header->bitrate == 0xF)) {
 	header->sync=0;
 	return 0;
     }
     header->crc=buffer[1] & 1;
-    header->bitrate=(buffer[2] >> 4) & 0x0F;
     header->freq=(buffer[2] >> 2) & 0x3;
     header->padding=(buffer[2] >>1) & 0x1;
     header->extension=(buffer[2]) & 0x1;
@@ -283,6 +283,15 @@ int get_header(FILE *file,mp3header *header)
     header->copyright=(buffer[3] >> 3) & 0x1;
     header->original=(buffer[3] >> 2) & 0x1;
     header->emphasis=(buffer[3]) & 0x3;
+
+    /* Final sanity checks: bitrate 1111b and frequency 11b are reserved (invalid) */
+    if (header->bitrate == 0x0F || header->freq == 0x03) {
+      return 0;
+    }
+    if (header->bitrate == 0) {
+      fprintf(stderr, "Header bitrate is 0 for song.\n");
+      return 0;
+    }
     
     return ((fl=frame_length(header)) >= MIN_FRAME_SIZE ? fl : 0); 
 }
@@ -297,6 +306,7 @@ int frame_length(mp3header *header) {
 int header_layer(mp3header *h) {return layer_tab[h->layer];}
 
 int header_bitrate(mp3header *h) {
+    assert(h->bitrate > 0);
     return bitrate[h->version & 1][3-h->layer][h->bitrate-1];
 }
 
@@ -409,7 +419,7 @@ int write_tag(mp3info *mp3) {
     strncat(buf,mp3->id3.year,INT_FIELD_LEN);
     pad(mp3->id3.comment,TEXT_FIELD_LEN);
     strncat(buf,mp3->id3.comment,TEXT_FIELD_LEN);
-    strncat(buf,mp3->id3.genre,1);
+    strncat(buf,(char*)(mp3->id3.genre),1);
     if (mp3->id3.track[0] != '\0') {
         buf[125]='\0';
         buf[126]=mp3->id3.track[0];
@@ -440,11 +450,11 @@ int get_id3_tags( FILE   * fp,
 
     if (fread(buffer, 1, BUFFER_SIZE, fp) == 0)
         return 1;
-    if (strncmp(buffer, "ID3", 3) == 0) {
+    if (memcmp(buffer, "ID3", 3) == 0) {
         result = 0; // success
         for (off = 10; off < 1024; ) {
             for (k = 0; k < NUM_TAGS; k+=2) {
-                if (strcasecmp(buffer + off, id3_tag[k]) == 0) {
+                if (strcasecmp((char*)(buffer + off), id3_tag[k]) == 0) {
                     if (buffer[off + 5]) {
                         s = 7;
                         len = buffer[off + 5] - 1;
@@ -481,7 +491,7 @@ int get_id3_tags( FILE   * fp,
     } else {
         fseek(fp, -128, SEEK_END);
         fread(buffer, 1, 128, fp);
-        if (strncmp(buffer, "TAG", 3) == 0) {
+        if (strncmp((char*)buffer, "TAG", 3) == 0) {
             result = 0; // success
 
             bzero(tag, TEXT_FIELD_LEN + 1);

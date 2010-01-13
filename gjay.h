@@ -26,11 +26,22 @@
 #include <assert.h>
 #include <limits.h>
 #include <math.h>
+#include <dbus/dbus-glib.h>
+
+typedef struct _GjayApp GjayApp;
+extern GjayApp *gjay;
+
 #include "constants.h"
 #include "rgbhsv.h"
 #include "songs.h"
 #include "prefs.h"
-#include "ui.h"
+//#include "ui.h"
+
+/* Helper programs */
+#define OGG_DECODER_APP "ogg123"
+#define MP3_DECODER_APP1 "mpg321"
+#define MP3_DECODER_APP2 "mpg123"
+
 
 typedef enum {
     UI = 0,
@@ -44,7 +55,6 @@ typedef enum {
 
 /* State */
 extern gjay_mode mode;
-extern gint      xmms_session;
 
 /* User options */
 extern gint      verbosity;
@@ -68,4 +78,30 @@ float   strtof_gjay           ( const char * nptr,
 gchar * parent_dir            ( const char * path );
 
 
+struct _GjayApp {
+  GjayPrefs *prefs;
+
+  DBusGConnection *connection;
+  DBusGProxy *audacious_proxy;
+
+  //GdkPixbuf   * pixbufs[PM_LAST];
+  GdkPixbuf   * pixbufs[50]; //FIXME
+  GtkWidget   * window;
+  GtkWidget   * notebook;
+  GtkTooltips * tips;
+  GtkWidget   * explore_view, * selection_view, * playlist_view,
+     * no_root_view, * prefs_view, * about_view;
+  GList       * selected_songs, * selected_files; 
+  /* We store a list of the directories which contain new songs (ie. lack
+   * rating/color info */
+  GList       * new_song_dirs;
+  GHashTable  * new_song_dirs_hash;
+  gint           tree_depth;               /* How deep does the tree go */
+
+  /* Various Windows */
+  GtkWidget *main_window;
+  GtkWidget * prefs_window;
+
+  gchar       * mp3_decoder_app;
+};
 #endif /* GJAY_H */

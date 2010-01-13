@@ -19,6 +19,7 @@
 
 
 #include <math.h>
+#include <string.h>
 #include <strings.h>
 #include "gjay.h"
 #include "ui.h"
@@ -304,7 +305,7 @@ static gboolean drawing_expose_event_callback (GtkWidget *widget,
         0, 0);
 
     if (list) {
-        for (ll = g_list_first(selected_songs); ll; ll = g_list_next(ll)) {
+        for (ll = g_list_first(gjay->selected_songs); ll; ll = g_list_next(ll)) {
             s = (song *) ll->data;
             if (!s->no_color) {
                 set = TRUE;
@@ -323,10 +324,10 @@ static gboolean drawing_expose_event_callback (GtkWidget *widget,
                 draw_swatch_color(widget, *hsv);
             }
         } else {
-            width = gdk_pixbuf_get_width(pixbufs[PM_NOT_SET]);
-            height = gdk_pixbuf_get_height(pixbufs[PM_NOT_SET]);
+            width = gdk_pixbuf_get_width(gjay->pixbufs[PM_NOT_SET]);
+            height = gdk_pixbuf_get_height(gjay->pixbufs[PM_NOT_SET]);
             gdk_pixbuf_render_to_drawable_alpha(
-                pixbufs[PM_NOT_SET],
+                gjay->pixbufs[PM_NOT_SET],
                 widget->window,
                 0, 0,
                 xcenter - width/2, ycenter - height/2,
@@ -377,12 +378,12 @@ void draw_selected_color (GtkWidget * widget,
     x = radius * cos (angle);
     y = radius * sin (angle);
 
-    width = gdk_pixbuf_get_width(pixbufs[PM_COLOR_SEL]);
-    height = gdk_pixbuf_get_height(pixbufs[PM_COLOR_SEL]);
+    width = gdk_pixbuf_get_width(gjay->pixbufs[PM_COLOR_SEL]);
+    height = gdk_pixbuf_get_height(gjay->pixbufs[PM_COLOR_SEL]);
     xcenter = widget->allocation.height / 2.0; // Use height on purpose
     ycenter = widget->allocation.height / 2.0;    
     gdk_pixbuf_render_to_drawable_alpha(
-        pixbufs[PM_COLOR_SEL],
+        gjay->pixbufs[PM_COLOR_SEL],
         widget->window,
         0, 0,
         (xcenter + x) - width/2, (ycenter + y) - height/2, 

@@ -27,10 +27,11 @@
 #include <math.h> 
 #include <ctype.h>
 #include "gjay.h"
-#include "gjay_xmms.h"
+#include "gjay_audacious.h"
 #include "analysis.h"
 #include "mp3.h"
 #include "vorbis.h"
+#include "ui.h"
 
 
 typedef enum {
@@ -100,6 +101,7 @@ GHashTable * song_inode_dev_hash;
 GHashTable * not_song_hash;
 
 
+static gdouble song_mass   ( song * s );
 static void     write_not_song_data ( FILE * f, gchar * path );
 static gboolean read_song_file_type ( char * path, 
                                       song_file_type type,
@@ -862,8 +864,13 @@ static gboolean read_song_file_type ( char         * path,
         bzero(&mp3, sizeof(mp3info));
         mp3.filename = path;
         mp3.file = fopen(path, "r");
+        if (!mp3.file) {
+          fprintf(stderr, "Unable to read song data %s : %s\n", path,
+              strerror(errno));
+          return FALSE;
+        }
         // returns 0 on success
-        result = get_mp3_info(&mp3, SCAN_QUICK, 0);
+        result = get_mp3_info(&mp3, SCAN_QUICK, 1);
         if (result == 0) {
             *length = mp3.seconds;
             if (mp3.id3_isvalid) {
@@ -890,7 +897,7 @@ static gboolean read_song_file_type ( char         * path,
         fread(&header, sizeof(waveheaderstruct), 1, f);
         wav_header_swab(&header);
         fclose(f);
-        if ((strncmp(header.chunk_type, "WAVE", 4) == 0) &&
+        if ((memcmp(header.chunk_type, "WAVE", 4) == 0) &&
             (header.byte_p_spl / header.modus == 2)) {
             stat(path, &buf);
             *length = (buf.st_size - sizeof(waveheaderstruct)) / 176758;
@@ -934,25 +941,26 @@ gdouble song_force ( song * a, song  * b ) {
 
 /* Attraction is a value -1...1 for the affinity between A and B,
    with criteria weighed by prefs */
-gdouble song_attraction ( song * a, song  * b ) {
+gdouble song_attraction (song * a, song  * b ) {
     gdouble a_hue, a_saturation, a_brightness, a_freq, a_bpm, a_path;
     gdouble d, ba, bb, v_diff, a_max, attraction = 0;
     gint i;
+    GjayPrefs *prefs = gjay->prefs;
 
     a_max = 
-        (prefs.hue + 
-         prefs.brightness +
-         prefs.saturation +
-         prefs.freq + 
-         prefs.bpm +
-         prefs.path_weight);
+        (prefs->hue + 
+         prefs->brightness +
+         prefs->saturation +
+         prefs->freq + 
+         prefs->bpm +
+         prefs->path_weight);
     
-    a_hue = prefs.hue / a_max;
-    a_brightness = prefs.brightness / a_max;
-    a_saturation = prefs.saturation / a_max;
-    a_freq = prefs.freq / a_max;
-    a_bpm = prefs.bpm / a_max;
-    a_path = prefs.path_weight / a_max;
+    a_hue = prefs->hue / a_max;
+    a_brightness = prefs->brightness / a_max;
+    a_saturation = prefs->saturation / a_max;
+    a_freq = prefs->freq / a_max;
+    a_bpm = prefs->bpm / a_max;
+    a_path = prefs->path_weight / a_max;
 
     if (!(a->no_color || b->no_color)) {
         /* Hue is 0...6 */
@@ -1010,10 +1018,10 @@ gdouble song_attraction ( song * a, song  * b ) {
         attraction += d * a_freq;
     }
 
-    if (tree_depth && a->path && b->path) {
+    if (gjay->tree_depth && a->path && b->path) {
         d = explore_files_depth_distance(a->path, b->path);
         if (d >= 0) {
-            d = 1.0 - 2.0 * (d / tree_depth);
+            d = 1.0 - 2.0 * (d / gjay->tree_depth);
             /* d = -1 ... 1, where 1 is more similiar */
             attraction += d * a_path;
         }
@@ -1024,28 +1032,30 @@ gdouble song_attraction ( song * a, song  * b ) {
 
 
 /* Every song has a mass 0...1.0 */
-gdouble song_mass ( song * s ) {
-    gdouble max_mass = 0, song_mass = 0;
+static gdouble
+song_mass (song * s ) {
+  GjayPrefs *prefs = gjay->prefs;
+  gdouble max_mass = 0, song_mass = 0;
     max_mass = 
-        prefs.hue + 
-        prefs.brightness +
-        prefs.freq + 
-        prefs.bpm +
-        prefs.path_weight;
+        prefs->hue + 
+        prefs->brightness +
+        prefs->freq + 
+        prefs->bpm +
+        prefs->path_weight;
 
     assert(max_mass != 0);
 
-    song_mass += prefs.path_weight;
+    song_mass += prefs->path_weight;
     if (!s->no_data) {
-        song_mass += prefs.freq;
+        song_mass += prefs->freq;
     }
     if (!s->no_color) {
-        song_mass += prefs.hue;
-        song_mass += prefs.brightness;
-        song_mass += prefs.saturation;
+        song_mass += prefs->hue;
+        song_mass += prefs->brightness;
+        song_mass += prefs->saturation;
     }
     if (!s->bpm_undef) {
-        song_mass += prefs.bpm;
+        song_mass += prefs->bpm;
     }
     
     return (song_mass / max_mass);

@@ -72,17 +72,6 @@ typedef enum {
     PM_LAST
 } pm;
 
-extern GdkPixbuf   * pixbufs[PM_LAST];
-
-extern GtkWidget   * window;
-extern GtkWidget   * notebook;
-extern GtkTooltips * tips;
-extern GtkWidget   * explore_view, * selection_view, * playlist_view,
-                   * no_root_view, * prefs_view, * about_view;
-extern GList       * selected_songs, * selected_files; 
-extern GList       * new_song_dirs;
-extern GHashTable  * new_song_dirs_hash;
-extern int           tree_depth;
 
 
 /* UI utils */
@@ -92,7 +81,7 @@ void        switch_page (GtkNotebook *notebook,
                          GtkNotebookPage *page,
                          gint page_num,
                          gpointer user_data);
-GtkWidget * make_app_ui     ( void );
+void        make_app_ui     ( void );
 void        display_message ( gchar * msg );
 
 
@@ -117,7 +106,7 @@ gboolean    quit_app                      ( GtkWidget *widget,
                                             gpointer user_data );
 
 /* Explore files pane  */
-void        explore_view_set_root        ( char * root_dir );
+void        explore_view_set_root        ( const gchar * root_dir );
 gint        explore_view_set_root_idle   ( gpointer data );
 gboolean    explore_update_path_pm       ( char * path,
                                            int type );

@@ -13,16 +13,14 @@ static char * tabs[TAB_LAST] = {
     "Make Playlist"
 };
 
-GtkWidget        * window;
+//GtkWidget        * window;
 GtkWidget        * notebook;
 GtkWidget        * explore_view, * selection_view, * playlist_view,
                  * no_root_view;
-GtkTooltips      * tips;
 static tab_val     current_tab;
 static GtkWidget * analysis_label, * analysis_progress;
 static GtkWidget * add_files_label, * add_files_progress;
 static GtkWidget * explore_hbox, * playlist_hbox;
-static GtkWidget * prefs_window, * about_window;
 static GtkWidget * paned;
 static GtkWidget * msg_window = NULL;
 static GtkWidget * msg_text_view = NULL;
@@ -62,35 +60,34 @@ static void     respond_quit_analysis ( GtkDialog *dialog,
                                         gint arg1,
                                         gpointer user_data );
 static void     destroy_app           ( void);    
-// REMOVE
-GtkWidget * plugin_new (void);
 
-GtkWidget * make_app_ui ( void ) {
+void make_app_ui ( void ) {
     GtkWidget * vbox1, * hbox1, * hbox2;
     GtkWidget * alignment, * menubar, * view;
     
-    tips = gtk_tooltips_new();
+    /* FIXME
     if (prefs.hide_tips) 
         gtk_tooltips_disable(tips);
     else
         gtk_tooltips_enable(tips);
+        */
 
     gdk_rgb_init();
     current_tab = TAB_EXPLORE;
     
-    window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
-    gtk_window_set_title (GTK_WINDOW (window), "GJay");
-    gtk_widget_set_size_request (window, APP_WIDTH, APP_HEIGHT);
-    gtk_widget_realize(window);
-    gtk_signal_connect (GTK_OBJECT (window), "delete_event",
+    gjay->main_window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
+    gtk_window_set_title (GTK_WINDOW (gjay->main_window), "GJay");
+    gtk_widget_set_size_request (gjay->main_window, APP_WIDTH, APP_HEIGHT);
+    gtk_widget_realize(gjay->main_window);
+    gtk_signal_connect (GTK_OBJECT (gjay->main_window), "delete_event",
 			GTK_SIGNAL_FUNC (quit_app), NULL);
-    gtk_container_set_border_width (GTK_CONTAINER (window), 2);
-    gtk_widget_realize(window);
+    gtk_container_set_border_width (GTK_CONTAINER (gjay->main_window), 2);
+    gtk_widget_realize(gjay->main_window);
 
     load_pixbufs();
 
     vbox1 = gtk_vbox_new(FALSE, 2);
-    gtk_container_add (GTK_CONTAINER (window), vbox1);
+    gtk_container_add (GTK_CONTAINER (gjay->main_window), vbox1);
 
     menubar = make_menubar();
     gtk_box_pack_start(GTK_BOX(vbox1), menubar, FALSE, FALSE, 1);
@@ -131,13 +128,6 @@ GtkWidget * make_app_ui ( void ) {
                              playlist_hbox,
                              gtk_label_new(tabs[TAB_PLAYLIST]));
 
-    // REMOVE
-#if GRAV
-    plugin_pane[0] = plugin_new();
-    gtk_notebook_append_page(GTK_NOTEBOOK(notebook), 
-                             plugin_pane[0],
-                             gtk_label_new("Gravity"));
-#endif
     explore_view = make_explore_view();
     playlist_view = make_playlist_view();
     selection_view = make_selection_view();
@@ -158,16 +148,16 @@ GtkWidget * make_app_ui ( void ) {
     gtk_notebook_set_page(GTK_NOTEBOOK(notebook), TAB_EXPLORE);
     
 
-    prefs_window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
-    gtk_window_set_title(GTK_WINDOW(prefs_window), "GJay Preferences");
-    gtk_container_set_border_width (GTK_CONTAINER (prefs_window), 5);
+    gjay->prefs_window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
+    gtk_window_set_title(GTK_WINDOW(gjay->prefs_window), "GJay Preferences");
+    gtk_container_set_border_width (GTK_CONTAINER (gjay->prefs_window), 5);
     view = make_prefs_view();
     gtk_widget_show_all(view);
-    gtk_signal_connect (GTK_OBJECT (prefs_window), "delete_event",
+    gtk_signal_connect (GTK_OBJECT (gjay->prefs_window), "delete_event",
 			GTK_SIGNAL_FUNC (gtk_widget_hide), NULL);
-    gtk_container_add (GTK_CONTAINER (prefs_window), view);
+    gtk_container_add (GTK_CONTAINER (gjay->prefs_window), view);
 
-    about_window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
+    /*about_window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
     gtk_window_set_title(GTK_WINDOW(about_window), "About GJay");
     view = make_about_view();
     gtk_widget_show_all(view);
@@ -179,8 +169,7 @@ GtkWidget * make_app_ui ( void ) {
                      "button_press_event",
                      G_CALLBACK(gtk_widget_hide),
                      NULL);
-
-    return window;
+*/
 }
 
 
@@ -189,7 +178,7 @@ GtkWidget * make_app_ui ( void ) {
 
 gboolean daemon_pipe_input (GIOChannel *source,
                             GIOCondition condition,
-                            gpointer data) {
+                            gpointer user_data) {
     char buffer[BUFFER_SIZE];
     gchar * str;
     int len, k, p, l, seek;
@@ -242,7 +231,7 @@ gboolean daemon_pipe_input (GIOChannel *source,
                 /* Change the tree view icon and selection view, if 
                  * necessary. Note that song paths are latin-1 */
                 explore_update_path_pm(s->path, PM_FILE_SONG);
-                if (!update && g_list_find(selected_songs, s)) {
+                if (!update && g_list_find(gjay->selected_songs, s)) {
                     update_selection_area();
                     update = TRUE;
                 }
@@ -356,7 +345,7 @@ void switch_page (GtkNotebook *notebook,
     }
     switch (page_num) {
     case TAB_EXPLORE:
-        if (prefs.song_root_dir) {
+        if (gjay->prefs->song_root_dir) {
             gtk_box_pack_start(GTK_BOX(explore_hbox), paned,
                                TRUE, TRUE, 5);
             gtk_paned_add1(GTK_PANED(paned), explore_view); 
@@ -450,7 +439,7 @@ gboolean quit_app (GtkWidget *widget,
                    gpointer user_data) {
     GtkWidget * dialog;
     
-    if (prefs.daemon_action == PREF_DAEMON_ASK) {
+    if (gjay->prefs->daemon_action == PREF_DAEMON_ASK) {
         dialog = gtk_message_dialog_new(GTK_WINDOW(widget),
                                         GTK_DIALOG_DESTROY_WITH_PARENT,
                                         GTK_MESSAGE_QUESTION,
@@ -461,7 +450,7 @@ gboolean quit_app (GtkWidget *widget,
                           G_CALLBACK (respond_quit_analysis),
                           NULL);
         gtk_widget_show(dialog);
-        prefs.detach = FALSE;
+        gjay->prefs->detach = FALSE;
         return TRUE;
     } else {
         destroy_app();
@@ -473,25 +462,25 @@ gboolean quit_app (GtkWidget *widget,
 static void respond_quit_analysis (GtkDialog *dialog,
                                    gint arg1,
                                    gpointer user_data) {
+
     if (arg1 == GTK_RESPONSE_YES) {
-        prefs.detach = TRUE;
+        gjay->prefs->detach = TRUE;
     } else {
-        prefs.detach = FALSE;
+        gjay->prefs->detach = FALSE;
     }
     destroy_app();
 }
 
 
 
-static void destroy_app (void) {    
+static void destroy_app ( void ) {    
     destroy_window_flag = TRUE;
-    gtk_object_sink(GTK_OBJECT(tips));
     gtk_widget_destroy(explore_view);
     gtk_widget_destroy(playlist_view);
     gtk_widget_destroy(selection_view);
-    gtk_widget_destroy(prefs_window);
+    gtk_widget_destroy(gjay->prefs_window);
     gtk_widget_destroy(no_root_view);
-    gtk_widget_destroy(about_window);
+    //gtk_widget_destroy(about_window);
     gtk_widget_destroy(paned);
     gtk_main_quit();
 }
@@ -542,160 +531,38 @@ void set_add_files_progress ( char * str,
 }
 
 void show_about_window( void ) {
-    gtk_window_present(GTK_WINDOW(about_window));
-}
 
-void hide_about_window( void ) {
-    gtk_widget_hide(about_window);
+  static const gchar * const authors[] = {
+    "Chuck Groom",
+    "Craig Small <csmall@enc.com.au>",
+    NULL
+  };
+  static const gchar copyright[] = \
+    "Copyright \xc2\xa9 2004 Chuck Groom\n"
+    "Copyright \xc2\xa9 2009 Craig Small";
+
+  static const gchar comments[] = \
+    "GTK+ playlist generator for a collection of music based upon "
+    "automatically analyzed song characteristics as well as "
+    "user-assigned categorizations.";
+
+
+
+  gtk_show_about_dialog(NULL,
+      "authors", authors,
+      "comments", comments,
+      "copyright", copyright,
+      "logo", pixbufs[PM_ABOUT],
+      "version", GJAY_VERSION,
+      "website", "http://gjay.sourceforge.net/",
+      "program-name", "GJay",
+      NULL);
 }
 
 void show_prefs_window( void ) {
-    gtk_window_present(GTK_WINDOW(prefs_window));
+    gtk_window_present(GTK_WINDOW(gjay->prefs_window));
 }
 
 void hide_prefs_window( void ) {
-    gtk_widget_hide(prefs_window);
+    gtk_widget_hide(gjay->prefs_window);
 }
-
-#if GRAV
-typedef struct {
-    song * s;
-    gdouble x, y, vx, vy;
-} grav_song;
-gboolean gravity_running = FALSE;
-GList * gravity_list = NULL;
-
-gboolean expose_gravity (GtkWidget *widget, 
-                         GdkEventExpose *event, 
-                         gpointer data) {
-    gint width, height, w, h;
-    GdkGC * gc; 
-    RGB rgb;
-    GdkFont * font;
-    gc = gdk_gc_new(window->window);
-    gdk_rgb_gc_set_foreground(gc, 0xFFFFFF);
-    gdk_gc_set_clip_rectangle (gc,
-                               &event->area);
-    gdk_draw_rectangle (widget->window,
-                        gc,
-                        TRUE,
-                        0, 0, 
-                        width, height);
-    if (gravity_running) {
-        gdouble m1, m2, a, d, f, dx, dy, fx, fy;
-        guchar r, g, b;
-        GList * llist1, * llist2;
-        grav_song * g1, * g2;
-        for (llist1 = g_list_first(gravity_list); 
-             llist1; 
-             llist1 = g_list_next(llist1)) {
-            g1 = llist1->data;
-
-            for (llist2 = g_list_next(llist1);
-                 llist2; 
-                 llist2 = g_list_next(llist2)) {
-                g2 = llist2->data;
-                a = song_attraction(g1->s, g2->s);
-                m1 = song_mass(g1->s);
-                m2 = song_mass(g2->s);
-                dx = g2->x - g1->x;
-                dy = g2->y - g1->y;
-                
-                f = m1 * m2 * (1.0 / (fabs(dx) + fabs(dy))) * a * 1000.0;
-                if (dx == 0) {
-                    fx = 0;
-                    fy = (dy > 0) ?  f : -f;
-                } else if (dy == 0) {
-                    fx = (dx > 0) ?  f : -f;
-                    fy = 0;
-                } else {
-                    float theta = atan(dy / dx);
-                    if ((dx < 0 && dy < 0) ||
-                        (dx < 0 && dy > 0)){
-//                            theta += M_PI;
-                    }  else {
-                        theta += M_PI;
-                    }
-                    fx = f * cos (theta);
-                    fy = f * sin (theta);
-                }
-                g1->vx -= fx;
-                g1->vy -= fy;
-                g2->vx += fx;
-                g2->vy += fy;
-            }
-            g1->vx *= 0.95;
-            g1->vy *= 0.95;
-            if (g1->vx < 0) {
-                g1->vx = MAX(g1->vx, -10.0);                
-            } else {
-                g1->vx = MIN(g1->vx, 10.0);                
-            }
-            if (g1->vy < 0) {
-                g1->vy = MAX(g1->vy, -10.0);                
-            } else {
-                g1->vy = MIN(g1->vy, 10.0);                
-            }
-            g1->x += g1->vx;
-            g1->y += g1->vy;
-            rgb = hsv_to_rgb(g1->s->color);    
-            r = rgb.R * 255;
-            g = rgb.G * 255;
-            b = rgb.B * 255;
-            gdk_rgb_gc_set_foreground(gc,
-                                      r << 16 | g << 8 | b);
-            gdk_draw_rectangle (widget->window,
-                                gc,
-                                TRUE,
-                                (int) g1->x, (int) g1->y, 2, 2);
-        } 
-    }
-}
-
-gint gravity_timeout(gpointer user_data) {
-    gtk_widget_queue_draw(GTK_WIDGET(user_data));
-    return TRUE;
-}
-
-void start_gravity ( GtkButton *button,
-                     gpointer user_data ) {
-    GList * llist;
-
-    gravity_running = TRUE;
-    for (llist = g_list_first(songs); llist; llist = g_list_next(llist)) {
-        grav_song * g = malloc(sizeof(grav_song));
-        bzero(g, sizeof(grav_song));
-        g->s = llist->data;
-        g->x = rand() % 500;
-        g->y = rand() % 400;
-        gravity_list = g_list_append(gravity_list, g);
-    }
-    gtk_timeout_add(500, gravity_timeout, user_data);
-}
-
-
-
-GtkWidget * plugin_new (void) {
-    GtkWidget * hbox, * button, * drawing;
-    hbox = gtk_hbox_new(FALSE, 2);
-    
-    button = gtk_button_new_with_label("Start");
-    drawing = gtk_drawing_area_new();
-    gtk_widget_set_usize(drawing, 500, 400);
-    gtk_signal_connect (GTK_OBJECT (drawing),
-                        "expose_event",
-                        (GtkSignalFunc) expose_gravity,
-                        NULL);
- 
-    g_signal_connect (G_OBJECT (button),
-                      "clicked",
-                      G_CALLBACK (start_gravity),
-                      drawing);
-  
-    gtk_box_pack_start(GTK_BOX(hbox), button, FALSE, FALSE, 5);
-    gtk_box_pack_start(GTK_BOX(hbox), drawing, FALSE, FALSE, 5);
-    
-    gtk_widget_show_all(hbox);
-    return hbox;
-}
-#endif 

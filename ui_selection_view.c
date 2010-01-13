@@ -23,7 +23,7 @@
 #include <math.h>
 #include <string.h>
 #include "gjay.h"
-#include "gjay_xmms.h"
+#include "gjay_audacious.h"
 #include "ui.h"
 #include "rgbhsv.h"
 
@@ -70,7 +70,8 @@ static void     get_selected_color           ( HSV * color,
 #define COLOR_SWATCH_HEIGHT 20
 
 
-GtkWidget * make_selection_view ( void ) {
+GtkWidget *
+make_selection_view ( void ) {
     GtkWidget * vbox1, * vbox2, * hbox1, * hbox2;
     GtkWidget * alignment, * event_box, * swin;
     GtkCellRenderer * text_renderer, * pixbuf_renderer;
@@ -80,7 +81,7 @@ GtkWidget * make_selection_view ( void ) {
     
     hbox1 = gtk_hbox_new (FALSE, 2);
     gtk_box_pack_start(GTK_BOX(vbox1), hbox1, FALSE, FALSE, 2);
-    icon = gtk_image_new_from_pixbuf (pixbufs[PM_ICON_CLOSED]);
+    icon = gtk_image_new_from_pixbuf (gjay->pixbufs[PM_ICON_CLOSED]);
     gtk_box_pack_start(GTK_BOX(hbox1), icon, FALSE, FALSE, 2);
 
     vbox2 = gtk_vbox_new(FALSE, 2);
@@ -105,9 +106,9 @@ GtkWidget * make_selection_view ( void ) {
     event_box = gtk_event_box_new ();
     gtk_box_pack_start(GTK_BOX(hbox2), event_box, FALSE, FALSE, 2);
 
-    play = gtk_image_new_from_pixbuf(pixbufs[PM_BUTTON_PLAY]);
-    gtk_tooltips_set_tip (tips, event_box,
-                          "Play the selected songs in XMMS", "");
+    play = gtk_image_new_from_pixbuf(gjay->pixbufs[PM_BUTTON_PLAY]);
+    gtk_widget_set_tooltip_text(event_box,
+        "Play the selected songs in the music player");
     gtk_container_add (GTK_CONTAINER(event_box), play);
     gtk_widget_set_events (event_box, GDK_BUTTON_PRESS_MASK);
     gtk_signal_connect (GTK_OBJECT(event_box), 
@@ -120,15 +121,15 @@ GtkWidget * make_selection_view ( void ) {
     
     event_box = gtk_event_box_new ();
     gtk_box_pack_start(GTK_BOX(hbox2), event_box, FALSE, FALSE, 2);
-    select_all_recursive = gtk_image_new_from_pixbuf(pixbufs[PM_BUTTON_ALL]);
-    gtk_tooltips_set_tip (tips, event_box,
-                          "Select all songs in this directory", "");
+    select_all_recursive = gtk_image_new_from_pixbuf(gjay->pixbufs[PM_BUTTON_ALL]);
+    gtk_widget_set_tooltip_text (event_box,
+        "Select all songs in this directory");
     gtk_container_add (GTK_CONTAINER(event_box), select_all_recursive);
     gtk_widget_set_events (event_box, GDK_BUTTON_PRESS_MASK);
     gtk_signal_connect (GTK_OBJECT(event_box), 
                         "button_press_event",
 			GTK_SIGNAL_FUNC (select_all_selected), 
-                        (gpointer *) TRUE);
+                        NULL);
     
     vbox_lower = gtk_vbox_new (FALSE, 2);  
     gtk_box_pack_start(GTK_BOX(vbox1), vbox_lower, TRUE, TRUE, 2);
@@ -227,9 +228,11 @@ void set_selected_in_playlist_view ( gboolean in_view ) {
 }
 
 
-void set_selected_file ( char * file, 
-                         char * short_name, 
-                         gboolean is_dir ) {
+void
+set_selected_file ( char * file, 
+                    char * short_name, 
+                    gboolean is_dir )
+{
     char short_name_trunc[BUFFER_SIZE];
     GList * llist;
     int pm_type;
@@ -262,14 +265,14 @@ void set_selected_file ( char * file,
     
     if (is_dir) {
         gtk_label_set_text(GTK_LABEL(label_name), short_name_trunc);
-        if (g_hash_table_lookup(new_song_dirs_hash, file)) {
+        if (g_hash_table_lookup(gjay->new_song_dirs_hash, file)) {
             gtk_image_set_from_pixbuf (GTK_IMAGE(icon), 
-                                       pixbufs[PM_ICON_CLOSED_NEW]);
+                                       gjay->pixbufs[PM_ICON_CLOSED_NEW]);
             gtk_label_set_text(GTK_LABEL(label_type), 
                                "Has uncategorized songs");
         } else {
             gtk_image_set_from_pixbuf (GTK_IMAGE(icon), 
-                                       pixbufs[PM_ICON_CLOSED]);
+                                       gjay->pixbufs[PM_ICON_CLOSED]);
             gtk_label_set_text(GTK_LABEL(label_type), "");
         }
         gtk_widget_hide(play);
@@ -310,7 +313,7 @@ void set_selected_file ( char * file,
         }
         
         gtk_image_set_from_pixbuf (GTK_IMAGE(icon), 
-                                   pixbufs[pm_type]);
+                                   gjay->pixbufs[pm_type]);
         selected_files = g_list_append(selected_files, g_strdup(file));
     }
     update_selection_area();
@@ -363,29 +366,33 @@ static void set_selected_files (GList * files) {
     gtk_widget_show(icon);
     gtk_widget_show(vbox_lower);
     gtk_label_set_text(GTK_LABEL(label_type), "Contains...");
-    gtk_image_set_from_pixbuf (GTK_IMAGE(icon), pixbufs[PM_ICON_OPEN]);
+    gtk_image_set_from_pixbuf (GTK_IMAGE(icon), gjay->pixbufs[PM_ICON_OPEN]);
     update_selection_area();
 }
 
 
-static gboolean play_selected (GtkWidget *widget,
-                               GdkEventButton *event,
-                               gpointer user_data) {
-    play_songs(selected_songs);
-    return TRUE;
+static gboolean
+play_selected (GtkWidget *widget,
+               GdkEventButton *event,
+               gpointer user_data)
+{
+  play_songs(selected_songs);
+  return TRUE;
 }
 
 
-static gboolean select_all_selected (GtkWidget *widget,
-                                     GdkEventButton *event,
-                                     gpointer user_data) {
-    GList * list;
-    if (selected_files) {
-        list = explore_files_in_dir(g_list_first(selected_files)->data, 
-                                    (gboolean) user_data);
-        set_selected_files(list);
-    }
-    return TRUE;
+static gboolean
+select_all_selected (GtkWidget *widget,
+                     GdkEventButton *event,
+                     gpointer user_data)
+{
+  GList * list;
+
+  if (gjay->selected_files) {
+      list = explore_files_in_dir(g_list_first(selected_files)->data, TRUE);
+      set_selected_files(list);
+  }
+  return TRUE;
 }
 
 
@@ -573,7 +580,7 @@ static void update_dir_has_rating_color ( gchar * dir ) {
     gchar * parent;
     gchar * str;
     
-    str = g_hash_table_lookup(new_song_dirs_hash, dir);
+    str = g_hash_table_lookup(gjay->new_song_dirs_hash, dir);
     if (!str) 
         return;
 
@@ -584,8 +591,8 @@ static void update_dir_has_rating_color ( gchar * dir ) {
        icon, remove info */
     explore_update_path_pm(dir, PM_DIR_CLOSED);
     
-    g_hash_table_remove(new_song_dirs_hash, str);
-    new_song_dirs = g_list_remove(new_song_dirs, str);
+    g_hash_table_remove(gjay->new_song_dirs_hash, str);
+    gjay->new_song_dirs = g_list_remove(gjay->new_song_dirs, str);
     g_free(str);
     
     /* Check the parent directory */
