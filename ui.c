@@ -1,3 +1,6 @@
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif /* HAVE_CONFIG_H */
 #include <stdio.h>
 #include <string.h>
 #include <stdio.h>
@@ -572,7 +575,7 @@ void show_about_window( void ) {
       "comments", comments,
       "copyright", copyright,
       "logo", load_gjay_pixbuf(PM_ABOUT),
-      "version", GJAY_VERSION,
+      "version", VERSION,
       "website", "http://gjay.sourceforge.net/",
       "program-name", "GJay",
       NULL);

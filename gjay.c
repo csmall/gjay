@@ -30,6 +30,10 @@
  * In playlist mode, GJay prints a playlist and exits.
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include <sys/signal.h>
 #include <stdlib.h>
 #include <stdio.h> 
@@ -99,7 +103,7 @@ int main( int argc, char *argv[] ) {
             printf(HELP_TEXT);
             return 0;
         } else if (strncmp(argv[i], "--version", 9) == 0) {
-            printf("GJay version %s\n", GJAY_VERSION);
+            printf("GJay version %s\n", VERSION);
             return 0;
         } else if (strncmp(argv[i], "-l", 2) == 0) {
             /* Set the playlist length, in minutes */

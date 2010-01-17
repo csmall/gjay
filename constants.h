@@ -2,7 +2,6 @@
 #define __CONSTANTS_H__
 
 /* Default directory for storing app info */
-#define GJAY_VERSION        "0.3.0"
 #define GJAY_DIR            ".gjay"
 #define GJAY_PREFS          "prefs.xml"
 #define GJAY_FILE_DATA      "data.xml"

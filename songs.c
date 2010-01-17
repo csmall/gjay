@@ -17,6 +17,9 @@
  * USA
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif /* HAVE_CONFIG_H */
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h> 
@@ -385,7 +388,7 @@ void write_data_file(void) {
     
     f = fopen(buffer_temp, "w");
     if (f) {
-        fprintf(f, "<gjay_data version=\"%s\">\n", GJAY_VERSION);
+        fprintf(f, "<gjay_data version=\"%s\">\n", VERSION);
         for (llist = g_list_first(w_songs); llist; llist = g_list_next(llist))
             write_song_data(f, SONG(llist));
         for (llist = g_list_first(not_songs); 

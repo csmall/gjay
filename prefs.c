@@ -35,6 +35,9 @@
  * USA
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif /* HAVE_CONFIG_H */
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h> 
@@ -192,7 +195,7 @@ void save_prefs ( void ) {
     snprintf(buffer_temp, BUFFER_SIZE, "%s_temp", buffer);
     f = fopen(buffer_temp, "w");
     if (f) {
-        fprintf(f, "<gjay_prefs version=\"%s\">\n", GJAY_VERSION);
+        fprintf(f, "<gjay_prefs version=\"%s\">\n", VERSION);
         if (prefs->song_root_dir) {
             fprintf(f, "<%s", pref_element_strs[PE_ROOTDIR]);
             if (prefs->extension_filter)
