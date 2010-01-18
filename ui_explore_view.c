@@ -153,7 +153,7 @@ void explore_view_set_root (const gchar* root_dir ) {
     gjay->tree_depth = 0;
     
     /* Unmark current songs */
-    for (llist = g_list_first(songs); llist; llist = g_list_next(llist)) {
+    for (llist = g_list_first(gjay->songs); llist; llist = g_list_next(llist)) {
         SONG(llist)->in_tree = FALSE;
     }
     
@@ -338,7 +338,7 @@ static int tree_add_idle (gpointer data) {
         }
         parent = iter_stack->tail->data;   
 
-        s = (song *) g_hash_table_lookup(song_name_hash, fta->fname);
+        s = (song *) g_hash_table_lookup(gjay->song_name_hash, fta->fname);
         
         if (s) {
             set_add_files_progress(NULL, (file_to_add_count * 100) / 
@@ -350,19 +350,19 @@ static int tree_add_idle (gpointer data) {
                 pm_type = PM_FILE_PENDING;
                 /* Analyze this file if it's the first song of a string of
                  * duplicates */
-                if (s == g_hash_table_lookup(song_inode_dev_hash, 
+                if (s == g_hash_table_lookup(gjay->song_inode_dev_hash, 
                                              &s->inode_dev_hash)) {
                     files_to_analyze = g_list_append(
                         files_to_analyze, strdup_to_latin1(s->path));
                 }
             }
-        } else if (g_hash_table_lookup(not_song_hash, fta->fname)) {
+        } else if (g_hash_table_lookup(gjay->not_song_hash, fta->fname)) {
             pm_type = PM_FILE_NOSONG;
         }  else {
             set_add_files_progress(fta->fname, 
                                    (file_to_add_count * 100) / 
                                    total_files_to_add);
-            songs_dirty = TRUE;
+            gjay->songs_dirty = TRUE;
 
             s = create_song();
             file_info(fta->fname,
@@ -378,27 +378,27 @@ static int tree_add_idle (gpointer data) {
             if (is_song) {
                 song_set_path(s, fta->fname);
                 /* Check for symlinkery */
-                original = g_hash_table_lookup(song_inode_dev_hash, 
+                original = g_hash_table_lookup(gjay->song_inode_dev_hash, 
                                                &s->inode_dev_hash);
                 if (original) { 
                     song_set_repeats(s, original);
                     pm_type = PM_FILE_SONG;
                 } else { 
-                    g_hash_table_insert(song_inode_dev_hash, 
+                    g_hash_table_insert(gjay->song_inode_dev_hash, 
                                         &s->inode_dev_hash, s);
                     /* Add to analysis queue */
                     files_to_analyze = g_list_append(files_to_analyze,
                                                      strdup_to_latin1(fta->fname));
                     pm_type = PM_FILE_PENDING;
                 }
-                songs = g_list_append(songs, s);
-                g_hash_table_insert(song_name_hash, s->path, s);
+                gjay->songs = g_list_append(gjay->songs, s);
+                g_hash_table_insert(gjay->song_name_hash, s->path, s);
                 s->in_tree = TRUE;
             } else {
                 delete_song(s);
                 str = g_strdup(fta->fname);
-                not_songs = g_list_append(not_songs, str);
-                g_hash_table_insert(not_song_hash, str, (gpointer) TRUE);
+                gjay->not_songs = g_list_append(gjay->not_songs, str);
+                g_hash_table_insert(gjay->not_song_hash, str, (gpointer) TRUE);
                 pm_type = PM_FILE_NOSONG;
             }
         }
@@ -716,7 +716,7 @@ gboolean explore_dir_has_new_songs ( char * dir ) {
     list = explore_files_in_dir(dir, TRUE);
     for (; list; list = g_list_next(list)) {
         if (result == FALSE) {
-            s = g_hash_table_lookup(song_name_hash, list->data);
+            s = g_hash_table_lookup(gjay->song_name_hash, list->data);
             if (s) {
                 if (s->no_rating && s->no_color) {
                     result = TRUE;

@@ -137,12 +137,6 @@ GtkWidget * create_colorwheel             ( gint diameter,
 HSV         get_colorwheel_color          ( GtkWidget * colorwheel );
 void        set_colorwheel_color          ( GtkWidget * colorwheel,
                                             HSV color );
-
-/* Color box */
-GtkWidget * create_colorbox               ( HSV * hsv );
-void        set_colorbox_color            ( GtkWidget * widget,
-                                            HSV hsv );
-
 /* Playlist */
 void        set_playlist_rating_visible   ( gboolean is_visible );
 

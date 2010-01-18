@@ -217,8 +217,8 @@ void set_selected_in_playlist_view ( gboolean in_view ) {
     if (g_list_length(selected_files) > 1)
         return;
     fname = (gchar *) selected_files->data;
-    if ( g_hash_table_lookup(song_name_hash, fname) ||
-         g_hash_table_lookup(not_song_hash, fname))
+    if ( g_hash_table_lookup(gjay->song_name_hash, fname) ||
+         g_hash_table_lookup(gjay->not_song_hash, fname))
         return;
     if (in_view) {
         gtk_widget_hide(select_all_recursive);
@@ -283,7 +283,7 @@ set_selected_file ( char * file,
     } else {
         gtk_widget_hide(select_all_recursive);
     
-        s = g_hash_table_lookup(song_name_hash, file);
+        s = g_hash_table_lookup(gjay->song_name_hash, file);
         
         if (s) {
             gtk_label_set_text(GTK_LABEL(label_name), "");
@@ -303,7 +303,7 @@ set_selected_file ( char * file,
             gtk_widget_hide(play);
             gtk_widget_hide(vbox_lower);
 
-            if (g_hash_table_lookup(not_song_hash, file)) {
+            if (g_hash_table_lookup(gjay->not_song_hash, file)) {
                 pm_type = PM_ICON_NOSONG;
                 gtk_label_set_text(GTK_LABEL(label_type), "Not a song");
             } else {
@@ -341,10 +341,10 @@ static void set_selected_files (GList * files) {
     selected_files = NULL;
 
     for (llist = g_list_first(files); llist; llist = g_list_next(llist)) {
-        if (g_hash_table_lookup(not_song_hash, llist->data)) {
+        if (g_hash_table_lookup(gjay->not_song_hash, llist->data)) {
             g_free(llist->data);
         } else {
-            s = g_hash_table_lookup(song_name_hash, llist->data);
+            s = g_hash_table_lookup(gjay->song_name_hash, llist->data);
             if (!s) {
                 /* This may happen a directory contains an empty directory, 
                    so the file list includes a directory path and not
@@ -488,7 +488,7 @@ void update_selected_songs_color (gpointer data,
             update_song_has_rating_color(s);
     }
 
-    songs_dirty = TRUE;
+    gjay->songs_dirty = TRUE;
 }
 
 
@@ -558,7 +558,7 @@ static void rating_changed ( GtkRange *range,
     }
     gtk_label_set_text (GTK_LABEL(label_rating), "Rating");
 
-    songs_dirty = TRUE;
+    gjay->songs_dirty = TRUE;
 }
 
 

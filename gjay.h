@@ -86,8 +86,6 @@ struct _GjayApp {
 
   //GdkPixbuf   * pixbufs[PM_LAST];
   GdkPixbuf   * pixbufs[50]; //FIXME
-  GtkWidget   * window;
-  GtkWidget   * notebook;
   GtkTooltips * tips;
   GtkWidget   * explore_view, * selection_view, * playlist_view,
      * no_root_view, * prefs_view, * about_view;
@@ -100,8 +98,23 @@ struct _GjayApp {
 
   /* Various Windows */
   GtkWidget *main_window;
+  GtkWidget *notebook;
   GtkWidget * prefs_window;
 
   gchar       * mp3_decoder_app;
+
+  /* Songs */
+  GList      * songs;       /* List of song ptrs  */
+  GList      * not_songs;   /* List of char *, UTF8 encoded */
+  gboolean     songs_dirty;
+
+  GHashTable * song_name_hash; 
+  GHashTable * song_inode_dev_hash;
+  GHashTable * not_song_hash;
+  
 };
+
+/* From daemon.c */
+void gjay_init_daemon(void);
+
 #endif /* GJAY_H */

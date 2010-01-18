@@ -59,31 +59,25 @@ typedef struct {
 } wav_file;
 
 
-/* BPM globals */
-unsigned char *audio;
-unsigned long audiosize;
-unsigned long audiorate=2756;  /* Author states that 11025 is perfect
+
+#define AUDIO_RATE 2756UL      /* Author states that 11025 is perfect
                                   measure, but we can tolerate more
                                   lossiness for the sake of speed */
-unsigned long startbpm=120;
-unsigned long stopbpm=160;
-unsigned long startshift=0;
-unsigned long stopshift=0;
+#define START_BPM 120UL
+#define STOP_BPM 160UL
 
 
 /* Spectrum globals */
 #define MAX_FREQ 22500
 #define START_FREQ 100
 
-typedef unsigned long ulongT;
-typedef unsigned short ushortT;
+#define WINDOW_SIZE 1024
+#define STEP_SIZE 1024
 
 static char       * read_buffer;
 static int          read_buffer_size;
 static long         read_buffer_start;
 static long         read_buffer_end; /* same as file position */
-static int          window_size = 1024;
-static int          step_size = 1024;
 static gboolean     in_analysis = FALSE;  /* Are we currently analyizing a
                                          song? */
 static song       * analyze_song = NULL;
@@ -91,104 +85,70 @@ static GList      * queue = NULL;
 static GHashTable * queue_hash = NULL;
 static time_t       last_ping;
 
-FILE *        inflate_to_wav (gchar * path, 
+static FILE *        inflate_to_wav (gchar * path, 
                               song_file_type type);
-int           run_analysis     ( wav_file * wsfile,
+static int           run_analysis     ( wav_file * wsfile,
                                  gdouble * freq_results,
                                  gdouble * volume_diff,
                                  gdouble * bpm_result );
-unsigned long bpm_phasefit     ( long i );
-int           freq_read_frames ( wav_file * wsfile, 
+static unsigned long bpm_phasefit     ( const long i,
+    const unsigned char const *audio,
+    const unsigned long audiosize);
+static int           freq_read_frames ( wav_file * wsfile, 
                                  int start, 
                                  int length, 
                                  void *data );
-void          send_ui_percent        ( int percent );
-void          send_analyze_song_name ( void );
-gboolean      daemon_idle       ( gpointer data );
+static void          send_ui_percent        ( int percent );
+static void          send_analyze_song_name ( void );
 static void   write_queue       ( void );
+static void kill_signal (int sig);
+static int      quote_path(char *buf, size_t bufsiz, const char *path);
+static void analysis_daemon(void);
+gboolean      daemon_idle       ( gpointer data );
 
-void analysis_daemon(void) {
-    GIOChannel * ui_io;
-    GMainLoop * loop;
-    char buffer[BUFFER_SIZE];
-    gchar * file;
-    FILE * f;
+void gjay_init_daemon(void)
+{
+  gchar *path;
+  FILE *fp;
+
+  /* Write pid to ~/.gjay/gjay.pid */
+  path = g_strdup_printf("%s/%s/%s", g_get_home_dir(),
+      GJAY_DIR, GJAY_PID);
+  if ((fp = fopen(path, "w")) == NULL) {
+    g_critical("Cannot open %s for writing\n", path);
+    exit(1);
+  }
+  g_free(path);
+  fprintf(fp, "%d", getpid());
+  fclose(fp);
     
-    /* Nice the analysis */
-    setpriority(PRIO_PROCESS, getpid(), 19);
+  signal(SIGTERM, kill_signal);
+  signal(SIGKILL, kill_signal);
+  signal(SIGINT,  kill_signal);
     
-    in_analysis = FALSE;
-    loop = g_main_new(FALSE);
-    last_ping = time(NULL);
-    queue_hash = g_hash_table_new(g_str_hash, g_str_equal);
-
-    /* Read analysis queue, if any */
-    snprintf(buffer, BUFFER_SIZE, "%s/%s/%s", getenv("HOME"), 
-             GJAY_DIR, GJAY_QUEUE);
-    f = fopen(buffer, "r");
-    if (f) {
-        while (!feof(f)) {
-            read_line(f, buffer, BUFFER_SIZE);
-            if (strlen(buffer) &&!g_hash_table_lookup(queue_hash, buffer)) {
-                file = g_strdup(buffer);
-                g_hash_table_insert(queue_hash, file, (void *) 1);
-                queue = g_list_append(queue, file);
-            }
-        }
-        fclose(f);
-    }
-    ui_io = g_io_channel_unix_new (ui_pipe_fd);
-    g_io_add_watch (ui_io,
-                    G_IO_IN,
-                    ui_pipe_input,
-                    loop);
-    g_idle_add (daemon_idle, loop);
-    // FIXME: add G_IO_HUP watcher
-
-    g_main_run(loop);
+  analysis_daemon();
+    
+    /* Daemon cleans up pipes on quit */
+  close(daemon_pipe_fd);
+  close(ui_pipe_fd);
+  unlink(daemon_pipe);
+  unlink(ui_pipe);
+  rmdir(gjay_pipe_dir);
 }
 
+/**
+ * When the daemon receives a kill signal, delete ~/.gjay/gjay.pid
+ */
+static void kill_signal (int sig) {
+  gchar *path;
 
-gboolean daemon_idle (gpointer data) {
-    gchar * file;
-
-    if ((mode != DAEMON_DETACHED) && 
-        (time(NULL) - last_ping > DAEMON_ATTACH_FREAKOUT)) {
-        if (verbosity)
-            printf("Daemon appears to have been orphaned. Quitting.\n");
-        g_main_quit((GMainLoop *) data);
-    } 
-
-    if (mode == DAEMON_INIT) {
-        usleep(SLEEP_WHILE_IDLE);
-        return TRUE;
-    }
-
-    if (in_analysis)
-        return TRUE;
-    
-    if (queue) {
-        file = g_list_first(queue)->data;
-        analyze(file, FALSE);
-        g_hash_table_remove(queue_hash, file);
-        queue = g_list_remove(queue, file);
-        g_free(file);
-        
-        write_queue();
-    }
-    
-    if (queue)
-        return TRUE;
-
-    if (mode == DAEMON_DETACHED) {
-        if (verbosity)
-            printf("Analysis daemon done.\n");
-        g_main_quit((GMainLoop *) data);
-    }
-    return FALSE;
+  /* Write pid to ~/.gjay/gjay.pid */
+  path = g_strdup_printf("%s/%s/%s", g_get_home_dir(),
+      GJAY_DIR, GJAY_PID);
+  unlink(path); 
+  g_free(path);
+  exit(0);
 }
-
-
 static void add_file_to_queue ( char * fname) {
     char queue_fname[BUFFER_SIZE], buffer[BUFFER_SIZE], * str;
     FILE * f_queue, * f_add;
@@ -443,9 +403,9 @@ void analyze(char * fname,            /* File to analyze */
     return;
 }
 
-
-FILE * inflate_to_wav ( gchar * path,
-                        song_file_type type) {
+static FILE *
+inflate_to_wav ( gchar * path, song_file_type type)
+{
     char buffer[BUFFER_SIZE];
     char quoted_path[BUFFER_SIZE];
     FILE * f;
@@ -476,7 +436,9 @@ FILE * inflate_to_wav ( gchar * path,
 
 /* Swap the byte order of wav header. Wavs are stored little-endian, so this
    is necessary when using on big-endian (e.g. PPC) machines */
-void wav_header_swab(waveheaderstruct * header) {
+void
+wav_header_swab(waveheaderstruct * header)
+{
     header->length = le32_to_cpu(header->length);
     header->length_chunk = le32_to_cpu(header->length_chunk);
     header->data_length = le32_to_cpu(header->data_length);
@@ -491,7 +453,9 @@ void wav_header_swab(waveheaderstruct * header) {
 
 
 /* Escape ' char in path */
-int quote_path(char *buf, size_t bufsiz, const char *path) {
+static int
+quote_path(char *buf, size_t bufsiz, const char *path)
+{
     int in, out = 0;
     const char *quote = "\'\\\'\'"; /* a quoted quote character */
     for (in = 0; out < bufsiz && path[in] != '\0'; in++) {
@@ -523,10 +487,12 @@ int quote_path(char *buf, size_t bufsiz, const char *path) {
  *
  * Any ugliness is the fault of my munging. 
  */
-int run_analysis  (wav_file * wsfile,
+static int
+run_analysis  (wav_file * wsfile,
                    gdouble * freq_results,
                    gdouble * volume_diff,
-                   gdouble * bpm_result ) {
+                   gdouble * bpm_result )
+{
     int16_t *freq_data;
     double *ch1 = NULL, *ch2 = NULL, *mags = NULL;
     long i, j, k, bin;
@@ -535,6 +501,9 @@ int run_analysis  (wav_file * wsfile,
     double sum, frame_sum, max_frame_sum, g_factor, freq, g_freq;
     signed short buffer[BPM_BUF_SIZE];
     long count, pos, h, redux, startpos, num_frames;
+    unsigned long startshift = 0, stopshift = 0;
+    unsigned char *audio;
+    unsigned long audiosize;
 
     if (wsfile->header.modus != 1 && wsfile->header.modus != 2) {
         // Not a wav file
@@ -547,25 +516,25 @@ int run_analysis  (wav_file * wsfile,
     }
 
     /* Spectrum set-up */    
-    read_buffer_size = window_size*4;
+    read_buffer_size = WINDOW_SIZE*4;
     read_buffer = malloc(read_buffer_size);
     read_buffer_start = 0;
     read_buffer_end = read_buffer_size;
-    freq_data = (int16_t*) malloc (window_size * wsfile->header.byte_p_spl);
-    mags = (double*) malloc (window_size / 2 * sizeof (double));
-    total_mags = (double*) malloc (window_size / 2 * sizeof (double));
-    memset (total_mags, 0x00, window_size / 2 * sizeof (double));
+    freq_data = (int16_t*) malloc (WINDOW_SIZE * wsfile->header.byte_p_spl);
+    mags = (double*) malloc (WINDOW_SIZE / 2 * sizeof (double));
+    total_mags = (double*) malloc (WINDOW_SIZE / 2 * sizeof (double));
+    memset (total_mags, 0x00, WINDOW_SIZE / 2 * sizeof (double));
     memset (freq_results, 0x00, NUM_FREQ_SAMPLES * sizeof(double));
-    ch1 = (double*) malloc (window_size * sizeof (double));
+    ch1 = (double*) malloc (WINDOW_SIZE * sizeof (double));
     if (wsfile->header.modus == 2)
-        ch2 = (double*) malloc (window_size * sizeof (double));
+        ch2 = (double*) malloc (WINDOW_SIZE * sizeof (double));
     num_frames = 0;
     max_frame_sum = 0;
     sum = 0;
 
     /* BPM set-up */
     audiosize = wsfile->header.data_length;
-    audiosize/=(4*(44100/audiorate));
+    audiosize/=(4*(44100/AUDIO_RATE));
     audio=malloc(audiosize+1);
     assert(audio);
     pos=0;
@@ -583,9 +552,9 @@ int run_analysis  (wav_file * wsfile,
     /* In this main loop, we read the entire file. Most of this loop 
      * represents the spectrum algorithm; the marked tight loop is the bpm
      * algorithm. */
-    for (i = -window_size; i < window_size + (int)(wsfile->header.data_length / wsfile->header.byte_p_spl); i += step_size) {
+    for (i = -WINDOW_SIZE; i < WINDOW_SIZE + (int)(wsfile->header.data_length / wsfile->header.byte_p_spl); i += STEP_SIZE) {
 
-        freq_read_frames (wsfile, i, window_size, (char *)freq_data);
+        freq_read_frames (wsfile, i, WINDOW_SIZE, (char *)freq_data);
 
         if (wsfile->freq_seek == SHARED_BUF_SIZE) {
             /* At end of buffer. Read some more data. */
@@ -598,59 +567,59 @@ int run_analysis  (wav_file * wsfile,
             send_ui_percent(wsfile->seek/(wsfile->header.data_length / 70));
             
             /* BPM loop */
-            for (h=0;h<count/2;h+=2*(44100/audiorate))
+            for (h=0;h<count/2;h+=2*(44100/AUDIO_RATE))
             {
                 signed long int left, right,mean;
                 left=abs(buffer[h]);
                 right=abs(buffer[h+1]);
                 mean=(left+right)/2;
                 redux=abs(mean)/128;
-                if (pos+h/(2*(44100/audiorate))>=audiosize) break;
-                assert(pos+h/(2*(44100/audiorate))<audiosize);
-                audio[pos+h/(2*(44100/audiorate))]=(unsigned char)redux;
+                if (pos+h/(2*(44100/AUDIO_RATE))>=audiosize) break;
+                assert(pos+h/(2*(44100/AUDIO_RATE))<audiosize);
+                audio[pos+h/(2*(44100/AUDIO_RATE))]=(unsigned char)redux;
             }
-            pos+=count/(4*(44100/audiorate));
+            pos+=count/(4*(44100/AUDIO_RATE));
         }
         
         /* The rest of this loop is spectrum analysis */
         if (wsfile->header.modus == 1) {
-            for (j = 0; j < window_size; j++)
+            for (j = 0; j < WINDOW_SIZE; j++)
                 ch1 [j] = (int16_t)le16_to_cpu(freq_data[j]);
             
         } else {
-            for (j = 0, k = 0; k < window_size; k++, j+=2) {
+            for (j = 0, k = 0; k < WINDOW_SIZE; k++, j+=2) {
                 ch1[k] = (double)((int16_t)le16_to_cpu(freq_data[j]));
                 ch2[k] = (double)((int16_t)le16_to_cpu(freq_data[j+1]));
             } 
-            gsl_fft_real_radix2_transform (ch2, 1, window_size);
+            gsl_fft_real_radix2_transform (ch2, 1, WINDOW_SIZE);
         }
-        gsl_fft_real_radix2_transform (ch1, 1, window_size);
+        gsl_fft_real_radix2_transform (ch1, 1, WINDOW_SIZE);
         
         mags [0] = fabs (ch1 [0]);
         
-        for (j = 0; j < window_size / 2; j++) {
-            mags [j] = sqrt (ch1 [j] * ch1 [j] + ch1 [window_size - j] * ch1 [window_size - j]);
+        for (j = 0; j < WINDOW_SIZE / 2; j++) {
+            mags [j] = sqrt (ch1 [j] * ch1 [j] + ch1 [WINDOW_SIZE - j] * ch1 [WINDOW_SIZE - j]);
             
             if (mags [j] > ch1max)
                 ch1max = mags [j];
         }
         
         /* Add magnitudes */
-        for (k = 0; k < window_size / 2; k++) 
+        for (k = 0; k < WINDOW_SIZE / 2; k++) 
             total_mags[k] += mags[k];
         
         if (wsfile->header.modus == 2) {
             mags [0] = fabs (ch2 [0]);
             
-            for (j = 0; j < window_size / 2; j++) {
-                mags [j] = sqrt (ch2 [j] * ch2 [j] + ch2 [window_size - j] * ch2 [window_size - j]);
+            for (j = 0; j < WINDOW_SIZE / 2; j++) {
+                mags [j] = sqrt (ch2 [j] * ch2 [j] + ch2 [WINDOW_SIZE - j] * ch2 [WINDOW_SIZE - j]);
                 
                 if (mags [j] > ch2max)
                     ch2max = mags [j];
             }
 
             /* Add magnitudes */            
-            for (frame_sum = 0, k = 0; k < window_size / 2; k++) {
+            for (frame_sum = 0, k = 0; k < WINDOW_SIZE / 2; k++) {
                 total_mags[k] += mags[k];
                 frame_sum += mags[k];
             }
@@ -663,15 +632,15 @@ int run_analysis  (wav_file * wsfile,
     /* Finish analysis... */
     *volume_diff =  max_frame_sum / (sum / (gdouble) num_frames);
 
-    for (k = 0; k < window_size / 2; k++) 
+    for (k = 0; k < WINDOW_SIZE / 2; k++) 
         total_mags[k] = total_mags[k] / sum;
     
     g_freq = START_FREQ;
     g_factor = exp( log(MAX_FREQ/START_FREQ) / NUM_FREQ_SAMPLES);
     bin = 0;
-    for (k = 0; k < window_size / 2; k++) {
+    for (k = 0; k < WINDOW_SIZE / 2; k++) {
         /* Determine which frequency band this sample falls into */
-        freq = (k * MAX_FREQ ) / (window_size / 2);
+        freq = (k * MAX_FREQ ) / (WINDOW_SIZE / 2);
         if (freq > g_freq) {
             bin = MIN(bin + 1, NUM_FREQ_SAMPLES - 1);
             g_freq *= g_factor;
@@ -687,15 +656,15 @@ int run_analysis  (wav_file * wsfile,
     }
 
     /* Complete BPM analysis */
-    stopshift=audiorate*60*4/startbpm;
-    startshift=audiorate*60*4/stopbpm;
+    stopshift=AUDIO_RATE*60*4/START_BPM;
+    startshift=AUDIO_RATE*60*4/STOP_BPM;
     {
 	unsigned long foutat[stopshift-startshift];
 	unsigned long fout, minimumfout=0, maximumfout,minimumfoutat,left,right;
         memset(&foutat,0,sizeof(foutat));
 	for(h=startshift;h<stopshift;h+=50)
         {
-            fout=bpm_phasefit(h);
+            fout=bpm_phasefit(h, audio, audiosize);
             foutat[h-startshift]=fout;
             if (minimumfout==0) maximumfout=minimumfout=fout;
             if (fout<minimumfout) 
@@ -714,7 +683,7 @@ int run_analysis  (wav_file * wsfile,
 	if ( right > stopshift ) 
             right = stopshift;
 	for(h=left; h<right; h++) {
-            fout=bpm_phasefit(h);
+            fout=bpm_phasefit(h, audio, audiosize);
             foutat[h-startshift]=fout;
             if (minimumfout==0) maximumfout=minimumfout=fout;
             if (fout<minimumfout) 
@@ -734,7 +703,7 @@ int run_analysis  (wav_file * wsfile,
                 fout-=minimumfout;
             }
         }
-        *bpm_result = 4.0*(double)audiorate*60.0/(double)minimumfoutat;
+        *bpm_result = 4.0*(double)AUDIO_RATE*60.0/(double)minimumfoutat;
         if (verbosity > 1) 
             printf("BPM: %f\n", *bpm_result);
     }
@@ -747,11 +716,8 @@ int run_analysis  (wav_file * wsfile,
 }
 
 
-
-int freq_read_frames (wav_file * wsfile,
-                      int start, 
-                      int length, 
-                      void *data)
+static int
+freq_read_frames (wav_file * wsfile, int start, int length, void *data)
 {
     int realstart = start;
     int reallength = length;
@@ -807,7 +773,9 @@ int freq_read_frames (wav_file * wsfile,
 }
 
 
-unsigned long bpm_phasefit(long i)
+static unsigned long
+bpm_phasefit(const long i, const unsigned char const *audio,
+    const unsigned long audiosize)
 {
    long c,d;
    unsigned long mismatch=0;
@@ -824,7 +792,9 @@ unsigned long bpm_phasefit(long i)
 
 
 
-void send_ui_percent (int percent) {
+static void
+send_ui_percent (int percent)
+{
     static int old_percent = -1;
 
     if (old_percent == percent)
@@ -843,8 +813,9 @@ void send_ui_percent (int percent) {
 }
 
 
-
-void send_analyze_song_name ( void ) {
+static void
+send_analyze_song_name ( void )
+{
     char buffer[BUFFER_SIZE];
     if (!analyze_song)
         return;
@@ -858,3 +829,88 @@ void send_analyze_song_name ( void ) {
     strncpy(buffer + 60, "...\0", 4);
     send_ipc_text(daemon_pipe_fd, STATUS_TEXT, buffer);
 }
+
+
+
+static void
+analysis_daemon(void) {
+    GIOChannel * ui_io;
+    GMainLoop * loop;
+    char buffer[BUFFER_SIZE];
+    gchar * file;
+    FILE * f;
+    
+    /* Nice the analysis */
+    setpriority(PRIO_PROCESS, getpid(), 19);
+    
+    in_analysis = FALSE;
+    loop = g_main_new(FALSE);
+    last_ping = time(NULL);
+    queue_hash = g_hash_table_new(g_str_hash, g_str_equal);
+
+    /* Read analysis queue, if any */
+    snprintf(buffer, BUFFER_SIZE, "%s/%s/%s", getenv("HOME"), 
+             GJAY_DIR, GJAY_QUEUE);
+    f = fopen(buffer, "r");
+    if (f) {
+        while (!feof(f)) {
+            read_line(f, buffer, BUFFER_SIZE);
+            if (strlen(buffer) &&!g_hash_table_lookup(queue_hash, buffer)) {
+                file = g_strdup(buffer);
+                g_hash_table_insert(queue_hash, file, (void *) 1);
+                queue = g_list_append(queue, file);
+            }
+        }
+        fclose(f);
+    }
+    ui_io = g_io_channel_unix_new (ui_pipe_fd);
+    g_io_add_watch (ui_io,
+                    G_IO_IN,
+                    ui_pipe_input,
+                    loop);
+    g_idle_add (daemon_idle, loop);
+    // FIXME: add G_IO_HUP watcher
+
+    g_main_run(loop);
+}
+
+
+gboolean daemon_idle (gpointer data) {
+    gchar * file;
+
+    if ((mode != DAEMON_DETACHED) && 
+        (time(NULL) - last_ping > DAEMON_ATTACH_FREAKOUT)) {
+        if (verbosity)
+            printf("Daemon appears to have been orphaned. Quitting.\n");
+        g_main_quit((GMainLoop *) data);
+    } 
+
+    if (mode == DAEMON_INIT) {
+        usleep(SLEEP_WHILE_IDLE);
+        return TRUE;
+    }
+
+    if (in_analysis)
+        return TRUE;
+    
+    if (queue) {
+        file = g_list_first(queue)->data;
+        analyze(file, FALSE);
+        g_hash_table_remove(queue_hash, file);
+        queue = g_list_remove(queue, file);
+        g_free(file);
+        
+        write_queue();
+    }
+    
+    if (queue)
+        return TRUE;
+
+    if (mode == DAEMON_DETACHED) {
+        if (verbosity)
+            printf("Analysis daemon done.\n");
+        g_main_quit((GMainLoop *) data);
+    }
+    return FALSE;
+}
+

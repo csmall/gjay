@@ -1,5 +1,5 @@
 /**
- * GJay, copyright (c) 2009 Craig Small
+ * GJay, copyright (c) 2010 Craig Small
  *
  * dbus.c : Common D-Bus calls
  *
@@ -56,7 +56,7 @@ gjay_dbus_is_running(const char *appname)
         G_TYPE_INVALID)) {
     return FALSE;
   }
-  fprintf(stderr, "Is %s running: %s\n",appname,(running ? "yes" : "no"));
+  //fprintf(stderr, "Is %s running: %s\n",appname,(running ? "yes" : "no"));
   return running;
 }
 

@@ -55,14 +55,14 @@ GList * generate_playlist ( guint minutes ) {
     if (verbosity) 
         t = time(NULL);
     
-    if (!g_list_length(songs))
+    if (!g_list_length(gjay->songs))
         return NULL;
 
     /* Create a working set, a copy of the songs list */
     if (gjay->prefs->use_selected_songs) 
         working = g_list_copy(gjay->selected_songs); 
     else
-        working = g_list_copy(songs); 
+        working = g_list_copy(gjay->songs); 
 
     final = NULL;
     for (list = g_list_first(working); list; ) {

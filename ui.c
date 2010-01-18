@@ -16,8 +16,6 @@ static char * tabs[TAB_LAST] = {
     "Make Playlist"
 };
 
-//GtkWidget        * window;
-GtkWidget        * notebook;
 GtkWidget        * explore_view, * selection_view, * playlist_view,
                  * no_root_view;
 static tab_val     current_tab;
@@ -92,8 +90,8 @@ void make_app_ui ( void ) {
     menubar = make_menubar();
     gtk_box_pack_start(GTK_BOX(vbox1), menubar, FALSE, FALSE, 1);
 
-    notebook = gtk_notebook_new(); 
-    gtk_box_pack_start(GTK_BOX(vbox1), notebook, TRUE, TRUE, 3);
+    gjay->notebook = gtk_notebook_new(); 
+    gtk_box_pack_start(GTK_BOX(vbox1), gjay->notebook, TRUE, TRUE, 3);
        
     hbox1 = gtk_hbox_new(FALSE, 2);
     gtk_box_pack_end(GTK_BOX(vbox1), hbox1, FALSE, FALSE, 2);
@@ -119,12 +117,12 @@ void make_app_ui ( void ) {
     gtk_box_pack_start(GTK_BOX(hbox2), add_files_progress, FALSE, FALSE, 0);
 
     explore_hbox = gtk_hbox_new(FALSE, 2);
-    gtk_notebook_append_page(GTK_NOTEBOOK(notebook), 
+    gtk_notebook_append_page(GTK_NOTEBOOK(gjay->notebook), 
                              explore_hbox,
                              gtk_label_new(tabs[TAB_EXPLORE]));
 
     playlist_hbox = gtk_hbox_new(FALSE, 2);
-    gtk_notebook_append_page(GTK_NOTEBOOK(notebook), 
+    gtk_notebook_append_page(GTK_NOTEBOOK(gjay->notebook), 
                              playlist_hbox,
                              gtk_label_new(tabs[TAB_PLAYLIST]));
 
@@ -140,12 +138,12 @@ void make_app_ui ( void ) {
     gtk_widget_show_all(selection_view);
     gtk_widget_show_all(no_root_view);
     
-    gtk_signal_connect (GTK_OBJECT (notebook),
+    gtk_signal_connect (GTK_OBJECT (gjay->notebook),
                         "switch-page",
                         (GtkSignalFunc) switch_page,
                         NULL);
   
-    gtk_notebook_set_page(GTK_NOTEBOOK(notebook), TAB_EXPLORE);
+    gtk_notebook_set_page(GTK_NOTEBOOK(gjay->notebook), TAB_EXPLORE);
     
 
     gjay->prefs_window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
@@ -205,13 +203,13 @@ gboolean daemon_pipe_input (GIOChannel *source,
         break;
     case ADDED_FILE:
         /* Unmark all songs */
-        for (ll = g_list_first(songs); ll; ll = g_list_next(ll)) 
+        for (ll = g_list_first(gjay->songs); ll; ll = g_list_next(ll)) 
             SONG(ll)->marked = FALSE;
         memcpy(&seek, buffer + sizeof(ipc_type), sizeof(int));
         add_from_daemon_file_at_seek(seek);
         update = FALSE;
         /* Update visible marked songs */
-        for (ll = g_list_first(songs); ll; ll = g_list_next(ll)) { 
+        for (ll = g_list_first(gjay->songs); ll; ll = g_list_next(ll)) { 
             s = SONG(ll);
             if (s->marked && !s->no_data) {
                 /* Change the tree view icon and selection view, if 

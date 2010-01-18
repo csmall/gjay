@@ -75,13 +75,11 @@ typedef struct {
 /* Mutex lock for analysis data */
 extern int             analyze_percent;
 
-/* Analysis.c */
-void     analysis_daemon(void);
-int      quote_path(char *buf, size_t bufsiz, const char *path);
 
 /* Run the analysis of one song */
 void     analyze( char * fname, 
                   gboolean result_to_stdout );
+void gjay_init_daemon(void);
 
 /* Endian stuff */
 void     wav_header_swab(waveheaderstruct * header); 

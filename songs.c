@@ -20,6 +20,7 @@
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif /* HAVE_CONFIG_H */
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h> 
@@ -92,16 +93,6 @@ typedef struct {
     element_type element;
     song * s;
 } song_parse_state;
-
-
-
-GList      * songs;       /* List of song ptrs  */
-GList      * not_songs;   /* List of char *, UTF8 encoded */
-gboolean     songs_dirty;
-
-GHashTable * song_name_hash; 
-GHashTable * song_inode_dev_hash;
-GHashTable * not_song_hash;
 
 
 static gdouble song_mass   ( song * s );
@@ -374,7 +365,7 @@ void write_data_file(void) {
     snprintf(buffer_temp, BUFFER_SIZE, "%s_temp", buffer);
 
     /* Cull songs which are no longer there */
-    for (llist = g_list_first(songs); llist; llist = g_list_next(llist)) {
+    for (llist = g_list_first(gjay->songs); llist; llist = g_list_next(llist)) {
         s = SONG(llist);
         if (!s->access_ok) {
             if (s->repeat_prev)
@@ -391,13 +382,13 @@ void write_data_file(void) {
         fprintf(f, "<gjay_data version=\"%s\">\n", VERSION);
         for (llist = g_list_first(w_songs); llist; llist = g_list_next(llist))
             write_song_data(f, SONG(llist));
-        for (llist = g_list_first(not_songs); 
+        for (llist = g_list_first(gjay->not_songs); 
              llist; llist = g_list_next(llist))
             write_not_song_data(f, (char *) llist->data);
         fprintf(f, "</gjay_data>\n");
         fclose(f);
         rename(buffer_temp, buffer);
-        songs_dirty = FALSE;
+        gjay->songs_dirty = FALSE;
     } else {
         fprintf(stderr, "Unable to write song data %s\n", buffer_temp);
     }
@@ -561,7 +552,7 @@ gboolean add_from_daemon_file_at_seek (int seek) {
         fseek(f, seek, SEEK_SET);
         result = read_data(f);
         if (result) {
-            songs_dirty = TRUE;
+            gjay->songs_dirty = TRUE;
         }
         fclose(f);
     }
@@ -637,20 +628,20 @@ void data_start_element  (GMarkupParseContext *context,
         assert(path);
         
         if (state->not_song) {
-            if (!g_hash_table_lookup(not_song_hash, path)) {
+            if (!g_hash_table_lookup(gjay->not_song_hash, path)) {
                 state->new = TRUE;
                 /* Only keep track of files which still exist */
                 if (!access(path, R_OK)) {
                     path = g_strdup(path);
-                    not_songs = g_list_append(not_songs, path);
-                    g_hash_table_insert ( not_song_hash,
+                    gjay->not_songs = g_list_append(gjay->not_songs, path);
+                    g_hash_table_insert ( gjay->not_song_hash,
                                           path, 
                                           (gpointer) TRUE);
                 } 
             }
             return;
         }
-        state->s = g_hash_table_lookup(song_name_hash, path);
+        state->s = g_hash_table_lookup(gjay->song_name_hash, path);
         if (!state->s) {
             state->new = TRUE;
             state->s = create_song();
@@ -658,7 +649,7 @@ void data_start_element  (GMarkupParseContext *context,
         }
         if (repeat_path && (strlen(repeat_path) > 0)) {
             state->is_repeat = TRUE;
-            original = g_hash_table_lookup(song_name_hash, repeat_path);
+            original = g_hash_table_lookup(gjay->song_name_hash, repeat_path);
             assert(original);
             song_set_repeats(state->s, original);
         }
@@ -710,17 +701,17 @@ void data_end_element (GMarkupParseContext *context,
             latin1_path = strdup_to_latin1(state->s->path);
             state->s->access_ok = !access(latin1_path, R_OK);
             if (!state->s->access_ok) {
-                songs_dirty = TRUE;
+                gjay->songs_dirty = TRUE;
             }
             g_free(latin1_path);
 
             /* Add song to song list and hash table */
-            songs = g_list_append(songs, state->s);
-            g_hash_table_insert (song_name_hash,
+            gjay->songs = g_list_append(gjay->songs, state->s);
+            g_hash_table_insert (gjay->song_name_hash,
                                  state->s->path, 
                                  state->s);           
             hash_inode_dev(state->s, state->has_dev);
-            g_hash_table_insert (song_inode_dev_hash,
+            g_hash_table_insert (gjay->song_inode_dev_hash,
                                  &state->s->inode_dev_hash,
                                  state->s);
         }
@@ -925,7 +916,7 @@ static int get_element ( gchar * element_name ) {
 
 
 int write_dirty_song_timeout ( gpointer data ) {
-    if (songs_dirty) 
+    if (gjay->songs_dirty) 
         write_data_file();
     return TRUE;
 }

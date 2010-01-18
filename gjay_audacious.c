@@ -1,5 +1,5 @@
 /**
- * GJay, copyright (c) 2009 Craig Small
+ * GJay, copyright (c) 2010 Craig Small
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -98,7 +98,7 @@ get_current_audacious_song(void) {
   uri = g_filename_from_uri(playlist_file, NULL, NULL);
   if (uri == NULL)
     return NULL;
-  s = g_hash_table_lookup(song_name_hash, uri);
+  s = g_hash_table_lookup(gjay->song_name_hash, uri);
   g_free(playlist_file);
   g_free(uri);
   return s;

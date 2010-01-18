@@ -70,7 +70,6 @@ static gboolean create_ui_daemon_pipe(void);
 static gboolean mode_attached ( gjay_mode m );
 static void     fork_or_connect_to_daemon(void);
 static void     run_as_ui      (int argc, char * argv[]);
-static void     run_as_daemon  ( void );
 static void     run_as_playlist  ( gboolean m3u_format, 
                                    gboolean playlist_in_audacious );
 static void     run_as_analyze_detached  ( char * analyze_detached_fname );
@@ -191,12 +190,12 @@ int main( int argc, char *argv[] ) {
     /* Intialize vars */
     daemon_pipe_fd = -1;
     ui_pipe_fd = -1;
-    songs = NULL;
-    not_songs = NULL;
-    songs_dirty = FALSE;
-    song_name_hash    = g_hash_table_new(g_str_hash, g_str_equal);
-    song_inode_dev_hash = g_hash_table_new(g_int_hash, g_int_equal);
-    not_song_hash     = g_hash_table_new(g_str_hash, g_str_equal);
+    gjay->songs = NULL;
+    gjay->not_songs = NULL;
+    gjay->songs_dirty = FALSE;
+    gjay->song_name_hash    = g_hash_table_new(g_str_hash, g_str_equal);
+    gjay->song_inode_dev_hash = g_hash_table_new(g_int_hash, g_int_equal);
+    gjay->not_song_hash     = g_hash_table_new(g_str_hash, g_str_equal);
 
     /* Check to see if we have all the apps we'll need for analysis */
     if (!app_exists(OGG_DECODER_APP)) {
@@ -254,7 +253,7 @@ int main( int argc, char *argv[] ) {
         break;
     case DAEMON_INIT:
     case DAEMON_DETACHED: 
-        run_as_daemon();
+        gjay_init_daemon();
         break;
     case ANALYZE_DETACHED:
         run_as_analyze_detached(analyze_detached_fname);
@@ -283,16 +282,6 @@ static gboolean app_exists (gchar * app) {
 }
 
 
-/**
- * When the daemon receives a kill signal, delete ~/.gjay/gjay.pid
- */
-static void kill_signal (int sig) {
-    char buffer[BUFFER_SIZE];
-    snprintf(buffer, BUFFER_SIZE, "%s/%s/%s", 
-             getenv("HOME"), GJAY_DIR, GJAY_PID);
-    unlink(buffer); 
-    exit(0);
-}
 
 
 static int open_pipe(const char* filepath) {
@@ -510,11 +499,6 @@ static void fork_or_connect_to_daemon(void) {
 static void run_as_ui(int argc, char *argv[] ) 
 {    
 
-    
-  if (!app_exists("audacious")) {
-    fprintf(stderr, "GJay strongly suggests audacious\n"); 
-  } 
-    
   gtk_init (&argc, &argv);
     
   g_io_add_watch (g_io_channel_unix_new (daemon_pipe_fd),
@@ -542,7 +526,7 @@ static void run_as_ui(int argc, char *argv[] )
     send_ipc(ui_pipe_fd, ATTACH);
     if (skip_verify) {
         GList * llist;
-        for (llist = g_list_first(songs); llist; llist = g_list_next(llist)) {
+        for (llist = g_list_first(gjay->songs); llist; llist = g_list_next(llist)) {
             SONG(llist)->in_tree = TRUE;
             SONG(llist)->access_ok = TRUE;
         }        
@@ -556,7 +540,7 @@ static void run_as_ui(int argc, char *argv[] )
     gtk_main();
     
     save_prefs();
-    if (songs_dirty)
+    if (gjay->songs_dirty)
         write_data_file();
     
     if (gjay->prefs->detach || (gjay->prefs->daemon_action == PREF_DAEMON_DETACH)) {
@@ -572,44 +556,13 @@ static void run_as_ui(int argc, char *argv[] )
 }
 
 
-static void run_as_daemon(void)
-{
-    char buffer[BUFFER_SIZE];
-    FILE * f;
-
-    /* Write pid to ~/.gjay/gjay.pid */
-    snprintf(buffer, BUFFER_SIZE, "%s/%s/%s", 
-             getenv("HOME"), GJAY_DIR, GJAY_PID);
-    f = fopen(buffer, "w");
-    if (f) {
-        fprintf(f, "%d", getpid());
-        fclose(f);
-    } else {
-        fprintf(stderr, "Unable to write to %s\n", GJAY_PID);
-    }
-    
-    signal(SIGTERM, kill_signal);
-    signal(SIGKILL, kill_signal);
-    signal(SIGINT,  kill_signal);
-    
-    analysis_daemon();
-    
-    /* Daemon cleans up pipes on quit */
-    close(daemon_pipe_fd);
-    close(ui_pipe_fd);
-    unlink(daemon_pipe);
-    unlink(ui_pipe);
-    rmdir(gjay_pipe_dir);
-}
-
-
 /* Playlist mode */
 static void run_as_playlist(gboolean m3u_format, gboolean playlist_in_audacious)
 {
     GList * list;
     gjay->prefs->use_selected_songs = FALSE;
     gjay->prefs->rating_cutoff = FALSE;
-    for (list = g_list_first(songs); list;  list = g_list_next(list)) {
+    for (list = g_list_first(gjay->songs); list;  list = g_list_next(list)) {
         SONG(list)->in_tree = TRUE;
     }
     list = generate_playlist(gjay->prefs->time);
