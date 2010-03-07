@@ -5,7 +5,7 @@
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 1, or (at
+ * published by the Free Software Foundation; either version 2, or (at
  * your option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but
@@ -84,9 +84,12 @@ static song       * analyze_song = NULL;
 static GList      * queue = NULL; 
 static GHashTable * queue_hash = NULL;
 static time_t       last_ping;
+static gchar * mp3_decoder;
+static gchar * ogg_decoder;
 
-static FILE *        inflate_to_wav (gchar * path, 
-                              song_file_type type);
+static FILE *     inflate_to_wav (const gchar * path, 
+                              const song_file_type type);
+
 static int           run_analysis     ( wav_file * wsfile,
                                  gdouble * freq_results,
                                  gdouble * volume_diff,
@@ -105,8 +108,20 @@ static void kill_signal (int sig);
 static int      quote_path(char *buf, size_t bufsiz, const char *path);
 static void analysis_daemon(void);
 gboolean      daemon_idle       ( gpointer data );
+static void analyze( const char * fname, const gboolean result_to_stdout);
 
-void gjay_init_daemon(void)
+void
+run_as_analyze_detached  ( const char * analyze_detached_fname)
+{
+  if (access(analyze_detached_fname, R_OK) != 0)
+  {
+    fprintf(stderr, "File %s not found\n", analyze_detached_fname);
+    exit(1);
+  }
+  analyze(analyze_detached_fname, TRUE);
+}
+
+void run_as_daemon(void)
 {
   gchar *path;
   FILE *fp;
@@ -115,7 +130,7 @@ void gjay_init_daemon(void)
   path = g_strdup_printf("%s/%s/%s", g_get_home_dir(),
       GJAY_DIR, GJAY_PID);
   if ((fp = fopen(path, "w")) == NULL) {
-    g_critical("Cannot open %s for writing\n", path);
+    g_print("Cannot open %s for writing\n", path);
     exit(1);
   }
   g_free(path);
@@ -149,6 +164,7 @@ static void kill_signal (int sig) {
   g_free(path);
   exit(0);
 }
+
 static void add_file_to_queue ( char * fname) {
     char queue_fname[BUFFER_SIZE], buffer[BUFFER_SIZE], * str;
     FILE * f_queue, * f_add;
@@ -296,9 +312,9 @@ gboolean ui_pipe_input (GIOChannel *source,
 
 
 
-void analyze(char * fname,            /* File to analyze */
-             gboolean result_to_stdout) /* Write result to stdout? 
-                                           (Default FALSE means to disk */ 
+static void
+analyze(const char * fname,            /* File to analyze */
+        const gboolean result_to_stdout) /* Write result to stdout? */
 {
     FILE * f;
     gchar * utf8;
@@ -319,7 +335,7 @@ void analyze(char * fname,            /* File to analyze */
         /* File ain't there! The UI thread will check for non-existant
            files periodically. */
         if (verbosity)
-            fprintf(stderr, "File not found\n");
+            fprintf(stderr, "analyze(): File %s cannot be read.\n",fname);
         in_analysis = FALSE;
         return;
     }
@@ -342,7 +358,7 @@ void analyze(char * fname,            /* File to analyze */
 
     if (!is_song) {
         if (verbosity)
-            fprintf(stderr, "File not song\n");
+            fprintf(stderr, "File %s is not a recognised song.\n",fname);
         in_analysis = FALSE;
         return;
     }
@@ -403,34 +419,58 @@ void analyze(char * fname,            /* File to analyze */
     return;
 }
 
-static FILE *
-inflate_to_wav ( gchar * path, song_file_type type)
+static void
+check_decoders(void)
 {
-    char buffer[BUFFER_SIZE];
-    char quoted_path[BUFFER_SIZE];
-    FILE * f;
+  if ( (ogg_decoder = g_find_program_in_path(OGG_DECODER_APP)) == NULL)
+  {
+    g_error("Sorry, GJay requires %s; quitting\n", OGG_DECODER_APP); 
+    kill_signal(SIGTERM);
+ }
+ if ( (mp3_decoder = g_find_program_in_path(MP3_DECODER_APP1)) == NULL)
+ {
+   if ( (mp3_decoder = g_find_program_in_path(MP3_DECODER_APP2)) == NULL)
+   {
+     g_error("Sorry, GJay requires %s; quitting\n", 
+                    MP3_DECODER_APP1); 
+     kill_signal(SIGTERM);
+   }
 
-    quote_path(quoted_path, BUFFER_SIZE, path);
-    switch (type) {
+ }
+}
+
+static FILE *
+inflate_to_wav (const gchar * path, const song_file_type type)
+{
+  gchar *cmdline;
+  gchar *quoted_path;
+  FILE *fp;
+
+  quoted_path = path;//g_shell_quote(path);
+  if (mp3_decoder == NULL)
+    check_decoders();
+
+  switch (type) {
     case OGG:
-        snprintf(buffer, BUFFER_SIZE, "%s \'%s\' -d wav -f - 2> /dev/null",
-                 OGG_DECODER_APP,
-                 quoted_path);
-        break;
+      cmdline = g_strdup_printf("%s \'%s\' -d wav -f - 2> /dev/null",
+          ogg_decoder,
+          quoted_path);
+      break;
     case MP3:
-        snprintf(buffer, BUFFER_SIZE, "%s -b 10000 \'%s\' -w - 2> /dev/null",
-                 gjay->mp3_decoder_app,
-                 quoted_path);
-        break;
+      cmdline = g_strdup_printf("%s -b 10000 \'%s\' -w - 2> /dev/null",
+          mp3_decoder,
+          quoted_path);
+      //fprintf(stderr,"Decoding with: %s\n", cmdline);
+      break;
     case WAV:
     default:
-        return fopen(path, "r");
-    }
-    if (!(f = popen(buffer, "r"))) {
-        fprintf(stderr, "Unable to run %s\n", buffer);
-        return NULL;
-    } 
-    return f;
+      return fopen(path, "r");
+  }
+  if (!(fp = popen(cmdline, "r"))) {
+    g_error("Unable to run %s\n", cmdline);
+      return NULL;
+  } 
+  return fp;
 }
 
 
@@ -909,7 +949,7 @@ gboolean daemon_idle (gpointer data) {
     if (mode == DAEMON_DETACHED) {
         if (verbosity)
             printf("Analysis daemon done.\n");
-        g_main_quit((GMainLoop *) data);
+        //g_main_quit((GMainLoop *) data);
     }
     return FALSE;
 }

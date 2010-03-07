@@ -12,6 +12,9 @@ AC_PROG_CC
 AC_PROG_INSTALL
 PKG_PROG_PKG_CONFIG
 
+dnl Check for language stuff
+AM_GNU_GETTEXT([external])
+
 # Checks for libraries.
 AM_PATH_GTK_2_0
 PKG_CHECK_MODULES([DBUS_GLIB], [dbus-glib-1])
@@ -35,7 +38,7 @@ AC_CHECK_LIB([audclient], [audacious_remote_playlist])
 #AC_FUNC_MALLOC
 #AC_CHECK_FUNCS([bzero floor memset mkdir rmdir sqrt strcasecmp strdup strerror strncasecmp strtol])
 
-AC_CONFIG_FILES([Makefile
+AC_CONFIG_FILES([Makefile po/Makefile.in
                  doc/Makefile
                  icons/Makefile])
 AC_OUTPUT

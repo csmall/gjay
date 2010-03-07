@@ -1,0 +1,20 @@
+# List of source files which contain translatable strings.
+analysis.c
+dbus.c
+gjay_audacious.c
+gjay.c
+gjay_xmms.c
+ipc.c
+mp3.c
+playlist.c
+prefs.c
+rgbhsv.c
+songs.c
+ui.c
+ui_colorwheel.c
+ui_explore_view.c
+ui_menubar.c
+ui_playlist_view.c
+ui_prefs_view.c
+ui_selection_view.c
+vorbis.c

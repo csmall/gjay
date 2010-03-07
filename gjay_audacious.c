@@ -17,6 +17,10 @@
  * USA
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif /* HAVE_CONFIG_H */
+
 #include <stdio.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -28,27 +32,12 @@
 #include "dbus.h"
 
 static void play_files ( GList *list);
+static void audacious_connect(void);
 
-gboolean
-audacious_is_running(void)
-{
-  return gjay_dbus_is_running(AUDACIOUS_DBUS_SERVICE);
-}
-
-/* Connect and init audacious instance */
-static void
-audacious_connect(void)
-{
-  if (gjay->audacious_proxy != NULL)
-    return;
-
-  gjay->audacious_proxy = dbus_g_proxy_new_for_name(gjay->connection,
-      AUDACIOUS_DBUS_SERVICE, AUDACIOUS_DBUS_PATH, AUDACIOUS_DBUS_INTERFACE);
-
-}
-
+/* public functions */
 void
-play_song(song *s) {
+play_song(song *s)
+{
   GList *list;
 
   list = g_list_append(NULL, strdup_to_latin1(s->path));
@@ -65,22 +54,11 @@ void play_songs (GList *slist) {
   play_files(list);
 }
 
-static void
-play_files ( GList *list) {
-  GList *lptr = NULL;
-  gchar *uri = NULL;
 
-  if (!list)
-    return;
-  audacious_connect();
-  audacious_remote_stop(gjay->audacious_proxy);
-  audacious_remote_playlist_clear(gjay->audacious_proxy);
-  for (lptr=list; lptr; lptr = g_list_next(lptr)) {
-      uri = g_filename_to_uri(lptr->data, NULL, NULL);
-      audacious_remote_playlist_add_url_string(gjay->audacious_proxy, uri);
-      g_free(uri);
-  }
-  audacious_remote_play(gjay->audacious_proxy);
+gboolean
+audacious_is_running(void)
+{
+  return gjay_dbus_is_running(AUDACIOUS_DBUS_SERVICE);
 }
 
 song *
@@ -102,6 +80,97 @@ get_current_audacious_song(void) {
   g_free(playlist_file);
   g_free(uri);
   return s;
+}
+
+/* static functions */
+
+/* Connect and init audacious instance */
+static void
+audacious_connect(void)
+{
+  if (gjay->audacious_proxy != NULL)
+    return;
+
+  gjay->audacious_proxy = dbus_g_proxy_new_for_name(gjay->connection,
+      AUDACIOUS_DBUS_SERVICE, AUDACIOUS_DBUS_PATH, AUDACIOUS_DBUS_INTERFACE);
+
+}
+
+static void
+play_files ( GList *list) {
+  GList *lptr = NULL;
+  gchar *uri = NULL;
+
+  if (!list)
+    return;
+
+  if (!audacious_is_running())
+  {
+    int i;
+    GtkWidget *dialog;
+    gint result;
+    GError *error;
+
+    dialog = gtk_message_dialog_new(GTK_WINDOW(gjay->main_window),
+        GTK_DIALOG_DESTROY_WITH_PARENT,
+        GTK_MESSAGE_QUESTION,
+        GTK_BUTTONS_YES_NO,
+        "Audacious is not running, start Audacious?");
+    result = gtk_dialog_run(GTK_DIALOG(dialog));
+    gtk_widget_destroy(dialog);
+    if (result == GTK_RESPONSE_YES)
+    {
+      error = NULL;
+      GAppInfo *aud_app;
+
+      if ((aud_app = g_app_info_create_from_commandline(
+          AUDACIOUS_BIN,
+          "Audacious",
+          G_APP_INFO_CREATE_NONE,
+          &error)) == NULL)
+      {
+        g_warning("Cannot create audacious g_app %s", error->message);
+        g_error_free(error);
+        return;
+      }
+      error=NULL;
+      if (g_app_info_launch(aud_app, NULL, NULL, &error) == FALSE)
+      {
+        g_warning("Cannot launch audacious g_app %s", error->message);
+        g_error_free(error);
+        return;
+      }
+      /* Give it 3 tries */
+      for(i=1; i<= 3; i++)
+      {
+        if (audacious_is_running())
+          break;
+        sleep(1);
+      }
+      if (i == 3) /* never got running */
+      {
+        dialog = gtk_message_dialog_new(GTK_WINDOW(gjay->main_window),
+            GTK_DIALOG_DESTROY_WITH_PARENT,
+            GTK_MESSAGE_ERROR,
+            GTK_BUTTONS_CLOSE,
+            "Unable to start Audacious");
+        gtk_dialog_run(GTK_DIALOG(dialog));
+        gtk_widget_destroy(dialog);
+        return;
+      }
+
+    } else /* user clicked no */
+      return;
+  }
+  audacious_connect();
+  audacious_remote_stop(gjay->audacious_proxy);
+  audacious_remote_playlist_clear(gjay->audacious_proxy);
+  for (lptr=list; lptr; lptr = g_list_next(lptr)) {
+      uri = g_filename_to_uri(lptr->data, NULL, NULL);
+      audacious_remote_playlist_add_url_string(gjay->audacious_proxy, uri);
+      g_free(uri);
+  }
+  audacious_remote_play(gjay->audacious_proxy);
 }
 
 

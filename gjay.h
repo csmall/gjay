@@ -20,6 +20,9 @@
 #ifndef GJAY_H
 #define GJAY_H
 
+/* Global definitions */
+#define AUDACIOUS_BIN "/usr/bin/audacious2"
+
 #include <stdio.h>
 #include <gtk/gtk.h>
 #include <glib.h>
@@ -57,12 +60,8 @@ typedef enum {
 extern gjay_mode mode;
 
 /* User options */
-extern gint      verbosity;
-extern gint      skip_verify;
-
-/* App names */
-extern char * ogg_decoder_app;
-extern char * mp3_decoder_app;
+extern gboolean      verbosity;
+extern gboolean      skip_verify;
 
 /* Utilities */
 void    read_line             ( FILE * f, 

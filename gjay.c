@@ -1,9 +1,10 @@
 /**
  * GJay, copyright (c) 2002-2004 Chuck Groom
+ *       Copyright (c) 2010 Craig Small
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 1, or (at
+ * published by the Free Software Foundation; either version 2, or (at
  * your option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but
@@ -52,6 +53,7 @@
 #include "vorbis.h"
 #include "ui.h"
 #include "gjay_audacious.h"
+#include "i18n.h"
 
 GjayApp *gjay;
 
@@ -59,10 +61,10 @@ gjay_mode mode; /* UI, DAEMON, PLAYLIST */
 
 int daemon_pipe_fd;
 int ui_pipe_fd;
-gint verbosity;
-gint skip_verify;
+gboolean verbosity;
+gboolean skip_verify;
 
-static gboolean app_exists  ( gchar * app );
+//static gboolean app_exists  ( gchar * app );
 static void     kill_signal ( int sig );
 static int      open_pipe   ( const char* filepath );
 static gint     ping_daemon ( gpointer data );
@@ -72,120 +74,126 @@ static void     fork_or_connect_to_daemon(void);
 static void     run_as_ui      (int argc, char * argv[]);
 static void     run_as_playlist  ( gboolean m3u_format, 
                                    gboolean playlist_in_audacious );
-static void     run_as_analyze_detached  ( char * analyze_detached_fname );
+
+static gboolean
+print_version(const gchar *option_name, const gchar *value, gpointer data, GError **error)
+{
+  fprintf(stderr, _("GJay version %s\n"), VERSION);
+  fprintf(stderr,
+      "Copyright (C) 2002-2004 Chuck Groom\n"
+      "Copyright (C) 2010 Craig Small\n\n");
+	fprintf(stderr,
+		_("GJay comes with ABSOLUTELY NO WARRANTY.\n"
+		  "This is free software, and you are welcome to redistribute it under\n"
+		  "the terms of the GNU General Public License.\n"
+		  "For more information about these matters, see the files named COPYING.\n"));
+  exit(0);
+}
+
+static void
+parse_commandline(int argc, char *argv[], gboolean *m3u_format, gboolean *run_player, gchar **analyze_detached_fname)
+{
+  gboolean opt_daemon=FALSE, opt_playlist=FALSE;
+  gint opt_length=0;
+  gchar *opt_standalone=NULL, *opt_color=NULL, *opt_file=NULL;
+  GError *error;
+  GOptionContext *context;
+
+  GOptionEntry entries[] =
+  {
+    { "analyze-standalone", 'a', 0, G_OPTION_ARG_FILENAME, &opt_standalone, "Analyze just FILE as standalone", "FILE" },
+    { "color", 'c', 0, G_OPTION_ARG_STRING, &opt_color, "Start playlist at color- Hex or name", "0xrrggbb|NAME" },
+    { "daemon", 'd', 0, G_OPTION_ARG_NONE, &opt_daemon, "Run as daemon", NULL },
+    { "file", 'f', 0, G_OPTION_ARG_STRING, &opt_file, "Start playlist at file", NULL },
+    { "length", 'l', 0, G_OPTION_ARG_INT, &opt_length, "Playlist length", NULL },
+    { "playlist", 'p', 0, G_OPTION_ARG_NONE, &opt_playlist, "Generate a playlist", NULL },
+    { "skip-verification", 's', 0, G_OPTION_ARG_NONE, &skip_verify, "Skip file verification", NULL },
+    { "m3u-playlist", 'u', 0, G_OPTION_ARG_NONE, m3u_format, "Use M3U playlist format", NULL },
+    { "verbose", 'v', 0, G_OPTION_ARG_NONE, &verbosity, "Verbose", NULL },
+    { "play-audacious", 'P', 0, G_OPTION_ARG_NONE, run_player, "Play generated playlist in Audacious", NULL },
+    { "version", 'V', G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK , &print_version, "Show version", NULL },
+    { NULL }
+  };
+
+  context = g_option_context_new(_("- Automatic DJ and playlist creator"));
+  g_option_context_add_main_entries( context, entries, NULL);
+/*  if (gtk_init_check(&argc, &argv))
+  g_option_context_add_group (context, gtk_get_option_group (TRUE));*/
+  error = NULL;
+  if (!g_option_context_parse (context, &argc, &argv, &error))
+  {
+    g_print (_("option parsing failed: %s\n"), error->message);
+    exit (1);
+  }
+
+
+  if (opt_standalone != NULL)
+  {
+    *analyze_detached_fname = opt_standalone;
+    mode = ANALYZE_DETACHED;
+  }
+  if (opt_color != NULL)
+  {
+    RGB rgb;
+    gint hex;
+    if (sscanf(opt_color, "0x%x", &hex))
+    {
+      rgb.R = ((hex & 0xFF0000) >> 16) / 255.0;
+      rgb.G = ((hex & 0x00FF00) >> 8) / 255.0;
+      rgb.B = (hex & 0x0000FF) / 255.0;
+      gjay->prefs->start_color = TRUE;
+      gjay->prefs->color = rgb_to_hsv(rgb);
+    } else if (get_named_color(opt_color, &rgb))
+    {
+      gjay->prefs->start_color = TRUE;
+      gjay->prefs->color = rgb_to_hsv(rgb);
+    }
+  }
+  if (opt_daemon)
+  {
+    mode = DAEMON_DETACHED;
+    printf(_("Running as daemon. Ctrl+c to stop.\n"));
+  }
+
+  if (opt_file != NULL)
+  {
+    char *path;
+    gjay->prefs->start_selected = TRUE;
+    path = strdup_to_utf8(opt_file);
+    gjay->selected_files = g_list_append(NULL, path);
+  }
+  if (opt_playlist) /* -p */
+  {
+    gjay->prefs->start_color = FALSE;
+    mode = PLAYLIST;
+  }
+}
 
 
 int main( int argc, char *argv[] ) {
-    char buffer[BUFFER_SIZE];
-    char * analyze_detached_fname;
-    struct stat stat_buf;
-    gint i, k, hex;
-    gboolean m3u_format, playlist_in_audacious;
+  char buffer[BUFFER_SIZE];
+  gchar * analyze_detached_fname=NULL, *option_file=NULL;
+  struct stat stat_buf;
+  gint i, k;
+  gboolean m3u_format, playlist_in_audacious;
+  gchar *ogg_decoder_app, *mp3_decoder_app;
+  gchar *gjay_home;
 
-    srand(time(NULL));
+  srand(time(NULL));
     
   if ((gjay = g_malloc0(sizeof(GjayApp))) == NULL) {
-    fprintf(stderr, "Unable to allocate memory for app.\n");
+    fprintf(stderr, _("Unable to allocate memory for app.\n"));
     exit(1);
   }
 
-    mode = UI;
-    verbosity = 0;    
-    skip_verify = 0;
-    m3u_format = FALSE;
-    playlist_in_audacious = FALSE;
-    gjay->prefs = load_prefs();
+  mode = UI;
+  verbosity = 0;    
+  skip_verify = 0;
+  m3u_format = FALSE;
+  playlist_in_audacious = FALSE;
+  gjay->prefs = load_prefs();
    
-    for (i = 0; i < argc; i++) {
-        if ((strncmp(argv[i], "-h", 2) == 0) || 
-            (strncmp(argv[i], "--help", 6) == 0)) {
-            printf(HELP_TEXT);
-            return 0;
-        } else if (strncmp(argv[i], "--version", 9) == 0) {
-            printf("GJay version %s\n", VERSION);
-            return 0;
-        } else if (strncmp(argv[i], "-l", 2) == 0) {
-            /* Set the playlist length, in minutes */
-            if (i + 1 < argc) {
-                gjay->prefs->time = atoi(argv[i + 1]);
-                i++;
-            } else {
-                fprintf(stderr, "Usage: -l length (in minutes)\n");
-                return -1;
-            }
-        } else if (strncmp(argv[i], "-c", 2) == 0) {
-            /* Start the playlist at a particular color */
-            RGB rgb;
-            if (i + 1 < argc) {
-                strncpy(buffer, argv[i+1], BUFFER_SIZE);
-                if (sscanf(buffer, "0x%x", &hex)) {
-                    rgb.R = ((hex & 0xFF0000) >> 16) / 255.0;
-                    rgb.G = ((hex & 0x00FF00) >> 8) / 255.0;
-                    rgb.B = (hex & 0x0000FF) / 255.0;
-                    gjay->prefs->start_color = TRUE;
-                } else if (get_named_color(buffer, &rgb)) {
-                    gjay->prefs->start_color = TRUE;
-                }
-                gjay->prefs->color = rgb_to_hsv(rgb);
-                i++;
-            } else {
-                fprintf(stderr, "Usage: -c color, where color is a hex number in the form 0xRRGGBB or a color name:\n%s\n", known_colors());
-                return -1;
-            }            
-        } else if (strncmp(argv[i], "-f", 2) == 0) {
-            /* Start the playlist at a particular file. */
-            char fname[BUFFER_SIZE];
-            char * path;
-            if (i + 1 < argc) {
-                strncpy(buffer, argv[i+1], BUFFER_SIZE);
-                sscanf(buffer, "%s", fname);
-                gjay->prefs->start_selected = TRUE;
-                path = strdup_to_utf8(fname);
-                gjay->selected_files = g_list_append(NULL, path);
-                i++;
-            } else {
-                fprintf(stderr, "Usage: -f filename\n");
-                return -1;
-            }  
-        } else if (strncmp(argv[i], "--analyze-standalone", 20) == 0) {
-            /* Analyze just one file in standalone mode, dump results as
-             * XML to stdout */
-            if (i + 1 < argc) {
-                analyze_detached_fname = strdup(argv[++i]);
-                mode = ANALYZE_DETACHED;
-            } else {
-                fprintf(stderr, "Usage: --analyze-standalone filename\n");
-                return -1;
-            }  
-        } else if (argv[i][0] == '-') {
-            for (k = 1; argv[i][k]; k++) {
-                if (argv[i][k] == 'd') {
-                    /* Run just the analysis daemon, detached */
-                    mode = DAEMON_DETACHED;
-                    printf("Running as daemon. Ctrl+c to stop.\n");
-                }
-                if (argv[i][k] == 'v')
-                    verbosity++;
-                if (argv[i][k] == 's') {
-                    /* Skip file verification step */
-                    printf("Skipping verification for debugging only.\n");
-                    skip_verify = 1; 
-                }
-                if (argv[i][k] == 'u')
-                    /* Playlist mode: Use the M3U playlist format */
-                    m3u_format = TRUE;
-                if (argv[i][k] == 'x')
-                    /* Playlist mode: Play the generated playlist in Audacious */
-                    playlist_in_audacious = TRUE;
-                if (argv[i][k] == 'p') {
-                    /* Generate a playlist */
-                    gjay->prefs->start_color = FALSE;
-                    mode = PLAYLIST;
-                }
-            }
-        }
-    }
-
+  parse_commandline(argc, argv, &m3u_format, &playlist_in_audacious, &analyze_detached_fname);
 
     /* Intialize vars */
     daemon_pipe_fd = -1;
@@ -198,32 +206,33 @@ int main( int argc, char *argv[] ) {
     gjay->not_song_hash     = g_hash_table_new(g_str_hash, g_str_equal);
 
     /* Check to see if we have all the apps we'll need for analysis */
-    if (!app_exists(OGG_DECODER_APP)) {
-        fprintf(stderr, "Sorry, GJay requires %s; quitting\n", 
-                OGG_DECODER_APP); 
-        return -1;
-    }
-    if (app_exists(MP3_DECODER_APP1)) {
-      gjay->mp3_decoder_app = g_strdup(MP3_DECODER_APP1);
-    } else if (app_exists(MP3_DECODER_APP2)) {
-        gjay->mp3_decoder_app = g_strdup(MP3_DECODER_APP2);
-      } else {
-         fprintf(stderr, "Sorry, GJay requires %s; quitting\n", 
+  if ( g_find_program_in_path(OGG_DECODER_APP) == NULL)
+  {
+    fprintf(stderr, _("Sorry, GJay requires %s; quitting\n"), OGG_DECODER_APP); 
+    return -1;
+ }
+ if ( (g_find_program_in_path(MP3_DECODER_APP1) == NULL) &&
+   (g_find_program_in_path(MP3_DECODER_APP2) == NULL))
+ {
+     fprintf(stderr, _("Sorry, GJay requires %s; quitting\n"), 
                     MP3_DECODER_APP1); 
-         return -1;
-      }
+     return -1;
+ }
     
-    /* Make sure there is a "~/.gjay" directory */
-    snprintf(buffer, BUFFER_SIZE, "%s/%s", getenv("HOME"), GJAY_DIR);
-    if (stat(buffer, &stat_buf) < 0) {
-        if (mkdir (buffer, 
-                   S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IXGRP |
-                   S_IROTH | S_IXOTH) < 0) {
-            fprintf (stderr, "Could not create %s\n", buffer);
-            perror(NULL);
-            return 0;
-        }
-    }
+  /* Make sure there is a "~/.gjay" directory */
+ gjay_home = g_strdup_printf("%s/%s", g_get_home_dir(), GJAY_DIR);
+ if (g_file_test(gjay_home, G_FILE_TEST_IS_DIR) == FALSE)
+ {
+   if (mkdir (gjay_home, 
+         S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IXGRP |
+         S_IROTH | S_IXOTH) < 0)
+   {
+     fprintf (stderr, _("Could not create %s\n"), gjay_home);
+     perror(NULL);
+     return 0;
+   }
+  }
+  g_free(gjay_home);
 
     if (mode_attached(mode)) {
         if (create_ui_daemon_pipe() == FALSE) {
@@ -233,9 +242,8 @@ int main( int argc, char *argv[] ) {
 
     /* Try to load libvorbis; this is a soft dependancy */
     if (gjay_vorbis_dlopen() == 0) {
-        printf("Ogg not supported; %s", gjay_vorbis_error());
+        printf(_("Ogg not supported; %s"), gjay_vorbis_error());
     }
-
     if (mode == UI) {
         /* UI needs a daemon */
         fork_or_connect_to_daemon();
@@ -253,13 +261,13 @@ int main( int argc, char *argv[] ) {
         break;
     case DAEMON_INIT:
     case DAEMON_DETACHED: 
-        gjay_init_daemon();
+        run_as_daemon();
         break;
     case ANALYZE_DETACHED:
         run_as_analyze_detached(analyze_detached_fname);
         break;
     default:
-        fprintf(stderr, "Error: app mode %d not supported\n", mode);
+        fprintf(stderr, _("Error: app mode %d not supported\n"), mode);
         return -1;
         break;
     }
@@ -268,38 +276,22 @@ int main( int argc, char *argv[] ) {
 }
 
 
-static gboolean app_exists (gchar * app) {
-    FILE * f;
-    char buffer[BUFFER_SIZE];
-    gboolean result = FALSE;
-
-    snprintf(buffer, BUFFER_SIZE, "which %s", app); // Yes, I'm lame
-    f = popen (buffer, "r");
-    while (!feof(f) && fread(buffer, 1, BUFFER_SIZE, f)) 
-        result = TRUE;
-    pclose(f);
-    return result;
-}
-
-
-
-
 static int open_pipe(const char* filepath) {
     int fd = -1;
 
     if ((fd = open(filepath, O_RDWR)) < 0) {
         if (errno != ENOENT) {
-            fprintf(stderr, "Error opening the pipe %s.\n", filepath);
+            fprintf(stderr, ("Error opening the pipe %s.\n"), filepath);
             return -1;
         }
 
         if (mknod(filepath, S_IFIFO | 0777, 0)) {
-            fprintf(stderr, "Couldn't create the pipe %s.\n", filepath);
+            fprintf(stderr, _("Couldn't create the pipe %s.\n"), filepath);
             return -1;
         }
 
         if ((fd = open(filepath, O_RDWR)) < 0) {
-            fprintf(stderr, "Couldn't open the pipe %s.\n", filepath);
+            fprintf(stderr, _("Couldn't open the pipe %s.\n"), filepath);
             return -1;
         }
     }
@@ -344,7 +336,7 @@ gchar * strdup_convert ( const gchar * str,
                       &b_written,
                       NULL);
     if (!conv) {
-        printf("Unable to convert from %s charset; perhaps encoded differently?", enc_from);
+        printf(_("Unable to convert from %s charset; perhaps encoded differently?"), enc_from);
         return g_strdup(str);
     }
     return conv;
@@ -428,7 +420,7 @@ static gboolean create_ui_daemon_pipe(void)
     struct stat buf;
     if (stat(gjay_pipe_dir, &buf) != 0) {
         if (mkdir(gjay_pipe_dir, 0700)) {
-            fprintf(stderr, "Couldn't create %s\n", gjay_pipe_dir);
+            fprintf(stderr, _("Couldn't create %s\n"), gjay_pipe_dir);
             return FALSE;
         }
     }
@@ -463,56 +455,74 @@ static gboolean mode_attached ( gjay_mode m )
 }
 
 
+static gboolean
+daemon_is_alive(void)
+{
+  gchar *path;
+  FILE *fp;
+  int pid;
+
+  path = g_strdup_printf("%s/%s/%s", g_get_home_dir(),
+      GJAY_DIR, GJAY_PID);
+  fp = fopen(path, "r");
+  g_free(path);
+
+  if (fp == NULL)
+    return FALSE;
+  if (fscanf(fp, "%d", &pid) != 1)
+  {
+    fclose(fp);
+    return FALSE;
+  }
+  fclose(fp);
+  path = g_strdup_printf("/proc/%d/stat", pid);
+  if (access(path, R_OK) != 0)
+  {
+    g_free(path);
+    return FALSE;
+  }
+  g_free(path);
+  return TRUE;
+}
+
+
 /* Fork a new daemon if one isn't running */
-static void fork_or_connect_to_daemon(void) {
-    /* Make sure a daemon is running. If not, fork. */
-    char buffer[BUFFER_SIZE];
-    gboolean fork_daemon = FALSE;
-    pid_t pid;
-    FILE * f;
-    gint i;
-    
-    snprintf(buffer, BUFFER_SIZE, "%s/%s/%s", 
-             getenv("HOME"), GJAY_DIR, GJAY_PID);
-    f = fopen(buffer, "r");
-    if (f) {
-        fscanf(f, "%d", &i);
-        fclose(f);
-        snprintf(buffer, BUFFER_SIZE, "/proc/%d/stat", i);
-        if (access(buffer, R_OK))
-            fork_daemon = TRUE; 
-    } else {
-        fork_daemon = TRUE;
+static void
+fork_or_connect_to_daemon(void)
+{
+  pid_t pid;
+  /* Make sure a daemon is running. If not, fork. */
+
+  if (daemon_is_alive() == FALSE)
+  {
+    pid = fork();
+    if (pid < 0) {
+      fprintf(stderr, _("Unable to fork daemon.\n"));
+    } else if (pid == 0) {
+      /* Daemon child */
+      mode = DAEMON_INIT;
     }
-    if (fork_daemon) {
-        pid = fork();
-        if (pid < 0) {
-            fprintf(stderr, "Unable to fork daemon.\n");
-        } else if (pid == 0) {
-            /* Daemon */
-            mode = DAEMON_INIT;
-        }
-    }
+  }
 }
 
 
 static void run_as_ui(int argc, char *argv[] ) 
 {    
 
-  gtk_init (&argc, &argv);
-    
+  if (gtk_init_check(&argc, &argv) == FALSE)
+  {
+    g_print(_("Cannot initialise Gtk.\n"));
+    exit(1);
+  }
   g_io_add_watch (g_io_channel_unix_new (daemon_pipe_fd),
                   G_IO_IN,
                   daemon_pipe_input,
                   NULL);
-    
   /* Ping the daemon ocassionally to let it know that the UI 
    * process is still around */
   gtk_timeout_add( UI_PING, ping_daemon, NULL);
-    
     make_app_ui();
     gtk_widget_show_all(gjay->main_window);
-
     gjay->connection = gjay_dbus_connection();
 
     set_selected_rating_visible(gjay->prefs->use_ratings);
@@ -536,7 +546,6 @@ static void run_as_ui(int argc, char *argv[] )
     
     set_selected_file(NULL, NULL, FALSE);
     audacious_is_running();
-    
     gtk_main();
     
     save_prefs();
@@ -575,11 +584,3 @@ static void run_as_playlist(gboolean m3u_format, gboolean playlist_in_audacious)
 }
 
 
-static void run_as_analyze_detached  ( char * analyze_detached_fname )
-{
-    if (access(analyze_detached_fname, R_OK) != 0)
-    {
-        fprintf(stderr, "File %s not found\n", analyze_detached_fname);
-    }
-    analyze(analyze_detached_fname, TRUE);
-}

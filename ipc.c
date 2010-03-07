@@ -13,9 +13,12 @@ void send_ipc_text(int fd, ipc_type type, char * text) {
 
     slen = strlen(text);
     len = sizeof(ipc_type) + slen;
-    write(fd, &len,  sizeof(int)); 
-    write(fd, &type, sizeof(ipc_type)); 
-    write(fd, text,  slen);
+    if (write(fd, &len,  sizeof(int)) <= 0)
+     perror("send_ipc_text(): write length:"); 
+    if (write(fd, &type, sizeof(ipc_type)) <= 0)
+     perror("send_ipc_text(): write type:"); 
+    if (write(fd, text,  slen) <= 0)
+     perror("send_ipc_text(): write text:"); 
 }
 
 
@@ -25,9 +28,12 @@ void send_ipc_int (int fd, ipc_type type, int val) {
         return;
     
     len = sizeof(ipc_type) + sizeof(int);
-    write(fd, &len,  sizeof(int)); 
-    write(fd, &type, sizeof(ipc_type)); 
-    write(fd, &val,  sizeof(int));
+    if (write(fd, &len,  sizeof(int)) <= 0)
+     perror("send_ipc_int(): write length:"); 
+    if (write(fd, &type, sizeof(ipc_type)) <= 0)
+     perror("send_ipc_int(): write type:"); 
+    if (write(fd, &val,  sizeof(int)) <= 0)
+     perror("send_ipc_int(): write value:"); 
 }
 
 
@@ -38,6 +44,8 @@ void send_ipc (int fd, ipc_type type) {
         return;
 
     len = sizeof(ipc_type);
-    write(fd, &len,  sizeof(int)); 
-    write(fd, &type, sizeof(ipc_type)); 
+    if (write(fd, &len,  sizeof(int)) <= 0)
+     perror("send_ipc(): write length:"); 
+    if (write(fd, &type, sizeof(ipc_type)) <= 0)
+     perror("send_ipc(): write type:"); 
 }

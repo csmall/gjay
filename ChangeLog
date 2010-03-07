@@ -7,6 +7,8 @@ Changes in 0.3.0
 	* Check fopen succeeds in read_song_file_type - Kevin Turner SF#1282527
 	* Works with Audacious
 	* Moved some of the globals into one global struct
+	* Cleaned up command line interpretation
+	* Added gettext
 
 Changes in 0.2.8-3 - January 2004
 =================================

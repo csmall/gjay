@@ -3,7 +3,7 @@
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 1, or (at
+ * published by the Free Software Foundation; either version 2, or (at
  * your option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but
@@ -77,9 +77,8 @@ extern int             analyze_percent;
 
 
 /* Run the analysis of one song */
-void     analyze( char * fname, 
-                  gboolean result_to_stdout );
-void gjay_init_daemon(void);
+void run_as_daemon(void);
+void     run_as_analyze_detached  ( const char * analyze_detached_fname );
 
 /* Endian stuff */
 void     wav_header_swab(waveheaderstruct * header); 
