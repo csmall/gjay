@@ -91,7 +91,7 @@ print_version(const gchar *option_name, const gchar *value, gpointer data, GErro
 }
 
 static void
-parse_commandline(int argc, char *argv[], gboolean *m3u_format, gboolean *run_player, gchar **analyze_detached_fname)
+parse_commandline(int *argc_p, char ***argv_p, gboolean *m3u_format, gboolean *run_player, gchar **analyze_detached_fname)
 {
   gboolean opt_daemon=FALSE, opt_playlist=FALSE;
   gint opt_length=0;
@@ -120,7 +120,7 @@ parse_commandline(int argc, char *argv[], gboolean *m3u_format, gboolean *run_pl
 /*  if (gtk_init_check(&argc, &argv))
   g_option_context_add_group (context, gtk_get_option_group (TRUE));*/
   error = NULL;
-  if (!g_option_context_parse (context, &argc, &argv, &error))
+  if (!g_option_context_parse (context, argc_p, argv_p, &error))
   {
     g_print (_("option parsing failed: %s\n"), error->message);
     exit (1);
@@ -193,7 +193,7 @@ int main( int argc, char *argv[] ) {
   playlist_in_audacious = FALSE;
   gjay->prefs = load_prefs();
    
-  parse_commandline(argc, argv, &m3u_format, &playlist_in_audacious, &analyze_detached_fname);
+  parse_commandline(&argc, &argv, &m3u_format, &playlist_in_audacious, &analyze_detached_fname);
 
     /* Intialize vars */
     daemon_pipe_fd = -1;
@@ -410,7 +410,7 @@ static gint ping_daemon ( gpointer data ) {
 static gboolean create_ui_daemon_pipe(void)
 {
   /* Create a per-username directory for the daemon and UI pipes */
-  gchar *username;
+  const gchar *username;
 
   if ( (username = g_get_user_name()) == NULL)
     return FALSE;

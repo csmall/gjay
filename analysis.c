@@ -453,12 +453,12 @@ inflate_to_wav (const gchar * path, const song_file_type type)
 
   switch (type) {
     case OGG:
-      cmdline = g_strdup_printf("%s \'%s\' -d wav -f - 2> /dev/null",
+      cmdline = g_strdup_printf("%s %s -d wav -f - 2> /dev/null",
           ogg_decoder,
           quoted_path);
       break;
     case MP3:
-      cmdline = g_strdup_printf("%s -b 10000 \'%s\' -w - 2> /dev/null",
+      cmdline = g_strdup_printf("%s -b 10000 %s -w - 2> /dev/null",
           mp3_decoder,
           quoted_path);
       //fprintf(stderr,"Decoding with: %s\n", cmdline);
@@ -469,6 +469,7 @@ inflate_to_wav (const gchar * path, const song_file_type type)
       return fopen(path, "r");
   }
   g_free(quoted_path);
+  //fprintf(stderr,"Decoding with:\n ->%s\n->%s", cmdline,path);
   if (!(fp = popen(cmdline, "r"))) {
     g_error("Unable to run %s\n", cmdline);
     g_free(cmdline);
