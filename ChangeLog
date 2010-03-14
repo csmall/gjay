@@ -1,3 +1,8 @@
+Changes in 0.3.1
+================
+	* Shell quote the filenames Debian #573554
+	* gjay works with stdin going to /dev/null
+
 Changes in 0.3.0
 ================
 	* New maintainer Craig Small <csmall@enc.com.au>

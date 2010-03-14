@@ -409,37 +409,32 @@ static gint ping_daemon ( gpointer data ) {
  * communicate through. Return true on success. */
 static gboolean create_ui_daemon_pipe(void)
 {
-    /* Create a per-username directory for the daemon and UI pipes */
-    char * login = getlogin();
-    gjay_pipe_dir = (char *) malloc(sizeof(char) * (
-        strlen(GJAY_PIPE_DIR_TEMPLATE) +
-        strlen(login) + 1));
-    sprintf(gjay_pipe_dir, "%s%s", GJAY_PIPE_DIR_TEMPLATE, login);
-    
-    /* Create directory if one doesn't already exist */
-    struct stat buf;
-    if (stat(gjay_pipe_dir, &buf) != 0) {
-        if (mkdir(gjay_pipe_dir, 0700)) {
-            fprintf(stderr, _("Couldn't create %s\n"), gjay_pipe_dir);
-            return FALSE;
-        }
-    }
-    
-    /* Setup pipe names */
-    ui_pipe = (char *) malloc(sizeof(char) * (
-        strlen(gjay_pipe_dir) + 
-        strlen(UI_PIPE_FILE)) + 2);
-    daemon_pipe = (char *) malloc(sizeof(char) * (
-        strlen(gjay_pipe_dir) + 
-        strlen(DAEMON_PIPE_FILE)) + 2);
-    sprintf(ui_pipe, "%s/%s", gjay_pipe_dir, UI_PIPE_FILE);
-    sprintf(daemon_pipe, "%s/%s", gjay_pipe_dir, DAEMON_PIPE_FILE);
-    
-    /* Both daemon and UI app open an end of a pipe */
-    ui_pipe_fd = open_pipe(ui_pipe);
-    daemon_pipe_fd = open_pipe(daemon_pipe);
+  /* Create a per-username directory for the daemon and UI pipes */
+  gchar *username;
 
-    return TRUE;
+  if ( (username = g_get_user_name()) == NULL)
+    return FALSE;
+
+  gjay_pipe_dir =  g_strdup_printf("%s/gjay-%s",
+      g_get_tmp_dir(), username);
+  /* Create directory if one doesn't already exist */
+  struct stat buf;
+  if (stat(gjay_pipe_dir, &buf) != 0) {
+    if (mkdir(gjay_pipe_dir, 0700)) {
+        fprintf(stderr, _("Couldn't create %s\n"), gjay_pipe_dir);
+        return FALSE;
+    }
+  }
+    
+  /* Setup pipe names */
+  ui_pipe = g_strdup_printf("%s/%s", gjay_pipe_dir, UI_PIPE_FILE);
+  daemon_pipe = g_strdup_printf("%s/%s", gjay_pipe_dir, DAEMON_PIPE_FILE);
+    
+  /* Both daemon and UI app open an end of a pipe */
+  ui_pipe_fd = open_pipe(ui_pipe);
+  daemon_pipe_fd = open_pipe(daemon_pipe);
+
+  return TRUE;
 }
 
 /* Return true if the current mode attaches the daemon to the UI */

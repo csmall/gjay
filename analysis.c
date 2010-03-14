@@ -148,7 +148,8 @@ void run_as_daemon(void)
   close(ui_pipe_fd);
   unlink(daemon_pipe);
   unlink(ui_pipe);
-  rmdir(gjay_pipe_dir);
+  g_rmdir(gjay_pipe_dir);
+  g_free(gjay_pipe_dir);
 }
 
 /**
@@ -446,7 +447,7 @@ inflate_to_wav (const gchar * path, const song_file_type type)
   gchar *quoted_path;
   FILE *fp;
 
-  quoted_path = path;//g_shell_quote(path);
+  quoted_path = g_shell_quote(path);
   if (mp3_decoder == NULL)
     check_decoders();
 
@@ -464,12 +465,16 @@ inflate_to_wav (const gchar * path, const song_file_type type)
       break;
     case WAV:
     default:
+      g_free(quoted_path);
       return fopen(path, "r");
   }
+  g_free(quoted_path);
   if (!(fp = popen(cmdline, "r"))) {
     g_error("Unable to run %s\n", cmdline);
+    g_free(cmdline);
       return NULL;
   } 
+  g_free(cmdline);
   return fp;
 }
 

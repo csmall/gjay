@@ -4,7 +4,7 @@
 
 char * daemon_pipe;
 char * ui_pipe;
-char * gjay_pipe_dir;
+gchar * gjay_pipe_dir;
 
 void send_ipc_text(int fd, ipc_type type, char * text) {
     int len, slen;
