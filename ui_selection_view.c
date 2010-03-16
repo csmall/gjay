@@ -35,9 +35,6 @@ enum {
    LAST_COLUMN
 };
 
-GList             * selected_songs = NULL; /* Songs which have been
-                                              selected */
-GList             * selected_files = NULL; /* List of selected file names */
 static GtkListStore * list_store;
 static GtkWidget    * icon, * play, * select_all_recursive;
 static GtkWidget    * label_name, * label_type;
@@ -173,7 +170,7 @@ make_selection_view ( void ) {
     gtk_box_pack_start(GTK_BOX(vbox_lower), hbox2, FALSE, FALSE, 2);
 
     cwheel = create_colorwheel(COLORWHEEL_DIAMETER,
-                               &selected_songs,
+                               &(gjay->selected_songs),
                                update_selected_songs_color,
                                NULL);
 
@@ -212,11 +209,11 @@ make_selection_view ( void ) {
 void set_selected_in_playlist_view ( gboolean in_view ) {
     gchar * fname;
     
-    if (selected_files == NULL)
+    if (gjay->selected_files == NULL)
         return;
-    if (g_list_length(selected_files) > 1)
+    if (g_list_length(gjay->selected_files) > 1)
         return;
-    fname = (gchar *) selected_files->data;
+    fname = (gchar *) gjay->selected_files->data;
     if ( g_hash_table_lookup(gjay->song_name_hash, fname) ||
          g_hash_table_lookup(gjay->not_song_hash, fname))
         return;
@@ -238,14 +235,14 @@ set_selected_file ( char * file,
     int pm_type;
     song * s;
 
-    for (llist = g_list_first(selected_files); 
+    for (llist = g_list_first(gjay->selected_files); 
          llist;
          llist = g_list_next(llist))
         g_free(llist->data);
-    g_list_free(selected_files);
-    g_list_free(selected_songs);
-    selected_files = NULL;
-    selected_songs = NULL;
+    g_list_free(gjay->selected_files);
+    g_list_free(gjay->selected_songs);
+    gjay->selected_files = NULL;
+    gjay->selected_songs = NULL;
 
     if (file == NULL) {
         /* Hide everything */
@@ -279,7 +276,7 @@ set_selected_file ( char * file,
 
         gtk_widget_show(select_all_recursive);
         gtk_widget_hide(vbox_lower);
-        selected_files = g_list_append(selected_files, g_strdup(file));
+        gjay->selected_files = g_list_append(gjay->selected_files, g_strdup(file));
     } else {
         gtk_widget_hide(select_all_recursive);
     
@@ -296,7 +293,7 @@ set_selected_file ( char * file,
                 pm_type = PM_ICON_PENDING;
                 gtk_label_set_text(GTK_LABEL(label_type), "Will be analyzed");
             }
-            selected_songs = g_list_append(selected_songs, s);
+            gjay->selected_songs = g_list_append(gjay->selected_songs, s);
             gtk_widget_show(vbox_lower);
         } else {
             gtk_label_set_text(GTK_LABEL(label_name), short_name_trunc);
@@ -314,7 +311,7 @@ set_selected_file ( char * file,
         
         gtk_image_set_from_pixbuf (GTK_IMAGE(icon), 
                                    gjay->pixbufs[pm_type]);
-        selected_files = g_list_append(selected_files, g_strdup(file));
+        gjay->selected_files = g_list_append(gjay->selected_files, g_strdup(file));
     }
     update_selection_area();
 }
@@ -330,15 +327,15 @@ static void set_selected_files (GList * files) {
     if (!files)
         return; 
 
-    for (llist = g_list_first(selected_files); 
+    for (llist = g_list_first(gjay->selected_files); 
          llist; 
          llist = g_list_next(llist)) {
         g_free(llist->data);
     }
-    g_list_free(selected_files);
-    g_list_free(selected_songs);
-    selected_songs = NULL;
-    selected_files = NULL;
+    g_list_free(gjay->selected_files);
+    g_list_free(gjay->selected_songs);
+    gjay->selected_songs = NULL;
+    gjay->selected_files = NULL;
 
     for (llist = g_list_first(files); llist; llist = g_list_next(llist)) {
         if (g_hash_table_lookup(gjay->not_song_hash, llist->data)) {
@@ -355,8 +352,8 @@ static void set_selected_files (GList * files) {
                     gdk_pixbuf_unref(s->freq_pixbuf);
                     s->freq_pixbuf = NULL;
                 }
-                selected_songs = g_list_append(selected_songs, s);
-                selected_files = g_list_append(selected_files, llist->data);
+                gjay->selected_songs = g_list_append(gjay->selected_songs, s);
+                gjay->selected_files = g_list_append(gjay->selected_files, llist->data);
             } 
         }
     }
@@ -376,7 +373,7 @@ play_selected (GtkWidget *widget,
                GdkEventButton *event,
                gpointer user_data)
 {
-  play_songs(selected_songs);
+  play_songs(gjay->selected_songs);
   return TRUE;
 }
 
@@ -389,7 +386,7 @@ select_all_selected (GtkWidget *widget,
   GList * list;
 
   if (gjay->selected_files) {
-      list = explore_files_in_dir(g_list_first(selected_files)->data, TRUE);
+      list = explore_files_in_dir(g_list_first(gjay->selected_files)->data, TRUE);
       set_selected_files(list);
   }
   return TRUE;
@@ -418,7 +415,7 @@ void populate_selected_list (void) {
     GtkTreeIter iter;
 
     gtk_list_store_clear (GTK_LIST_STORE(list_store)); 
-    for (llist = g_list_first(selected_songs); 
+    for (llist = g_list_first(gjay->selected_songs); 
          llist; 
          llist = g_list_next(llist)) {
         s = (song *) llist->data;
@@ -458,15 +455,15 @@ void update_selected_songs_color (gpointer data,
     gchar * dir = NULL;
     HSV hsv;
 
-    if (!selected_songs)
+    if (!gjay->selected_songs)
         return;
 
     hsv = get_colorwheel_color(GTK_WIDGET(data));
 
-    s = SONG(selected_songs);
+    s = SONG(gjay->selected_songs);
     dir = parent_dir(s->path);
 
-    for (llist = g_list_first(selected_songs); llist; 
+    for (llist = g_list_first(gjay->selected_songs); llist; 
          llist = g_list_next(llist)) {
         s = (song *) llist->data;
 
@@ -501,7 +498,7 @@ void redraw_rating (void) {
     lower = MAX_RATING + 1;
     upper = -1;
     total = 0;
-    for (n = 0, k = 0, llist = g_list_first(selected_songs);
+    for (n = 0, k = 0, llist = g_list_first(gjay->selected_songs);
          llist; 
          llist = g_list_next(llist)) {
         s = (song *) llist->data;
@@ -535,7 +532,7 @@ static void rating_changed ( GtkRange *range,
 
     val = gtk_range_get_value(range);
 
-    for (llist = g_list_first(selected_songs); llist; 
+    for (llist = g_list_first(gjay->selected_songs); llist; 
          llist = g_list_next(llist)) {
         s = (song *) llist->data;
 
@@ -622,7 +619,7 @@ void get_selected_color (HSV * color,
     assert(color && no_color && multiple_colors);
     *no_color = TRUE;
     bzero(&rgb_sum, sizeof(RGB));
-    for (llist = g_list_first(selected_songs);
+    for (llist = g_list_first(gjay->selected_songs);
          llist;
          llist = g_list_next(llist)) {
         s = (song *) llist->data;

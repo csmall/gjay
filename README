@@ -1,5 +1,7 @@
 GJay v0.2
-(c) Chuck Groom, 2003
+Copyright Chuck Groom, 2003
+Copyright Craig Small 2010
+
 gjay.sourceforge.net
 
 GJay (Gtk+ DJ) generates playlists across a collection of music (mp3,
@@ -20,32 +22,29 @@ http://bpmdj.sourceforge.net/
 Frequency analysis code comes from Daniel Franklin's "Spectromatic",
 http://ieee.uow.edu.au/~daniel/software/spectromatic/
 
-I welcome all feedback; cgroom@users.sourceforge.net
-
-
 BUILD
 -----
 
 GJay uses the following programs:
   mpg321
   ogg123
-  xmms
+  audacious
 
 GJay depends on the following libraries:
   libgtk-2.0
   libgsl
   libgslcblas
-  libxmms
+  libaudacious
 
 GJay supports ogg if it's there (a soft dependancy):
   libvorbis
   libvorbisfile
   
-To build GJay, you'll need the header files for libgsl, xmms, and Gtk2
+To build GJay, you'll need the header files for libgsl, audacious, and Gtk2
 
 The relevant Debain packages are:
-mpg321 vorbis-tools xmms
+mpg321 vorbis-tools audacious
 libgtk2.0 libgsl0 libvorbis (Debian keeps mucking about with this name...)
-libgtk1.2-dev xmms-dev libgsl0-dev
+libgtk1.2-dev audacious-dev libgsl0-dev
 
 

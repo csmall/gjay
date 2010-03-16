@@ -331,6 +331,10 @@ analyze(const char * fname,            /* File to analyze */
     in_analysis = TRUE;
     
     send_ui_percent(0);
+    if (fname == NULL || fname[0] == '\0') {
+      in_analysis = FALSE;
+      return;
+    }
     
     if (access(fname, R_OK) != 0) {
         /* File ain't there! The UI thread will check for non-existant
@@ -552,11 +556,15 @@ run_analysis  (wav_file * wsfile,
     unsigned long audiosize;
 
     if (wsfile->header.modus != 1 && wsfile->header.modus != 2) {
+      if (verbosity > 2)
+        fprintf(stderr, "File is not a (converted) wav file. Modus is supposed to be 1 or 2 but is %d\n", wsfile->header.modus);
         // Not a wav file
         return FALSE;
     }
     
     if (wsfile->header.byte_p_spl / wsfile->header.modus != 2) {
+      if (verbosity > 2)
+        g_debug("File is not a 16-bit stream\n");
         // Not 16-bit
         return FALSE;
     }
@@ -566,14 +574,14 @@ run_analysis  (wav_file * wsfile,
     read_buffer = malloc(read_buffer_size);
     read_buffer_start = 0;
     read_buffer_end = read_buffer_size;
-    freq_data = (int16_t*) malloc (WINDOW_SIZE * wsfile->header.byte_p_spl);
-    mags = (double*) malloc (WINDOW_SIZE / 2 * sizeof (double));
-    total_mags = (double*) malloc (WINDOW_SIZE / 2 * sizeof (double));
-    memset (total_mags, 0x00, WINDOW_SIZE / 2 * sizeof (double));
+    freq_data = (int16_t*) g_malloc0 (WINDOW_SIZE * wsfile->header.byte_p_spl);
+    mags = (double*) g_malloc0 (WINDOW_SIZE / 2 * sizeof (double));
+    total_mags = (double*) g_malloc0 (WINDOW_SIZE / 2 * sizeof (double));
+    //memset (total_mags, 0x00, WINDOW_SIZE / 2 * sizeof (double));
     memset (freq_results, 0x00, NUM_FREQ_SAMPLES * sizeof(double));
-    ch1 = (double*) malloc (WINDOW_SIZE * sizeof (double));
+    ch1 = (double*) g_malloc0 (WINDOW_SIZE * sizeof (double));
     if (wsfile->header.modus == 2)
-        ch2 = (double*) malloc (WINDOW_SIZE * sizeof (double));
+        ch2 = (double*) g_malloc0 (WINDOW_SIZE * sizeof (double));
     num_frames = 0;
     max_frame_sum = 0;
     sum = 0;
@@ -581,11 +589,10 @@ run_analysis  (wav_file * wsfile,
     /* BPM set-up */
     audiosize = wsfile->header.data_length;
     audiosize/=(4*(44100/AUDIO_RATE));
-    audio=malloc(audiosize+1);
+    audio= g_malloc0(audiosize+1);
     assert(audio);
     pos=0;
     startpos = pos;
-
 
     /* Read the first chunk of the file into the shared buffer */
     fread(wsfile->buffer, 1, SHARED_BUF_SIZE, wsfile->f);
@@ -753,11 +760,11 @@ run_analysis  (wav_file * wsfile,
         if (verbosity > 1) 
             printf("BPM: %f\n", *bpm_result);
     }
-    free (audio);
-    free (freq_data);
-    free (mags);
-    free (total_mags);
-    free (read_buffer);
+    g_free (audio);
+    g_free (freq_data);
+    g_free (mags);
+    g_free (total_mags);
+    g_free (read_buffer);
     return TRUE;
 }
 

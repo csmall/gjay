@@ -84,10 +84,24 @@ print_version(const gchar *option_name, const gchar *value, gpointer data, GErro
       "Copyright (C) 2010 Craig Small\n\n");
 	fprintf(stderr,
 		_("GJay comes with ABSOLUTELY NO WARRANTY.\n"
-		  "This is free software, and you are welcome to redistribute it under\n"
-		  "the terms of the GNU General Public License.\n"
-		  "For more information about these matters, see the files named COPYING.\n"));
+    "This program is free software; you can redistribute it and/or modify\n"
+    "it under the terms of the GNU General Public License as published by\n"
+    "the Free Software Foundation; either version 2 of the License, or\n"
+    "(at your option) any later version.\n"));
   exit(0);
+}
+
+gboolean
+verbose_option_cb(GOptionContext *context, GOptionGroup *group,
+    gpointer data, GError **error)
+{
+  if (data == NULL) {
+    verbosity=1;
+    return TRUE;
+  }
+  verbosity = strtol((char*)data, NULL, 10);
+  if (verbosity < 1 || verbosity > 10)
+    verbosity=1;
 }
 
 static void
@@ -109,7 +123,7 @@ parse_commandline(int *argc_p, char ***argv_p, gboolean *m3u_format, gboolean *r
     { "playlist", 'p', 0, G_OPTION_ARG_NONE, &opt_playlist, "Generate a playlist", NULL },
     { "skip-verification", 's', 0, G_OPTION_ARG_NONE, &skip_verify, "Skip file verification", NULL },
     { "m3u-playlist", 'u', 0, G_OPTION_ARG_NONE, m3u_format, "Use M3U playlist format", NULL },
-    { "verbose", 'v', 0, G_OPTION_ARG_NONE, &verbosity, "Verbose", NULL },
+    { "verbose", 'v', G_OPTION_FLAG_OPTIONAL_ARG, G_OPTION_ARG_INT, &verbosity, "Verbose", "Verbosity Level" },
     { "play-audacious", 'P', 0, G_OPTION_ARG_NONE, run_player, "Play generated playlist in Audacious", NULL },
     { "version", 'V', G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK , &print_version, "Show version", NULL },
     { NULL }
