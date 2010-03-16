@@ -51,12 +51,12 @@ static void     draw_selected_color ( GtkWidget * widget,
 static void     draw_swatch_color ( GtkWidget * widget, 
                                     HSV hsv );
 
-static gchar * data_hs_pixbuf = "cw_hs_pb";
-static gchar * data_v_pixbuf = "cw_v_pb";
-static gchar * data_list =   "cw_list";
-static gchar * data_color =  "cw_color";
-static gchar * data_func =  "cw_func";
-static gchar * data_user_data =  "cw_user_data";
+#define DATA_HS_PIXBUF  "cw_hs_pb"
+#define DATA_V_PIXBUF   "cw_v_pb"
+#define DATA_LIST       "cw_list"
+#define DATA_COLOR      "cw_color"
+#define DATA_FUNC       "cw_func"
+#define DATA_USER_DATA  "cw_user_data"
 
 
 GtkWidget * create_colorwheel (gint diameter, 
@@ -81,18 +81,18 @@ GtkWidget * create_colorwheel (gint diameter,
     gtk_drawing_area_size(GTK_DRAWING_AREA(widget), width, height);
     gtk_widget_add_events(widget, 
                           GDK_BUTTON_PRESS_MASK | GDK_POINTER_MOTION_MASK);
-    g_object_set_data(G_OBJECT (widget), data_hs_pixbuf, colorwheel);
-    g_object_set_data(G_OBJECT (widget), data_v_pixbuf, brightness);
-    g_object_set_data(G_OBJECT (widget), data_list, list);
+    g_object_set_data(G_OBJECT (widget), DATA_HS_PIXBUF, colorwheel);
+    g_object_set_data(G_OBJECT (widget), DATA_V_PIXBUF, brightness);
+    g_object_set_data(G_OBJECT (widget), DATA_LIST, list);
 
     color = g_malloc(sizeof(HSV));
     color->H = 0;
     color->S = 1;
     color->V = 1;
-    g_object_set_data(G_OBJECT (widget), data_color, color);
+    g_object_set_data(G_OBJECT (widget), DATA_COLOR, color);
 
-    g_object_set_data(G_OBJECT (widget), data_func, change_func);
-    g_object_set_data(G_OBJECT (widget), data_user_data, user_data);
+    g_object_set_data(G_OBJECT (widget), DATA_FUNC, change_func);
+    g_object_set_data(G_OBJECT (widget), DATA_USER_DATA, user_data);
 
     g_signal_connect (G_OBJECT (widget), "expose_event",  
                       G_CALLBACK (drawing_expose_event_callback), NULL);
@@ -105,13 +105,13 @@ GtkWidget * create_colorwheel (gint diameter,
 
 
 HSV get_colorwheel_color ( GtkWidget * widget) {
-    return *((HSV *) g_object_get_data(G_OBJECT (widget), data_color));
+    return *((HSV *) g_object_get_data(G_OBJECT (widget), DATA_COLOR));
 }
 
 
 void set_colorwheel_color ( GtkWidget * widget,
                             HSV color) {
-    *((HSV *) g_object_get_data(G_OBJECT (widget), data_color)) = color;
+    *((HSV *) g_object_get_data(G_OBJECT (widget), DATA_COLOR)) = color;
     gtk_widget_queue_draw(widget);
 }
 
@@ -254,15 +254,15 @@ static gboolean drawing_expose_event_callback (GtkWidget *widget,
 
     set = FALSE;
     num_colors = 0;
-    list = g_object_get_data(G_OBJECT (widget), data_list);
-    hsv = g_object_get_data(G_OBJECT (widget), data_color);
+    list = g_object_get_data(G_OBJECT (widget), DATA_LIST);
+    hsv = g_object_get_data(G_OBJECT (widget), DATA_COLOR);
     assert(hsv);
     prev_hsv.H = -1;
     prev_hsv.S = -1;
     prev_hsv.V = -1;
 
-    colorwheel = g_object_get_data(G_OBJECT (widget), data_hs_pixbuf);
-    brightness = g_object_get_data(G_OBJECT (widget), data_v_pixbuf);
+    colorwheel = g_object_get_data(G_OBJECT (widget), DATA_HS_PIXBUF);
+    brightness = g_object_get_data(G_OBJECT (widget), DATA_V_PIXBUF);
 
     gdk_draw_rectangle  (widget->window,
                          widget->style->bg_gc[GTK_WIDGET_STATE (widget)],
@@ -358,8 +358,8 @@ void draw_selected_color (GtkWidget * widget,
     gc = gdk_gc_new(widget->window);
     gdk_rgb_gc_set_foreground(gc, 0);
     
-    colorwheel = g_object_get_data(G_OBJECT (widget), data_hs_pixbuf);
-    brightness = g_object_get_data(G_OBJECT (widget), data_v_pixbuf);
+    colorwheel = g_object_get_data(G_OBJECT (widget), DATA_HS_PIXBUF);
+    brightness = g_object_get_data(G_OBJECT (widget), DATA_V_PIXBUF);
 
     width = gdk_pixbuf_get_width(brightness);
     height = gdk_pixbuf_get_height(brightness);
@@ -405,7 +405,7 @@ void draw_swatch_color (GtkWidget * widget,
     gint width, height, x, y;
     GdkPixbuf * brightness;
 
-    brightness = g_object_get_data(G_OBJECT (widget), data_v_pixbuf);
+    brightness = g_object_get_data(G_OBJECT (widget), DATA_V_PIXBUF);
 
     rgb = hsv_to_rgb(hsv);
     rgb32 = 
@@ -469,10 +469,10 @@ static void click_in_colorwheel (GtkWidget * widget,
     GFunc change_func;
     gpointer user_data;
 
-    colorwheel = g_object_get_data(G_OBJECT (widget), data_hs_pixbuf);
-    brightness = g_object_get_data(G_OBJECT (widget), data_v_pixbuf);
-    list = g_object_get_data(G_OBJECT (widget), data_list);
-    hsv = g_object_get_data(G_OBJECT (widget), data_color);
+    colorwheel = g_object_get_data(G_OBJECT (widget), DATA_HS_PIXBUF);
+    brightness = g_object_get_data(G_OBJECT (widget), DATA_V_PIXBUF);
+    list = g_object_get_data(G_OBJECT (widget), DATA_LIST);
+    hsv = g_object_get_data(G_OBJECT (widget), DATA_COLOR);
     assert (hsv);
 
     /* Check for v */
@@ -528,8 +528,8 @@ static void click_in_colorwheel (GtkWidget * widget,
     } 
 
     if (updateHS || updateV) {
-        change_func = g_object_get_data(G_OBJECT (widget), data_func);
-        user_data = g_object_get_data(G_OBJECT (widget), data_user_data);
+        change_func = g_object_get_data(G_OBJECT (widget), DATA_FUNC);
+        user_data = g_object_get_data(G_OBJECT (widget), DATA_USER_DATA);
         if (change_func) {
             change_func(widget, user_data);
         }

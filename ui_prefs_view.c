@@ -46,8 +46,8 @@ static void choose_base_dir (GtkWidget *button, gpointer user_data);
 static void file_chooser_cb  ( GtkWidget *button,
                                gpointer user_data );
 static void set_base_dir (char *filename);
-static void toggle_no_filter ( GtkToggleButton *togglebutton,
-                               gpointer user_data );
+/*static void toggle_no_filter ( GtkToggleButton *togglebutton,
+                               gpointer user_data );*/
 static void parent_set_callback (GtkWidget *widget,
                                  gpointer user_data);
 static void click_daemon_radio ( GtkToggleButton *togglebutton,
@@ -277,10 +277,10 @@ static void set_base_dir  (  char *path ) {
 }
 
 
-static void toggle_no_filter (GtkToggleButton *togglebutton,
+/*static void toggle_no_filter (GtkToggleButton *togglebutton,
                               gpointer user_data) {
     gjay->prefs->extension_filter = gtk_toggle_button_get_active(togglebutton);
-}
+}*/
 
 
 static void parent_set_callback (GtkWidget *widget,

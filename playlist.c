@@ -48,7 +48,7 @@ GList * generate_playlist ( guint minutes ) {
     gint i, list_time, l, r, max_force_index, len;
     gdouble max_force, s_force;
     song * s;
-    time_t t;
+    time_t t=0;
 
     list_time = 0;
 

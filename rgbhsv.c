@@ -100,7 +100,7 @@ RGB hsv_to_rgb( HSV hsv )
 { 
     float h = hsv.H, s = hsv.S, v = hsv.V, m, n, f; 
     int i; 
-    RGB rgb; 
+    RGB rgb = { 0.0, 0.0, 0.0}; 
     if (h == UNDEFINED) TO_RGB(v, v, v); 
     i = floor(h); 
     f = h - i; 

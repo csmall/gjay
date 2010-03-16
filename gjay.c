@@ -65,7 +65,7 @@ gboolean verbosity;
 gboolean skip_verify;
 
 //static gboolean app_exists  ( gchar * app );
-static void     kill_signal ( int sig );
+//static void     kill_signal ( int sig );
 static int      open_pipe   ( const char* filepath );
 static gint     ping_daemon ( gpointer data );
 static gboolean create_ui_daemon_pipe(void);
@@ -102,6 +102,7 @@ verbose_option_cb(GOptionContext *context, GOptionGroup *group,
   verbosity = strtol((char*)data, NULL, 10);
   if (verbosity < 1 || verbosity > 10)
     verbosity=1;
+  return TRUE;
 }
 
 static void
@@ -185,12 +186,8 @@ parse_commandline(int *argc_p, char ***argv_p, gboolean *m3u_format, gboolean *r
 
 
 int main( int argc, char *argv[] ) {
-  char buffer[BUFFER_SIZE];
-  gchar * analyze_detached_fname=NULL, *option_file=NULL;
-  struct stat stat_buf;
-  gint i, k;
+  gchar * analyze_detached_fname=NULL;
   gboolean m3u_format, playlist_in_audacious;
-  gchar *ogg_decoder_app, *mp3_decoder_app;
   gchar *gjay_home;
 
   srand(time(NULL));

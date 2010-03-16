@@ -105,7 +105,6 @@ static void          send_ui_percent        ( int percent );
 static void          send_analyze_song_name ( void );
 static void   write_queue       ( void );
 static void kill_signal (int sig);
-static int      quote_path(char *buf, size_t bufsiz, const char *path);
 static void analysis_daemon(void);
 gboolean      daemon_idle       ( gpointer data );
 static void analyze( const char * fname, const gboolean result_to_stdout);
@@ -148,7 +147,7 @@ void run_as_daemon(void)
   close(ui_pipe_fd);
   unlink(daemon_pipe);
   unlink(ui_pipe);
-  g_rmdir(gjay_pipe_dir);
+  rmdir(gjay_pipe_dir);
   g_free(gjay_pipe_dir);
 }
 
@@ -325,7 +324,7 @@ analyze(const char * fname,            /* File to analyze */
     gdouble freq[NUM_FREQ_SAMPLES], volume_diff, analyze_bpm;
     gboolean is_song;
     song_file_type type;
-    time_t t;
+    time_t t=0;
 
     analyze_song = NULL;
     in_analysis = TRUE;
@@ -499,32 +498,6 @@ wav_header_swab(waveheaderstruct * header)
     header->byte_p_spl = le16_to_cpu(header->byte_p_spl);
     header->bit_p_spl = le16_to_cpu(header->bit_p_spl);
 }
-
-
-
-/* Escape ' char in path */
-static int
-quote_path(char *buf, size_t bufsiz, const char *path)
-{
-    int in, out = 0;
-    const char *quote = "\'\\\'\'"; /* a quoted quote character */
-    for (in = 0; out < bufsiz && path[in] != '\0'; in++) {
-        if (path[in] == '\'') {
-            if (out + strlen(quote) > bufsiz) {
-                break;
-            } else {
-                memcpy(&buf[out], quote, strlen(quote)); 
-                out += strlen(quote);
-            }
-        } else {
-            buf[out++] = path[in];
-        }
-    }
-    if (out < bufsiz)
-        buf[out++] = '\0';
-    return out;
-}
-
 
 /**
  * This is the big, bad analysis algorithm. To make things REALLY complicated,
@@ -713,7 +686,8 @@ run_analysis  (wav_file * wsfile,
     startshift=AUDIO_RATE*60*4/STOP_BPM;
     {
 	unsigned long foutat[stopshift-startshift];
-	unsigned long fout, minimumfout=0, maximumfout,minimumfoutat,left,right;
+	unsigned long fout, minimumfout=0, maximumfout,minimumfoutat=ULONG_MAX,
+                left,right;
         memset(&foutat,0,sizeof(foutat));
 	for(h=startshift;h<stopshift;h+=50)
         {

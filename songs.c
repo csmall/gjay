@@ -355,15 +355,16 @@ void file_info ( gchar    * path,
 
 
 void write_data_file(void) {
-    char buffer[BUFFER_SIZE], buffer_temp[BUFFER_SIZE];
+    gchar *tmp_filename, *data_filename;
     FILE * f;
     GList * llist, * w_songs = NULL;
     song * s;
 
-    snprintf(buffer, BUFFER_SIZE, "%s/%s/%s", getenv("HOME"), 
-             GJAY_DIR, GJAY_FILE_DATA);
-    snprintf(buffer_temp, BUFFER_SIZE, "%s_temp", buffer);
-
+    tmp_filename = g_strdup_printf("%s/%s/%s_temp",
+        g_get_home_dir(), GJAY_DIR, GJAY_FILE_DATA);
+    data_filename = g_strdup_printf("%s/%s/%s",
+        g_get_home_dir(), GJAY_DIR, GJAY_FILE_DATA);
+  
     /* Cull songs which are no longer there */
     for (llist = g_list_first(gjay->songs); llist; llist = g_list_next(llist)) {
         s = SONG(llist);
@@ -377,8 +378,9 @@ void write_data_file(void) {
         }
     }
     
-    f = fopen(buffer_temp, "w");
-    if (f) {
+    if ( (f = fopen(tmp_filename, "w")) == NULL) {
+      g_error("Unable to write song data %s\n", tmp_filename);
+    } else {
         fprintf(f, "<gjay_data version=\"%s\">\n", VERSION);
         for (llist = g_list_first(w_songs); llist; llist = g_list_next(llist))
             write_song_data(f, SONG(llist));
@@ -387,13 +389,13 @@ void write_data_file(void) {
             write_not_song_data(f, (char *) llist->data);
         fprintf(f, "</gjay_data>\n");
         fclose(f);
-        rename(buffer_temp, buffer);
+        rename(tmp_filename, data_filename);
         gjay->songs_dirty = FALSE;
-    } else {
-        fprintf(stderr, "Unable to write song data %s\n", buffer_temp);
     }
 
     g_list_free(w_songs);
+    g_free(tmp_filename);
+    g_free(data_filename);
 }
 
 
@@ -602,7 +604,7 @@ void data_start_element  (GMarkupParseContext *context,
                           gpointer             user_data,
                           GError             **error) {
     song_parse_state * state = (song_parse_state *) user_data;
-    gchar * path, * repeat_path = NULL;
+    gchar * path = NULL, * repeat_path = NULL;
     song * original;
     element_type element;
     int k;
