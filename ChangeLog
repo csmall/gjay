@@ -1,9 +1,11 @@
 Changes in 0.3.1
 ================
-	* Shell quote the filenames Debian #573554
+	* Shell quote the filenames Debian #573554 and SF# 297427
 	* gjay works with stdin going to /dev/null
 	* colorwheel song selection works again
 	* Fixed bug where frequency ranges were all 0
+	* Various fixes in frequency analysis by Frank V
+	* Added FLAC support based on Rob Norris' code SF#1443646
 
 Changes in 0.3.0
 ================

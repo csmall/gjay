@@ -37,7 +37,7 @@ static char * welcome_str =
   "song frequency and beat. You categorize songs by color. Color means " \
   "whatever you want it to; most people interpret it as genre/mood.\n\n" \
   "To start using GJay, pick the base directory where you store " \
-  "your mp3s, oggs, and wavs. (You can change this in the prefs). "
+  "your mp3s, oggs, flacs and wavs. (You can change this in the prefs). "
 ;
 
 

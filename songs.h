@@ -27,6 +27,7 @@ typedef enum {
     OGG = 0, 
     MP3,
     WAV,
+    FLAC,
     SONG_FILE_TYPE_LAST
 } song_file_type;
 

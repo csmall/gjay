@@ -50,6 +50,7 @@
 #define SHARED_BUF_SIZE sizeof(short int) * BPM_BUF_SIZE
 #define SLEEP_WHILE_IDLE 500
 
+#define BROKEN_VAL 100000000000000.0
 
 typedef struct {
     FILE * f;
@@ -86,6 +87,7 @@ static GHashTable * queue_hash = NULL;
 static time_t       last_ping;
 static gchar * mp3_decoder;
 static gchar * ogg_decoder;
+static gchar * flac_decoder;
 
 static FILE *     inflate_to_wav (const gchar * path, 
                               const song_file_type type);
@@ -426,21 +428,17 @@ analyze(const char * fname,            /* File to analyze */
 static void
 check_decoders(void)
 {
-  if ( (ogg_decoder = g_find_program_in_path(OGG_DECODER_APP)) == NULL)
-  {
-    g_error("Sorry, GJay requires %s; quitting\n", OGG_DECODER_APP); 
-    kill_signal(SIGTERM);
- }
- if ( (mp3_decoder = g_find_program_in_path(MP3_DECODER_APP1)) == NULL)
- {
-   if ( (mp3_decoder = g_find_program_in_path(MP3_DECODER_APP2)) == NULL)
-   {
-     g_error("Sorry, GJay requires %s; quitting\n", 
-                    MP3_DECODER_APP1); 
-     kill_signal(SIGTERM);
-   }
+  if (ogg_decoder == NULL)
+    ogg_decoder = g_find_program_in_path(OGG_DECODER_APP);
 
- }
+  if (mp3_decoder == NULL)
+    mp3_decoder = g_find_program_in_path(MP3_DECODER_APP1);
+  if (mp3_decoder == NULL)
+    mp3_decoder = g_find_program_in_path(MP3_DECODER_APP2);
+
+  if (flac_decoder == NULL)
+    flac_decoder = g_find_program_in_path(FLAC_DECODER_APP);
+
 }
 
 static FILE *
@@ -456,15 +454,34 @@ inflate_to_wav (const gchar * path, const song_file_type type)
 
   switch (type) {
     case OGG:
+      if (ogg_decoder == NULL) {
+        if (verbosity)
+          g_warning("Unable to decode %s as no ogg decoder found", path);
+        return NULL;
+      }
       cmdline = g_strdup_printf("%s %s -d wav -f - 2> /dev/null",
           ogg_decoder,
           quoted_path);
       break;
     case MP3:
+      if (mp3_decoder == NULL) {
+        if (verbosity)
+          g_warning("Unable to decode %s as no mp3 decoder found", path);
+        return NULL;
+      }
       cmdline = g_strdup_printf("%s -b 10000 %s -w - 2> /dev/null",
           mp3_decoder,
           quoted_path);
-      //fprintf(stderr,"Decoding with: %s\n", cmdline);
+      break;
+    case FLAC:
+      if (flac_decoder == NULL) {
+        if (verbosity)
+          g_warning("Unable to decode %s as no flac decoder found", path);
+        return NULL;
+      }
+      cmdline = g_strdup_printf("%s -d -c %s 2> /dev/null",
+          flac_decoder,
+          quoted_path);
       break;
     case WAV:
     default:
@@ -519,7 +536,6 @@ run_analysis  (wav_file * wsfile,
     int16_t *freq_data;
     double *ch1 = NULL, *ch2 = NULL, *mags = NULL;
     long i, j, k, bin;
-    double ch1max = 0, ch2max = 0;
     double *total_mags;
     double sum, frame_sum, max_frame_sum, g_factor, freq, g_freq;
     signed short buffer[BPM_BUF_SIZE];
@@ -611,37 +627,44 @@ run_analysis  (wav_file * wsfile,
         if (wsfile->header.modus == 1) {
             for (j = 0; j < WINDOW_SIZE; j++)
                 ch1 [j] = (int16_t)le16_to_cpu(freq_data[j]);
+            gsl_fft_real_radix2_transform (ch1, 1, WINDOW_SIZE);
             
         } else {
             for (j = 0, k = 0; k < WINDOW_SIZE; k++, j+=2) {
                 ch1[k] = (double)((int16_t)le16_to_cpu(freq_data[j]));
                 ch2[k] = (double)((int16_t)le16_to_cpu(freq_data[j+1]));
             } 
+            gsl_fft_real_radix2_transform (ch1, 1, WINDOW_SIZE);
             gsl_fft_real_radix2_transform (ch2, 1, WINDOW_SIZE);
         }
-        gsl_fft_real_radix2_transform (ch1, 1, WINDOW_SIZE);
         
-        mags [0] = fabs (ch1 [0]);
+//        mags [0] = fabs (ch1 [0]);
         
         for (j = 0; j < WINDOW_SIZE / 2; j++) {
-            mags [j] = sqrt (ch1 [j] * ch1 [j] + ch1 [WINDOW_SIZE - j] * ch1 [WINDOW_SIZE - j]);
-            
-            if (mags [j] > ch1max)
-                ch1max = mags [j];
+	    double square_this = ch1 [j] * ch1 [j] + ch1 [WINDOW_SIZE - j] * ch1 [WINDOW_SIZE - j];
+	    if (square_this > 0.0 && square_this < BROKEN_VAL)
+        	mags [j] = sqrt (square_this);
+    	    else
+    		mags [j] = 0;
         }
-        
+
         /* Add magnitudes */
-        for (k = 0; k < WINDOW_SIZE / 2; k++) 
+        for (frame_sum = 0, k = 0; k < WINDOW_SIZE / 2; k++) {
             total_mags[k] += mags[k];
-        
+            frame_sum += mags[k];
+        }
+
+        max_frame_sum = MAX(frame_sum, max_frame_sum);
+        sum += frame_sum;
+        num_frames++;
+
         if (wsfile->header.modus == 2) {
-            mags [0] = fabs (ch2 [0]);
-            
             for (j = 0; j < WINDOW_SIZE / 2; j++) {
-                mags [j] = sqrt (ch2 [j] * ch2 [j] + ch2 [WINDOW_SIZE - j] * ch2 [WINDOW_SIZE - j]);
-                
-                if (mags [j] > ch2max)
-                    ch2max = mags [j];
+		double square_this = ch2 [j] * ch2 [j] + ch2 [WINDOW_SIZE - j] * ch2 [WINDOW_SIZE - j];
+		if ( square_this > 0 && square_this < BROKEN_VAL)
+        	    mags [j] = sqrt (square_this);
+    		else
+    		    mags [j] = 0;
             }
 
             /* Add magnitudes */            
@@ -649,6 +672,7 @@ run_analysis  (wav_file * wsfile,
                 total_mags[k] += mags[k];
                 frame_sum += mags[k];
             }
+        
             max_frame_sum = MAX(frame_sum, max_frame_sum);
             sum += frame_sum;
             num_frames++;

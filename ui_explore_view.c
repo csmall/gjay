@@ -255,7 +255,9 @@ static int tree_walk ( const char *file,
         len = strlen(file);
         if (!((strncasecmp(".mp3", file + len - 4, 4) == 0) ||
               (strncasecmp(".ogg", file + len - 4, 4) == 0) ||
-              (strncasecmp(".wav", file + len - 4, 4) == 0))) {
+              (strncasecmp(".wav", file + len - 4, 4) == 0) ||
+              (gjay->flac_supported && strncasecmp(".flac", file + len - 5, 5) ==0)
+              )) {
             return 0;
         }
     }

@@ -35,6 +35,7 @@
 #include "analysis.h"
 #include "mp3.h"
 #include "vorbis.h"
+#include "flac.h"
 #include "ui.h"
 
 
@@ -350,6 +351,13 @@ void file_info ( gchar    * path,
             return;
         }
     }
+    if (gjay->flac_supported && read_flac_file_type(latin1_path, length, title, artist, album) == TRUE)
+    {
+      *is_song = TRUE;
+      *type = FLAC;
+      g_free(latin1_path);
+    }
+
     g_free(latin1_path);
 }
 

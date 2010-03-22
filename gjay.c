@@ -51,6 +51,7 @@
 #include "ipc.h"
 #include "playlist.h"
 #include "vorbis.h"
+#include "flac.h"
 #include "ui.h"
 #include "gjay_audacious.h"
 #include "i18n.h"
@@ -216,20 +217,6 @@ int main( int argc, char *argv[] ) {
     gjay->song_inode_dev_hash = g_hash_table_new(g_int_hash, g_int_equal);
     gjay->not_song_hash     = g_hash_table_new(g_str_hash, g_str_equal);
 
-    /* Check to see if we have all the apps we'll need for analysis */
-  if ( g_find_program_in_path(OGG_DECODER_APP) == NULL)
-  {
-    fprintf(stderr, _("Sorry, GJay requires %s; quitting\n"), OGG_DECODER_APP); 
-    return -1;
- }
- if ( (g_find_program_in_path(MP3_DECODER_APP1) == NULL) &&
-   (g_find_program_in_path(MP3_DECODER_APP2) == NULL))
- {
-     fprintf(stderr, _("Sorry, GJay requires %s; quitting\n"), 
-                    MP3_DECODER_APP1); 
-     return -1;
- }
-    
   /* Make sure there is a "~/.gjay" directory */
  gjay_home = g_strdup_printf("%s/%s", g_get_home_dir(), GJAY_DIR);
  if (g_file_test(gjay_home, G_FILE_TEST_IS_DIR) == FALSE)
@@ -255,6 +242,9 @@ int main( int argc, char *argv[] ) {
     if (gjay_vorbis_dlopen() == 0) {
         printf(_("Ogg not supported; %s"), gjay_vorbis_error());
     }
+    if ( (gjay->flac_supported = gjay_flac_dlopen()) == FALSE)
+      printf(_("FLAC not supported"));
+
     if (mode == UI) {
         /* UI needs a daemon */
         fork_or_connect_to_daemon();
@@ -327,56 +317,6 @@ void read_line ( FILE * f, char * buffer, int buffer_len) {
     }
     buffer[i] = '\0';
     return;
-}
-
-
-
-/**
- * Duplicate a string from one encoding to another
- */
-gchar * strdup_convert ( const gchar * str, 
-                         const gchar * enc_to, 
-                         const gchar * enc_from ) {
-    gchar * conv;
-    gsize b_read, b_written;
-    conv = g_convert (str,
-                      -1, 
-                      enc_to,
-                      enc_from,
-                      &b_read,
-                      &b_written,
-                      NULL);
-    if (!conv) {
-        printf(_("Unable to convert from %s charset; perhaps encoded differently?"), enc_from);
-        return g_strdup(str);
-    }
-    return conv;
-}
-
-
-/**
- * Implement strtof, except make it locale agnostic w/r/t whether a
- * decimal is "," or "."
- */
-float strtof_gjay ( const char *nptr, char **endptr) {
-    char * end;
-    float base = 10.0;
-    float divisor;
-    float result = 0;
-
-    result = strtol(nptr, &end, 10);
-    if ((*end == '.') || (*end == ',')) {
-        end++;
-        divisor = base;
-        while (isdigit(*end)) {
-            result += (*end - '0') / divisor;
-            divisor *= base;
-            end++;
-        }
-    }
-    if (endptr) 
-        *endptr = end;
-    return result;
 }
 
 

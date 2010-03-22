@@ -20,6 +20,8 @@
 #ifndef GJAY_H
 #define GJAY_H
 
+#include "util.h"
+
 /* Global definitions */
 #define AUDACIOUS_BIN "/usr/bin/audacious2"
 
@@ -44,6 +46,7 @@ extern GjayApp *gjay;
 #define OGG_DECODER_APP "ogg123"
 #define MP3_DECODER_APP1 "mpg321"
 #define MP3_DECODER_APP2 "mpg123"
+#define FLAC_DECODER_APP "flac"
 
 
 typedef enum {
@@ -67,13 +70,6 @@ extern gboolean      skip_verify;
 void    read_line             ( FILE * f, 
                                 char * buffer, 
                                 int buffer_len);
-#define strdup_to_utf8(str)   (strdup_convert(str, "UTF8", "LATIN1"))
-#define strdup_to_latin1(str) (strdup_convert(str, "LATIN1", "UTF8"))
-gchar * strdup_convert        ( const gchar * str, 
-                                const gchar * enc_to, 
-                                const gchar * enc_from );
-float   strtof_gjay           ( const char * nptr,
-                                char ** endptr);
 gchar * parent_dir            ( const char * path );
 
 
@@ -100,7 +96,6 @@ struct _GjayApp {
   GtkWidget *notebook;
   GtkWidget * prefs_window;
 
-  gchar       * mp3_decoder_app;
 
   /* Songs */
   GList      * songs;       /* List of song ptrs  */
@@ -111,6 +106,9 @@ struct _GjayApp {
   GHashTable * song_inode_dev_hash;
   GHashTable * not_song_hash;
   
+  /* Supported filetypes */
+  gboolean ogg_supported;
+  gboolean flac_supported;
 };
 
 /* From daemon.c */

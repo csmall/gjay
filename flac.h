@@ -1,5 +1,5 @@
 /**
- * GJay, copyright (c) 2002-3 Chuck Groom
+ * GJay, copyright (c) 2010 Craig Small
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -16,18 +16,13 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
  * USA
  */
+#include <stdio.h>
 
+gboolean gjay_flac_dlopen(void);
+gboolean
+read_flac_file_type( gchar    * path,
+                      gint     * length,
+                      gchar   ** title,
+                      gchar   ** artist,
+                      gchar   ** album);
 
-#ifndef _GJAY_XMMS_H_
-#define _GJAY_XMMS_H_
-
-#include "gjay.h" 
-
-void        join_or_start_xmms    ( void );
-void        play_song             ( song * s );
-void        play_songs            ( GList * slist );
-void        play_files            ( GList * list);
-song *      get_current_xmms_song ( void );
-gboolean    xmms_is_running       ( void );
-
-#endif /* _GJAY_XMMS_H_ */
