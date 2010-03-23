@@ -6,6 +6,7 @@ Changes in 0.3.1
 	* Fixed bug where frequency ranges were all 0
 	* Various fixes in frequency analysis by Frank V
 	* Added FLAC support based on Rob Norris' code SF#1443646
+	* max working set is set at preferences  based on kweinder's patch SF#1052970
 
 Changes in 0.3.0
 ================

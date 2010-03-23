@@ -50,6 +50,7 @@ typedef struct {
     gboolean start_color;
     gboolean wander;
     gboolean rating_cutoff;
+    int max_working_set;
     
     /* Playlist len, in minutes */
     guint time;

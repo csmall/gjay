@@ -18,6 +18,7 @@
  * <path_weight>...
  * <color type="hsv">float float float</color>
  * <time>int</time>
+ * <max_working_set>int</max_working_set>
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -63,6 +64,7 @@ typedef enum {
     PE_PATH_WEIGHT,
     PE_COLOR,
     PE_TIME,
+    PE_MAX_WORKING_SET,
     /* attributes */
     PE_EXTENSION_FILTER,
     PE_HIDE_TIP,
@@ -97,6 +99,7 @@ char * pref_element_strs[PE_LAST] = {
     "path_weight",
     "color",
     "time",
+    "max_working_set",
     "extension_filter",
     "hide_tip",
     "wander",
@@ -144,6 +147,7 @@ load_prefs ( void ) {
     prefs->rating = DEFAULT_RATING;
     prefs->use_ratings = FALSE;
     prefs->time = DEFAULT_PLAYLIST_TIME;
+    prefs->max_working_set = DEFAULT_MAX_WORKING_SET;
     prefs->variance =
         prefs->hue = 
         prefs->brightness =
@@ -240,6 +244,11 @@ void save_prefs ( void ) {
                 pref_element_strs[PE_TIME],
                 prefs->time,
                 pref_element_strs[PE_TIME]);
+
+	fprintf(f, "<%s>%d</%s>\n",
+		pref_element_strs[PE_MAX_WORKING_SET],
+		prefs->max_working_set,
+		pref_element_strs[PE_MAX_WORKING_SET]);
 
         fprintf(f, "<%s %s=\"hsv\">%f %f %f</%s>\n",
                 pref_element_strs[PE_COLOR],
@@ -431,6 +440,9 @@ void data_text ( GMarkupParseContext *context,
         gjay->prefs->time = atoi(buffer);
         break;
     default:
+        break;
+    case PE_MAX_WORKING_SET:
+        gjay->prefs->max_working_set = atoi(buffer);
         break;
     }
     *element = PE_LAST;

@@ -36,9 +36,6 @@ static void remove_repeats   ( song * s, GList * list);
 
 #define PATH_DIST_FACTOR 0.5
 
-/* Limit size of working set to 1500 songs */
-#define MAX_WORKING_SET 1500
-
 /**
  * Generate a playlist (list of song *) no longer than the specified
  * time, in minutes 
@@ -149,7 +146,7 @@ GList * generate_playlist ( guint minutes ) {
     /* Regretably, we must winnow the working set to something reasonable.
        If there were 10,000 songs, this would take ~20 seconds on a fast
        machine. */
-    for (len = g_list_length(working); len > MAX_WORKING_SET; len--) {
+    for (len = g_list_length(working); len > gjay->prefs->max_working_set; len--) {
         s = SONG(g_list_nth(working, rand() % len));
         working = g_list_remove(working, s);
     }
