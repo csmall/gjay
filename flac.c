@@ -59,16 +59,33 @@ gjay_flac_dlopen(void) {
   /* Clear any error first */
   dlerror();
 
-  if (gjay_dlsym(lib, &gjflac_metadata_chain_new, "FLAC__metadata_chain_new") == FALSE) return FALSE;
-  if (gjay_dlsym(lib, &gjflac_metadata_chain_read, "FLAC__metadata_chain_read") == FALSE) return FALSE;
-  if (gjay_dlsym(lib, &gjflac_metadata_chain_status, "FLAC__metadata_chain_status") == FALSE) return FALSE;
-  if (gjay_dlsym(lib, &gjflac_metadata_chain_delete, "FLAC__metadata_chain_delete") == FALSE) return FALSE;
-
-  if (gjay_dlsym(lib, &gjflac_metadata_iterator_new, "FLAC__metadata_iterator_new") == FALSE) return FALSE;
-  if (gjay_dlsym(lib, &gjflac_metadata_iterator_init, "FLAC__metadata_iterator_init") == FALSE) return FALSE;
-  if (gjay_dlsym(lib, &gjflac_metadata_iterator_get_block, "FLAC__metadata_iterator_get_block") == FALSE) return FALSE;
-  if (gjay_dlsym(lib, &gjflac_metadata_iterator_next, "FLAC__metadata_iterator_next") == FALSE) return FALSE;
-  if (gjay_dlsym(lib, &gjflac_metadata_iterator_delete, "FLAC__metadata_iterator_delete") == FALSE) return FALSE;
+  if ( (gjflac_metadata_chain_new = 
+        gjay_dlsym(lib, "FLAC__metadata_chain_new")) == NULL)
+    return FALSE;
+  if ( (gjflac_metadata_chain_read =
+        gjay_dlsym(lib, "FLAC__metadata_chain_read")) == NULL)
+    return FALSE;
+  if ( (gjflac_metadata_chain_status =
+        gjay_dlsym(lib, "FLAC__metadata_chain_status")) == NULL)
+    return FALSE;
+  if ( (gjflac_metadata_chain_delete =
+        gjay_dlsym(lib, "FLAC__metadata_chain_delete")) == NULL)
+      return FALSE;
+  if ( (gjflac_metadata_iterator_new =
+      gjay_dlsym(lib, "FLAC__metadata_iterator_new")) == NULL)
+    return FALSE;
+  if ( (gjflac_metadata_iterator_init =
+      gjay_dlsym(lib, "FLAC__metadata_iterator_init")) == NULL)
+    return FALSE;
+  if ( (gjflac_metadata_iterator_get_block =
+      gjay_dlsym(lib, "FLAC__metadata_iterator_get_block")) == NULL)
+    return FALSE;
+  if ( (gjflac_metadata_iterator_next =
+      gjay_dlsym(lib, "FLAC__metadata_iterator_next")) == NULL)
+    return FALSE;
+  if ( (gjflac_metadata_iterator_delete =
+      gjay_dlsym(lib, "FLAC__metadata_iterator_delete")) == NULL)
+    return FALSE;
 
   return TRUE;
 }

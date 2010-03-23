@@ -21,7 +21,7 @@
 
 #include <glib.h>
 
-gboolean gjay_dlsym(void *handle, void** sym, const char const *func_name);
+void * gjay_dlsym(void *handle, const char const *func_name);
 #define strdup_to_utf8(str)   (strdup_convert(str, "UTF8", "LATIN1"))
 #define strdup_to_latin1(str) (strdup_convert(str, "LATIN1", "UTF8"))
 gchar * strdup_convert        ( const gchar * str, 

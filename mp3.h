@@ -75,6 +75,13 @@ typedef struct {
 	int badframes;
 } mp3info;
 
+gboolean
+read_mp3_file_type( gchar    * path,
+                      gint     * length,
+                      gchar   ** title,
+                      gchar   ** artist,
+                      gchar   ** album);
+
 int get_mp3_info( mp3info *mp3,
                   int scantype, 
                   int fullscan_vbr);

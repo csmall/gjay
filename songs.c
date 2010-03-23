@@ -343,19 +343,34 @@ void file_info ( gchar    * path,
     *dev = buf.st_dev;
     *inode = buf.st_ino;
 
-    for (*type = OGG; *type < SONG_FILE_TYPE_LAST; (*type)++) {
-        if (read_song_file_type(latin1_path, *type, 
-                                length, title, artist, album)) {
-            *is_song = TRUE;
-            g_free(latin1_path);
-            return;
-        }
+    if (gjay->ogg_supported && read_ogg_file_type(latin1_path, length, title, artist, album) == TRUE)
+    {
+      *is_song = TRUE;
+      *type = OGG;
+      g_free(latin1_path);
+      return;
     }
+    if (read_mp3_file_type(latin1_path, length, title, artist, album) == TRUE)
+    {
+      *is_song = TRUE;
+      *type = MP3;
+      g_free(latin1_path);
+      return;
+    }
+    *type = WAV;
+    if (read_song_file_type(latin1_path, *type, 
+                                length, title, artist, album)) {
+      *is_song = TRUE;
+      g_free(latin1_path);
+      return;
+    }
+
     if (gjay->flac_supported && read_flac_file_type(latin1_path, length, title, artist, album) == TRUE)
     {
       *is_song = TRUE;
       *type = FLAC;
       g_free(latin1_path);
+      return;
     }
 
     g_free(latin1_path);
@@ -819,9 +834,7 @@ static gboolean read_song_file_type ( char         * path,
                                       gchar       ** artist,
                                       gchar       ** album) {
     FILE * f; 
-    int i, result;
-    char * vf; // OggVorbis_Files
-    vorbis_comment * vc;
+    int result;
     struct stat buf;
     waveheaderstruct header;
     mp3info mp3;
@@ -832,38 +845,6 @@ static gboolean read_song_file_type ( char         * path,
     *title = NULL;
     
     switch (type) {
-    case OGG:
-        if (!gjay_vorbis_available()) 
-            return FALSE;
-        f = fopen(path, "r");
-        if (!f) 
-            return FALSE;
-        vf = malloc(2048); /* Much larger than OggVorbis_File struct on
-                              64 bit system */
-        if(gj_ov_open(f, vf, NULL, 0) == 0) {
-            vc = gj_ov_comment(vf, -1);
-            *length = gj_ov_time_total(vf, -1);
-            for (i = 0; i < vc->comments; i++) {
-                if (strncasecmp(vc->user_comments[i], "title=", 
-                                strlen("title=")) == 0) {
-                    *title = strdup_to_utf8(
-                        vc->user_comments[i] + strlen("title="));
-                } else if (strncasecmp(vc->user_comments[i], "artist=", 
-                                       strlen("artist=")) == 0) {
-                    *artist = strdup_to_utf8(
-                        vc->user_comments[i] + strlen("artist="));
-                } else if (strncasecmp(vc->user_comments[i], "album=", 
-                                       strlen("album=")) == 0) {
-                    *album = strdup_to_utf8(
-                        vc->user_comments[i] + strlen("album="));
-                }
-            }
-            gj_ov_clear(vf);
-            free(vf);
-            return TRUE;
-        }
-        fclose(f);
-        break;
     case MP3:
         bzero(&mp3, sizeof(mp3info));
         mp3.filename = path;

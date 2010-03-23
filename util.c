@@ -34,18 +34,20 @@
 #include "util.h"
 #include "i18n.h"
 
-gboolean
-gjay_dlsym(void *handle, void** sym, const char const *func_name)
+void *
+gjay_dlsym(void *handle, const char const *func_name)
 {
   char *error;
+  void *sym;
 
-  *sym = dlsym(handle, func_name);
+  sym = dlsym(handle, func_name);
 
   if ((error = dlerror()) != NULL) {
-    g_error("Cannot dynamically find libFLAC function %s", func_name);
-    return FALSE;
+    g_error("Cannot dynamically find libFLAC function %s (%s)",
+        func_name, error);
+    return NULL;
   }
-  return TRUE;
+  return sym;
 }
 
 /**

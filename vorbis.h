@@ -22,27 +22,15 @@
  *
  * For the record, I love the xiph people. Ogg rocks. 
  */
-#include <stdio.h>
+#ifndef VORBIS_H
+#define VORBIS_H
 
+gboolean gjay_vorbis_dlopen(void);
+gboolean
+read_ogg_file_type( gchar    * path,
+                      gint     * length,
+                      gchar   ** title,
+                      gchar   ** artist,
+                      gchar   ** album);
 
-typedef struct vorbis_comment{
-  char **user_comments;
-  int   *comment_lengths;
-  int    comments;
-  char  *vendor;
-} vorbis_comment;
-
-
-typedef int (*ov_open)   (FILE *f, void * vf, char *initial, long ibytes);
-typedef vorbis_comment * (*ov_comment)  (void * vf, int link);
-typedef double           (*ov_time_total) (void * vf, int i);
-typedef int              (*ov_clear) (void * vf);
-
-extern  ov_open       gj_ov_open;
-extern  ov_comment    gj_ov_comment;
-extern  ov_time_total gj_ov_time_total;
-extern  ov_clear      gj_ov_clear;
-
-int     gjay_vorbis_dlopen(void);
-int     gjay_vorbis_available(void);
-char *  gjay_vorbis_error(void);
+#endif

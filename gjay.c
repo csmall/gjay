@@ -239,9 +239,9 @@ int main( int argc, char *argv[] ) {
     }
 
     /* Try to load libvorbis; this is a soft dependancy */
-    if (gjay_vorbis_dlopen() == 0) {
-        printf(_("Ogg not supported; %s"), gjay_vorbis_error());
-    }
+    if ( (gjay->ogg_supported = gjay_vorbis_dlopen()) == FALSE) 
+        printf(_("Ogg not supported"));
+    
     if ( (gjay->flac_supported = gjay_flac_dlopen()) == FALSE)
       printf(_("FLAC not supported"));
 

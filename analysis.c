@@ -52,6 +52,11 @@
 
 #define BROKEN_VAL 100000000000000.0
 
+/* Multiplier for the frequency magnitude. 2.0 is close to the orginal value
+ * 5.0 gives a brighter display
+ */
+#define MAGS_MULTIPLIER 2.0
+
 typedef struct {
     FILE * f;
     waveheaderstruct header;
@@ -683,7 +688,7 @@ run_analysis  (wav_file * wsfile,
     *volume_diff =  max_frame_sum / (sum / (gdouble) num_frames);
 
     for (k = 0; k < WINDOW_SIZE / 2; k++) 
-        total_mags[k] = total_mags[k] / sum;
+        total_mags[k] = (total_mags[k] / sum) * MAGS_MULTIPLIER;
     
     g_freq = START_FREQ;
     g_factor = exp( log(MAX_FREQ/START_FREQ) / NUM_FREQ_SAMPLES);

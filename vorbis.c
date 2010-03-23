@@ -18,95 +18,89 @@
  *
  * Thin wrapper for libvorbis and libvorbisfile, which are dlopen'ed. 
  */
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
+#include <strings.h>
 #include <dlfcn.h>
+#include <gjay.h>
+#include <vorbis/vorbisfile.h>
 #include "vorbis.h"
 
-int    vorbis_opened = 0;
-char * vorbis_error = NULL;
+/* the functions */
+int (*gjov_fopen)(char *path, OggVorbis_File *vf);
+vorbis_comment *(*gjov_comment)(OggVorbis_File *vf, int link);
+double (*gjov_time_total)(OggVorbis_File *vf, int i);
+int (*gjov_clear)(OggVorbis_File *vf);
 
-/* Local null-behavior */
-int local_ov_open    (FILE *f, void * vf, char *initial, long ibytes) {
-    return 0;
+gboolean
+gjay_vorbis_dlopen(void) {
+  void * lib;
+  
+  lib = dlopen("libvorbis.so.0", RTLD_GLOBAL | RTLD_LAZY);
+  if (!lib) 
+    return FALSE;
+
+  lib = dlopen("libvorbisfile.so.3", RTLD_GLOBAL | RTLD_LAZY);
+  if (!lib)
+    return FALSE;
+
+  if ( (gjov_fopen = 
+        gjay_dlsym(lib, "ov_fopen")) == NULL)
+    return FALSE;
+  if ( (gjov_comment = 
+        gjay_dlsym(lib, "ov_comment")) == NULL)
+    return FALSE;
+  if ( (gjov_time_total = 
+        gjay_dlsym(lib, "ov_time_total")) == NULL)
+    return FALSE;
+  if ( (gjov_clear = 
+        gjay_dlsym(lib, "ov_clear")) == NULL)
+    return FALSE;
+  return TRUE;
 }
 
+gboolean
+read_ogg_file_type(   gchar    * path,
+                      gint     * length,
+                      gchar   ** title,
+                      gchar   ** artist,
+                      gchar   ** album)
+{
+  OggVorbis_File *vf;
+  vorbis_comment *vc;
+  int i;
 
-vorbis_comment * local_ov_comment  (void * vf, int link) {
-    return NULL;
-}
+  assert(gjov_fopen);
 
-double local_ov_time_total (void * vf, int i) {
-    return 0;
-}
+  vf = g_malloc0(sizeof(OggVorbis_File));
 
-int local_ov_clear (void * vf) {
-    return 0;
-}
-
-
-ov_open gj_ov_open = local_ov_open;
-ov_comment gj_ov_comment = local_ov_comment;
-ov_time_total gj_ov_time_total = local_ov_time_total;
-ov_clear gj_ov_clear = local_ov_clear;
-
-char * gjay_vorbis_error(void) {
-    return vorbis_error;
-}
-
-int gjay_vorbis_available(void) {
-    return vorbis_opened;
-}
-
-
-int gjay_vorbis_dlopen(void) {
-    void * lib;
-    void * sym;
-    
-    vorbis_opened = 0;
-    lib = dlopen("libvorbis.so.0", RTLD_GLOBAL | RTLD_LAZY);
-    if (!lib) {
-        vorbis_error = "Unable to open libvorbis.so.0";
-        return vorbis_opened;
+  if ((*gjov_fopen)(path, vf) != 0)
+  {
+    g_free(vf);
+    return FALSE;
+  }
+  vc = (*gjov_comment)(vf, -1);
+  *length = (*gjov_time_total)(vf, -1);
+  for (i = 0; i < vc->comments; i++)
+  {
+    if (strncasecmp(vc->user_comments[i], "title=", 6) == 0)
+    {
+      *title = strdup_to_utf8(vc->user_comments[i] + 6);
+    } else if (strncasecmp(vc->user_comments[i], "artist=", 7) ==0)
+    {
+      *artist = strdup_to_utf8(vc->user_comments[i] + 7);
+    } else if (strncasecmp(vc->user_comments[i], "album=", 6) ==0)
+    {
+      *album = strdup_to_utf8(vc->user_comments[i] + 6);
     }
+  }
+  (*gjov_clear)(vf);
+  g_free(vf);
 
-    lib = dlopen("libvorbisfile.so.3", RTLD_GLOBAL | RTLD_LAZY);
-    if (lib) {
-        vorbis_opened = 1;
-        
-        sym = dlsym(lib, "ov_open");
-        if (sym) {
-            gj_ov_open = (ov_open) sym;
-        } else {
-            vorbis_error = "Did not find symbol: ov_open";
-            vorbis_opened = 0;
-        }
-
-        sym = dlsym(lib, "ov_comment");
-        if (sym) {
-            gj_ov_comment = (ov_comment) sym;
-        } else {
-            vorbis_error = "Did not find symbol: ov_comment";
-            vorbis_opened = 0;
-        }
-
-        sym = dlsym(lib, "ov_time_total");
-        if (sym) {
-            gj_ov_time_total = (ov_time_total) sym;
-        } else {
-            vorbis_error = "Did not find symbol: ov_time_total";
-            vorbis_opened = 0;
-        }
-
-        sym = dlsym(lib, "ov_clear");
-        if (sym) {
-            gj_ov_clear = (ov_clear) sym;
-        } else {
-            vorbis_error = "Did not find symbol: ov_clear";
-            vorbis_opened = 0;
-        }
-    } else {
-        vorbis_error = "Unable to open libvorbisfile.so";
-    }
-    return vorbis_opened;
+  return TRUE;
 }
 
 
