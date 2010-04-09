@@ -1,8 +1,8 @@
      ../analysis.c \
      ../dbus.c \
+     ../flac.c \
      ../gjay_audacious.c \
      ../gjay.c \
-     ../gjay_xmms.c \
      ../ipc.c \
      ../mp3.c \
      ../playlist.c \
@@ -16,4 +16,5 @@
      ../ui_playlist_view.c \
      ../ui_prefs_view.c \
      ../ui_selection_view.c \
+     ../util.c \
      ../vorbis.c

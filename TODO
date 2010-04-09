@@ -1,4 +1,15 @@
-This is a list of the features I know GJay needs, and am focusing on.
+TODO list for GJay
+==================
+My main aim was to get GJay working on 64-bit architectures, like my amd64.
+That aim is complete, but below are some other things I'd like to work on:
+
+ - Support for other players other than audacious
+ - If there are other players, then I'll make the audacious code have a
+   soft dependency, just like the filetypes
+ - Someone suggested the filename attribute be replaced by album and
+   artist which makes more sense to me.
+
+Below is a list of the features Chuck knew GJay needed, and was focusing on.
 Input is always appreciated!
 
 - Add freq. and BPM information to the comment portion of ogg files so 

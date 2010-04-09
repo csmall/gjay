@@ -22,6 +22,7 @@
 #include "config.h"
 #endif
 
+#ifdef HAVE_FLAC_METADATA_H
 
 #include <string.h>
 #include <stdio.h>
@@ -111,7 +112,7 @@ read_flac_file_type( gchar    * path,
 
   if (!(*gjflac_metadata_chain_read)(chain, path)) {
     if (verbosity > 2)
-      fprintf(stderr, _("Unable to read FLAC metadata for file %s\n"), path);
+      g_warning(_("Unable to read FLAC metadata for file %s\n"), path);
     return FALSE;
   }
   // Loop through metadata
@@ -121,7 +122,7 @@ read_flac_file_type( gchar    * path,
   unsigned block_number;
 
   if (0 == iterator) {
-    fprintf(stderr, _("Out of memory creating FLAC iterator.\n"));
+    g_warning(_("Out of memory creating FLAC iterator.\n"));
     return FALSE;
   }
 
@@ -131,7 +132,7 @@ read_flac_file_type( gchar    * path,
     block = (*gjflac_metadata_iterator_get_block)(iterator);
     ok &= (0 != block);
     if (!ok)
-      fprintf (stderr, _("Could not get block from FLAC chain for %s\n"), path);
+      g_warning (_("Could not get block from FLAC chain for %s\n"), path);
     else {
       // Parse metadata
       switch(block->type) {
@@ -203,4 +204,4 @@ read_flac_file_type( gchar    * path,
   return TRUE;
 }
 
-
+#endif /* HAVE_FLAC_METADATA_H */

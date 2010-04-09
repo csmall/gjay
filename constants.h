@@ -41,6 +41,7 @@
 #define DEFAULT_PLAYLIST_TIME 72
 #define DEFAULT_MAX_WORKING_SET 1500
 
+#define MAX_VERBOSITY 3
 #define HELP_TEXT "USAGE: gjay [--help] [-hdvpux] [-l length] [-c color]\n" \
                    "\t--help, -h  :  Display this help message\n" \
                    "\t-d          :  Run as daemon\n" \

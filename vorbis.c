@@ -23,6 +23,8 @@
 #include "config.h"
 #endif
 
+#ifdef HAVE_VORBIS_VORBISFILE_H
+
 #include <strings.h>
 #include <dlfcn.h>
 #include <gjay.h>
@@ -103,4 +105,5 @@ read_ogg_file_type(   gchar    * path,
   return TRUE;
 }
 
+#endif /* HAVE_VORBIS_VORBISFILE_H */
 

@@ -191,7 +191,7 @@ void explore_view_set_root (const gchar* root_dir ) {
     /* Check to see if the directory exists */
     if (access(root_dir, R_OK | X_OK)) {
         snprintf(buffer, BUFFER_SIZE, "Cannot acces the base directory '%s'! Maybe it moved? You can pick another directory in the prefs", root_dir);
-        display_message(buffer);
+        g_warning(buffer);
         return;
     }    
     if (iter_stack)

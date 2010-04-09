@@ -22,6 +22,7 @@
  *
  * For the record, I love the xiph people. Ogg rocks. 
  */
+#ifdef HAVE_VORBIS_VORBISFILE_H
 #ifndef VORBIS_H
 #define VORBIS_H
 
@@ -33,4 +34,5 @@ read_ogg_file_type( gchar    * path,
                       gchar   ** artist,
                       gchar   ** album);
 
-#endif
+#endif /* VORBIS_H */
+#endif /* HAVE_VORBIS_VORBISFILE_H */

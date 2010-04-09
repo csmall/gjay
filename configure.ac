@@ -23,6 +23,8 @@ AM_PATH_GSL
 AC_CHECK_LIB([audclient], [audacious_remote_playlist])
 
 # Checks for header files.
+#AC_CHECK_HEADER([FLAC/metadata.h], [], [AC_MSG_WARN(No FLAC header found: FLAC support will not be compilied in)])
+AC_CHECK_HEADERS([FLAC/metadata.h vorbis/vorbisfile.h])
 #AC_CHECK_HEADERS([fcntl.h limits.h stdint.h stdlib.h string.h strings.h unistd.h])
 
 # Checks for typedefs, structures, and compiler characteristics.

@@ -7,6 +7,8 @@ Changes in 0.3.1
 	* Various fixes in frequency analysis by Frank V
 	* Added FLAC support based on Rob Norris' code SF#1443646
 	* max working set is set at preferences  based on kweinder's patch SF#1052970
+	* Vorbis/ogg and FLAC support conditionally compiled depending on if the
+	headers are there
 
 Changes in 0.3.0
 ================

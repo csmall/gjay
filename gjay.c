@@ -62,7 +62,7 @@ gjay_mode mode; /* UI, DAEMON, PLAYLIST */
 
 int daemon_pipe_fd;
 int ui_pipe_fd;
-gboolean verbosity;
+int verbosity;
 gboolean skip_verify;
 
 //static gboolean app_exists  ( gchar * app );
@@ -75,6 +75,11 @@ static void     fork_or_connect_to_daemon(void);
 static void     run_as_ui      (int argc, char * argv[]);
 static void     run_as_playlist  ( gboolean m3u_format, 
                                    gboolean playlist_in_audacious );
+void gjay_message_log(const gchar *log_domain, 
+    GLogLevelFlags log_level,
+    const gchar *message,
+    gpointer user_data);
+
 
 static gboolean
 print_version(const gchar *option_name, const gchar *value, gpointer data, GError **error)
@@ -92,20 +97,6 @@ print_version(const gchar *option_name, const gchar *value, gpointer data, GErro
   exit(0);
 }
 
-gboolean
-verbose_option_cb(GOptionContext *context, GOptionGroup *group,
-    gpointer data, GError **error)
-{
-  if (data == NULL) {
-    verbosity=1;
-    return TRUE;
-  }
-  verbosity = strtol((char*)data, NULL, 10);
-  if (verbosity < 1 || verbosity > 10)
-    verbosity=1;
-  return TRUE;
-}
-
 static void
 parse_commandline(int *argc_p, char ***argv_p, gboolean *m3u_format, gboolean *run_player, gchar **analyze_detached_fname)
 {
@@ -117,17 +108,17 @@ parse_commandline(int *argc_p, char ***argv_p, gboolean *m3u_format, gboolean *r
 
   GOptionEntry entries[] =
   {
-    { "analyze-standalone", 'a', 0, G_OPTION_ARG_FILENAME, &opt_standalone, "Analyze just FILE as standalone", "FILE" },
-    { "color", 'c', 0, G_OPTION_ARG_STRING, &opt_color, "Start playlist at color- Hex or name", "0xrrggbb|NAME" },
-    { "daemon", 'd', 0, G_OPTION_ARG_NONE, &opt_daemon, "Run as daemon", NULL },
-    { "file", 'f', 0, G_OPTION_ARG_STRING, &opt_file, "Start playlist at file", NULL },
-    { "length", 'l', 0, G_OPTION_ARG_INT, &opt_length, "Playlist length", NULL },
-    { "playlist", 'p', 0, G_OPTION_ARG_NONE, &opt_playlist, "Generate a playlist", NULL },
-    { "skip-verification", 's', 0, G_OPTION_ARG_NONE, &skip_verify, "Skip file verification", NULL },
-    { "m3u-playlist", 'u', 0, G_OPTION_ARG_NONE, m3u_format, "Use M3U playlist format", NULL },
-    { "verbose", 'v', G_OPTION_FLAG_OPTIONAL_ARG, G_OPTION_ARG_INT, &verbosity, "Verbose", "Verbosity Level" },
-    { "play-audacious", 'P', 0, G_OPTION_ARG_NONE, run_player, "Play generated playlist in Audacious", NULL },
-    { "version", 'V', G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK , &print_version, "Show version", NULL },
+    { "analyze-standalone", 'a', 0, G_OPTION_ARG_FILENAME, &opt_standalone, _("Analyze FILE and exit"), _("FILE") },
+    { "color", 'c', 0, G_OPTION_ARG_STRING, &opt_color, _("Start playlist at color- Hex or name"), _("0xrrggbb|NAME") },
+    { "daemon", 'd', 0, G_OPTION_ARG_NONE, &opt_daemon, _("Run as daemon"), NULL },
+    { "file", 'f', 0, G_OPTION_ARG_STRING, &opt_file, _("Start playlist at file"), _("FILE") },
+    { "length", 'l', 0, G_OPTION_ARG_INT, &opt_length, _("Playlist length"), _("seconds") },
+    { "playlist", 'p', 0, G_OPTION_ARG_NONE, &opt_playlist, _("Generate a playlist"), NULL },
+    { "skip-verification", 's', 0, G_OPTION_ARG_NONE, &skip_verify, _("Skip file verification"), NULL },
+    { "m3u-playlist", 'u', 0, G_OPTION_ARG_NONE, m3u_format, _("Use M3U playlist format"), NULL },
+    { "verbose", 'v', 0, G_OPTION_ARG_INT, &verbosity, "Set verbosity/debug level", _("LEVEL") },
+    { "play-audacious", 'P', 0, G_OPTION_ARG_NONE, run_player, _("Play generated playlist in Audacious"), NULL },
+    { "version", 'V', G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK , &print_version, _("Show version"), NULL },
     { NULL }
   };
 
@@ -194,7 +185,7 @@ int main( int argc, char *argv[] ) {
   srand(time(NULL));
     
   if ((gjay = g_malloc0(sizeof(GjayApp))) == NULL) {
-    fprintf(stderr, _("Unable to allocate memory for app.\n"));
+    g_warning( _("Unable to allocate memory for app.\n"));
     exit(1);
   }
 
@@ -225,7 +216,7 @@ int main( int argc, char *argv[] ) {
          S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IXGRP |
          S_IROTH | S_IXOTH) < 0)
    {
-     fprintf (stderr, _("Could not create %s\n"), gjay_home);
+     g_warning ( _("Could not create '%s'\n"), gjay_home);
      perror(NULL);
      return 0;
    }
@@ -238,12 +229,18 @@ int main( int argc, char *argv[] ) {
         }
     }
 
+#ifdef HAVE_VORBIS_VORBISFILE_H
     /* Try to load libvorbis; this is a soft dependancy */
     if ( (gjay->ogg_supported = gjay_vorbis_dlopen()) == FALSE) 
-        printf(_("Ogg not supported"));
-    
+#endif /* HAVE_VORBIS_VORBISFILE_H */
+      if (verbosity)
+        printf(_("Ogg not supported.\n"));
+
+#ifdef HAVE_FLAC_METADATA_H
     if ( (gjay->flac_supported = gjay_flac_dlopen()) == FALSE)
-      printf(_("FLAC not supported"));
+#endif /* HAVE_FLAC_METADATA_H */
+      if (verbosity)
+        printf(_("FLAC not supported.\n"));
 
     if (mode == UI) {
         /* UI needs a daemon */
@@ -268,7 +265,7 @@ int main( int argc, char *argv[] ) {
         run_as_analyze_detached(analyze_detached_fname);
         break;
     default:
-        fprintf(stderr, _("Error: app mode %d not supported\n"), mode);
+        g_warning( _("Error: app mode %d not supported\n"), mode);
         return -1;
         break;
     }
@@ -282,17 +279,17 @@ static int open_pipe(const char* filepath) {
 
     if ((fd = open(filepath, O_RDWR)) < 0) {
         if (errno != ENOENT) {
-            fprintf(stderr, ("Error opening the pipe %s.\n"), filepath);
+            g_warning(_("Error opening the pipe '%s'.\n"), filepath);
             return -1;
         }
 
         if (mknod(filepath, S_IFIFO | 0777, 0)) {
-            fprintf(stderr, _("Couldn't create the pipe %s.\n"), filepath);
+            g_warning( _("Couldn't create the pipe '%s'.\n"), filepath);
             return -1;
         }
 
         if ((fd = open(filepath, O_RDWR)) < 0) {
-            fprintf(stderr, _("Couldn't open the pipe %s.\n"), filepath);
+            g_warning(_("Couldn't open the pipe '%s'.\n"), filepath);
             return -1;
         }
     }
@@ -372,7 +369,7 @@ static gboolean create_ui_daemon_pipe(void)
   struct stat buf;
   if (stat(gjay_pipe_dir, &buf) != 0) {
     if (mkdir(gjay_pipe_dir, 0700)) {
-        fprintf(stderr, _("Couldn't create %s\n"), gjay_pipe_dir);
+        g_warning( _("Couldn't create pipe directory '%s'.\n"), gjay_pipe_dir);
         return FALSE;
     }
   }
@@ -443,7 +440,7 @@ fork_or_connect_to_daemon(void)
   {
     pid = fork();
     if (pid < 0) {
-      fprintf(stderr, _("Unable to fork daemon.\n"));
+      g_warning(_("Unable to fork daemon.\n"));
     } else if (pid == 0) {
       /* Daemon child */
       mode = DAEMON_INIT;
@@ -457,7 +454,7 @@ static void run_as_ui(int argc, char *argv[] )
 
   if (gtk_init_check(&argc, &argv) == FALSE)
   {
-    g_print(_("Cannot initialise Gtk.\n"));
+    g_warning(_("Cannot initialise Gtk.\n"));
     exit(1);
   }
   g_io_add_watch (g_io_channel_unix_new (daemon_pipe_fd),
@@ -470,6 +467,10 @@ static void run_as_ui(int argc, char *argv[] )
     make_app_ui();
     gtk_widget_show_all(gjay->main_window);
     gjay->connection = gjay_dbus_connection();
+    gjay->message_window = make_message_window();
+    g_log_set_handler(NULL,
+        G_LOG_LEVEL_WARNING | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION,
+        &gjay_message_log, gjay->message_window);
 
     set_selected_rating_visible(gjay->prefs->use_ratings);
     set_playlist_rating_visible(gjay->prefs->use_ratings);
@@ -529,4 +530,27 @@ static void run_as_playlist(gboolean m3u_format, gboolean playlist_in_audacious)
     g_list_free(list);
 }
 
+
+void gjay_message_log(const gchar *log_domain, 
+    GLogLevelFlags log_level,
+    const gchar *message,
+    gpointer user_data)
+{
+  GtkWidget *msg_window = GTK_WIDGET(user_data);
+  GtkWidget *msg_text_view;
+  GtkTextBuffer *buffer;
+
+  if (mode != UI) {
+    printf("%s\n", message);
+    return;
+  }
+  msg_text_view = GTK_WIDGET(g_object_get_data(G_OBJECT(msg_window), "text_view"));
+
+  buffer = gtk_text_view_get_buffer (GTK_TEXT_VIEW (msg_text_view));
+  gtk_text_buffer_insert_at_cursor(buffer, 
+      message, 
+      strlen(message));
+  gtk_text_buffer_insert_at_cursor(buffer, "\n", 1);
+  gtk_widget_show_all (GTK_WIDGET(msg_window));
+}
 

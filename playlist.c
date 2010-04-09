@@ -26,6 +26,7 @@
 #include "ui.h"
 #include "analysis.h"
 #include "playlist.h"
+#include "i18n.h"
 
 static song * current;
 static song * first;
@@ -90,7 +91,7 @@ GList * generate_playlist ( guint minutes ) {
     }
     
     if (!working) {
-        display_message("No songs to create playlist from");
+        g_warning(_("No songs to create playlist from"));
         return NULL;
     }
     
@@ -106,8 +107,9 @@ GList * generate_playlist ( guint minutes ) {
         if (!first) {
             gchar * latin1;
             latin1 = strdup_to_latin1((char *) gjay->selected_files->data);
-            fprintf(stderr, "File '%s' not found in data file;\n"\
-                    "perhaps it has not been analyzed. Using random starting song.\n",
+            fprintf(stderr, _(
+                  "File '%s' not found in data file;\n"
+                  "perhaps it has not been analyzed. Using random starting song.\n"),
                     latin1);
             g_free(latin1);
         }
@@ -197,7 +199,7 @@ GList * generate_playlist ( guint minutes ) {
     g_list_free(working);
 
     if (verbosity) 
-        printf("It took %d seconds to generate playlist\n",  
+        printf(_("It took %d seconds to generate playlist\n"),  
                (int) (time(NULL) - t));
     
     return final;
@@ -208,7 +210,7 @@ void save_playlist ( GList * list, gchar * fname ) {
     FILE * f;
     f = fopen(fname, "w");
     if (!f) {
-        display_message("Sorry, cannot write playlist there.");
+        g_warning(_("Sorry, cannot write playlist to '%s'."), fname);
         return;
     }
     write_playlist(list, f, TRUE);

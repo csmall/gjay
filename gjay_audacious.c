@@ -30,6 +30,7 @@
 #include "gjay.h" 
 #include "songs.h" 
 #include "dbus.h"
+#include "i18n.h"
 
 static void play_files ( GList *list);
 static void audacious_connect(void);
@@ -115,7 +116,7 @@ play_files ( GList *list) {
         GTK_DIALOG_DESTROY_WITH_PARENT,
         GTK_MESSAGE_QUESTION,
         GTK_BUTTONS_YES_NO,
-        "Audacious is not running, start Audacious?");
+        _("Audacious is not running, start Audacious?"));
     result = gtk_dialog_run(GTK_DIALOG(dialog));
     gtk_widget_destroy(dialog);
     if (result == GTK_RESPONSE_YES)
@@ -129,14 +130,14 @@ play_files ( GList *list) {
           G_APP_INFO_CREATE_NONE,
           &error)) == NULL)
       {
-        g_warning("Cannot create audacious g_app %s", error->message);
+        g_warning(_("Cannot create audacious g_app: %s\n"), error->message);
         g_error_free(error);
         return;
       }
       error=NULL;
       if (g_app_info_launch(aud_app, NULL, NULL, &error) == FALSE)
       {
-        g_warning("Cannot launch audacious g_app %s", error->message);
+        g_warning(_("Cannot launch audacious g_app: %s"), error->message);
         g_error_free(error);
         return;
       }
@@ -153,7 +154,7 @@ play_files ( GList *list) {
             GTK_DIALOG_DESTROY_WITH_PARENT,
             GTK_MESSAGE_ERROR,
             GTK_BUTTONS_CLOSE,
-            "Unable to start Audacious");
+            _("Unable to start Audacious"));
         gtk_dialog_run(GTK_DIALOG(dialog));
         gtk_widget_destroy(dialog);
         return;

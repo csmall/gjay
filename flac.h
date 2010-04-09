@@ -16,6 +16,10 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
  * USA
  */
+#ifdef HAVE_FLAC_METADATA_H
+#ifndef FLAC_H
+#define FLAC_H
+
 #include <stdio.h>
 
 gboolean gjay_flac_dlopen(void);
@@ -26,3 +30,5 @@ read_flac_file_type( gchar    * path,
                       gchar   ** artist,
                       gchar   ** album);
 
+#endif /* FLAC_H */
+#endif /* HAVE_FLAC_METADATA_H */

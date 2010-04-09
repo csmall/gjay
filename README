@@ -43,7 +43,7 @@ GJay supports ogg if it's there (a soft dependancy):
 To build GJay, you'll need the header files for libgsl, audacious, and Gtk2
 and libvorbis-dev
 
-The relevant Debain packages are:
+The relevant Debian packages are:
 mpg321 vorbis-tools audacious
 libgtk2.0 libgsl0 libvorbis (Debian keeps mucking about with this name...)
 libgtk1.2-dev audacious-dev libgsl0-dev

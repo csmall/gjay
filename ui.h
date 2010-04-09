@@ -83,7 +83,6 @@ void        switch_page (GtkNotebook *notebook,
                          gint page_num,
                          gpointer user_data);
 void        make_app_ui     ( void );
-void        display_message ( gchar * msg );
 
 
 GtkWidget * make_explore_view ( void );
@@ -92,6 +91,7 @@ GtkWidget * make_no_root_view ( void );
 GtkWidget * make_selection_view ( void );
 GtkWidget * make_prefs_view ( void );
 GtkWidget * make_about_view ( void );
+GtkWidget * make_message_window( void);
 void        show_about_window ( void );
 void        hide_about_window ( void );
 void        show_prefs_window ( void );

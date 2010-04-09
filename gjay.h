@@ -95,6 +95,7 @@ struct _GjayApp {
   GtkWidget *main_window;
   GtkWidget *notebook;
   GtkWidget * prefs_window;
+  GtkWidget * message_window;
 
 
   /* Songs */

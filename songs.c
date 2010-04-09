@@ -37,6 +37,7 @@
 #include "vorbis.h"
 #include "flac.h"
 #include "ui.h"
+#include "i18n.h"
 
 
 typedef enum {
@@ -331,7 +332,7 @@ void file_info ( gchar    * path,
     *album = NULL;
 
     if (verbosity > 1) {
-        printf("Scanning %s...\n", path);
+        printf(_("Scanning '%s'...\n"), path);
     }
 
     latin1_path = strdup_to_latin1(path);
@@ -343,6 +344,7 @@ void file_info ( gchar    * path,
     *dev = buf.st_dev;
     *inode = buf.st_ino;
 
+#ifdef HAVE_VORBIS_VORBISFILE_H
     if (gjay->ogg_supported && read_ogg_file_type(latin1_path, length, title, artist, album) == TRUE)
     {
       *is_song = TRUE;
@@ -350,6 +352,8 @@ void file_info ( gchar    * path,
       g_free(latin1_path);
       return;
     }
+#endif /* HAVE_VORBIS_VORBISFILE_H */
+
     if (read_mp3_file_type(latin1_path, length, title, artist, album) == TRUE)
     {
       *is_song = TRUE;
@@ -365,6 +369,7 @@ void file_info ( gchar    * path,
       return;
     }
 
+#ifdef HAVE_FLAC_METADATA_H
     if (gjay->flac_supported && read_flac_file_type(latin1_path, length, title, artist, album) == TRUE)
     {
       *is_song = TRUE;
@@ -372,6 +377,7 @@ void file_info ( gchar    * path,
       g_free(latin1_path);
       return;
     }
+#endif /* HAVE_FLAC_METADATA_H */
 
     g_free(latin1_path);
 }
@@ -402,7 +408,7 @@ void write_data_file(void) {
     }
     
     if ( (f = fopen(tmp_filename, "w")) == NULL) {
-      g_error("Unable to write song data %s\n", tmp_filename);
+      g_error(_("Unable to write song data %s\n"), tmp_filename);
     } else {
         fprintf(f, "<gjay_data version=\"%s\">\n", VERSION);
         for (llist = g_list_first(w_songs); llist; llist = g_list_next(llist))
@@ -442,7 +448,8 @@ int append_daemon_file (song * s) {
         fclose(f);
         return file_seek;
     } else {
-        fprintf(stderr, "Error: unable to write %s.\nAnalysis for %s was skipped!\n", buffer, s->path);
+        g_warning(_("Unable to write '%s'.\nAnalysis for '%s' was skipped!\n"),
+            buffer, s->path);
     }
     return -1;
 }
@@ -549,7 +556,7 @@ void read_data_file ( void ) {
         snprintf(buffer, BUFFER_SIZE, "%s/%s/%s", 
                  getenv("HOME"), GJAY_DIR, files[k]);
         if (verbosity) {
-            printf("Reading from file %s\n", buffer);
+            printf(_("Reading from data file '%s'\n"), buffer);
         }
         f = fopen(buffer, "r");
         if (f) {
@@ -850,8 +857,8 @@ static gboolean read_song_file_type ( char         * path,
         mp3.filename = path;
         mp3.file = fopen(path, "r");
         if (!mp3.file) {
-          fprintf(stderr, "Unable to read song data %s : %s\n", path,
-              strerror(errno));
+          g_warning(_("Unable to read song data '%s' : %s\n"),
+              path, strerror(errno));
           return FALSE;
         }
         // returns 0 on success

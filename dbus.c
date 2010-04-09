@@ -21,6 +21,7 @@
 #include <dbus/dbus-glib.h>
 #include "gjay.h"
 #include "dbus.h"
+#include "i18n.h"
 
 DBusGConnection *
 gjay_dbus_connection(void)
@@ -30,7 +31,7 @@ gjay_dbus_connection(void)
 
   connection = dbus_g_bus_get(DBUS_BUS_SESSION, &error);
   if (connection == NULL) {
-    g_printerr("Failed to open connection to bus: %s\n",
+    g_printerr(_("Failed to open connection to dbus bus: %s\n"),
         error->message);
     g_error_free(error);
     return NULL;
@@ -56,7 +57,9 @@ gjay_dbus_is_running(const char *appname)
         G_TYPE_INVALID)) {
     return FALSE;
   }
-  //fprintf(stderr, "Is %s running: %s\n",appname,(running ? "yes" : "no"));
+  if (verbosity > 2)
+    printf(_("dbus check found '%s' running: %s\n"),
+       appname,(running ? "yes" : "no"));
   return running;
 }
 

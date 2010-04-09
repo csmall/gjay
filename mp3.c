@@ -1,5 +1,6 @@
 /*
  * GJay, copyright (c) 2002-3 Chuck Groom <cgroom@users.sourceforge.net>
+ *       Copyright (c) 2010 Craig Small <csmall@enc.com.au>
  *
  * mp3.c: Functions for handling MP3 files and most MP3 data
  * structure manipulation.
@@ -26,10 +27,13 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
  * USA
 */
-
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 
 #include "gjay.h"
 #include "mp3.h"
+#include "i18n.h"
 
 /* MIN_CONSEC_GOOD_FRAMES defines how many consecutive valid MP3 frames
    we need to see before we decide we are looking at a real MP3 file */
@@ -285,14 +289,15 @@ int get_header(FILE *file,mp3header *header)
     header->emphasis=(buffer[3]) & 0x3;
 
     /* Final sanity checks: bitrate 1111b and frequency 11b are reserved (invalid) */
-    if (header->bitrate == 0x0F || header->freq == 0x03) {
+    if (header->bitrate == 0x0f || header->bitrate == 0) {
+      g_warning( _("Invalid bitrate %0x in mp3 header.\n"), header->bitrate);
       return 0;
     }
-    if (header->bitrate == 0) {
-      fprintf(stderr, "Header bitrate is 0 for song.\n");
+
+    if (header->freq == 0x03) {
+      g_warning(_("Invalid frequency %0x in mp3 header.\n"), header->freq);
       return 0;
     }
-    
     return ((fl=frame_length(header)) >= MIN_FRAME_SIZE ? fl : 0); 
 }
 
@@ -339,64 +344,65 @@ int sameConstant(mp3header *h1, mp3header *h2) {
 
 
 int get_id3(mp3info *mp3) {
-    int retcode=0;
-    char fbuf[4];
+  char fbuf[4];
 
-    if(mp3->datasize >= 128) {
+  if(mp3->datasize < 128) {
+    g_warning(_("mp3 file '%s' is smaller than 128 bytes.\n"),
+        mp3->filename);
+    return 4;
+  }
 	if(fseek(mp3->file, -128, SEEK_END )) {
-            fprintf(stderr,"ERROR: Couldn't read last 128 bytes of %s!!\n",mp3->filename);
-            retcode |= 4;
-	} else {
-            fread(fbuf,1,3,mp3->file); fbuf[3] = '\0';
-            mp3->id3.genre[0]=255;
+    g_warning(_("Couldn't read last 128 bytes of '%s'\n"),mp3->filename);
+    return 4;
+  } 
+  fread(fbuf,1,3,mp3->file); fbuf[3] = '\0';
+  mp3->id3.genre[0]=255;
 
+  if (memcmp("TAG", fbuf, 3) != 0) {
+    return 4;
+  }
 
-            if (!strcmp((const char *)"TAG",(const char *)fbuf)) {
-
-
-                mp3->id3_isvalid=1;
-                mp3->datasize -= 128;
-                fseek(mp3->file, -125, SEEK_END);
-                fread(mp3->id3.title,1,30,mp3->file); mp3->id3.title[30] = '\0';
-                fread(mp3->id3.artist,1,30,mp3->file); mp3->id3.artist[30] = '\0';
-                fread(mp3->id3.album,1,30,mp3->file); mp3->id3.album[30] = '\0';
-                fread(mp3->id3.year,1,4,mp3->file); mp3->id3.year[4] = '\0';
-                fread(mp3->id3.comment,1,30,mp3->file); mp3->id3.comment[30] = '\0';
-                if(mp3->id3.comment[28] == '\0') {
-                    mp3->id3.track[0] = mp3->id3.comment[29];
-                }
-                fread(mp3->id3.genre,1,1,mp3->file);
-                unpad(mp3->id3.title);
-                unpad(mp3->id3.artist);
-                unpad(mp3->id3.album);
-                unpad(mp3->id3.year);
-                unpad(mp3->id3.comment);
-            }
-   	}
-    }
-    return retcode;
-
+  mp3->id3_isvalid=1;
+  mp3->datasize -= 128;
+  fseek(mp3->file, -125, SEEK_END);
+  fread(mp3->id3.title,1,30,mp3->file); mp3->id3.title[30] = '\0';
+  fread(mp3->id3.artist,1,30,mp3->file); mp3->id3.artist[30] = '\0';
+  fread(mp3->id3.album,1,30,mp3->file); mp3->id3.album[30] = '\0';
+  fread(mp3->id3.year,1,4,mp3->file); mp3->id3.year[4] = '\0';
+  fread(mp3->id3.comment,1,30,mp3->file); mp3->id3.comment[30] = '\0';
+  if (mp3->id3.comment[28] == '\0') {
+    mp3->id3.track[0] = mp3->id3.comment[29];
+  }
+  fread(mp3->id3.genre,1,1,mp3->file);
+  unpad(mp3->id3.title);
+  unpad(mp3->id3.artist);
+  unpad(mp3->id3.album);
+  unpad(mp3->id3.year);
+  unpad(mp3->id3.comment);
+  return 0;
 }
 
 char *pad(char *string, int length) {
-    int l;
+  int l;
 
-    l=strlen(string);
-    while(l<length) {
-        string[l] = ' ';
-        l++;
-    }
+  l=strlen(string);
+  while(l<length) {
+      string[l] = ' ';
+      l++;
+  }
 
-    string[l]='\0';
-    return string;
+  string[l]='\0';
+  return string;
 }
 
 /* Remove trailing whitespace from the end of a string */
 
 char *unpad(char *string) {
-    char *pos=string+strlen(string)-1;
-    while(isspace(pos[0])) (pos--)[0]=0;
-    return string;
+  char *pos=string+strlen(string)-1;
+
+  while(pos >= string && isspace(pos[0]))
+    (pos--)[0]='\0';
+  return string;
 }
 
 /*
@@ -523,7 +529,7 @@ read_mp3_file_type( gchar    * path,
   mp3.filename = path;
   mp3.file = fopen(path, "r");
   if (!mp3.file) {
-    fprintf(stderr, "Unable to read song data %s\n", path);
+    g_warning(_("Unable to read song data for '%s'\n"), path);
     return FALSE;
   }
   if ( get_mp3_info(&mp3, SCAN_QUICK, 1) == 0)

@@ -6,9 +6,9 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: gjay 0.3.0\n"
+"Project-Id-Version: gjay 0.3.1\n"
 "Report-Msgid-Bugs-To: csmall@enc.com.au\n"
-"POT-Creation-Date: 2010-03-07 21:18+1100\n"
+"POT-Creation-Date: 2010-03-28 17:47+1100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -16,84 +16,460 @@ msgstr ""
 "Content-Type: text/plain; charset=CHARSET\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: gjay.c:81
+#: analysis.c:125
+#, c-format
+msgid "Song file %s not found\n"
+msgstr ""
+
+#: analysis.c:140
+#, c-format
+msgid "Cannot open %s for writing\n"
+msgstr ""
+
+#: analysis.c:181
+#, c-format
+msgid "Adding '%s' to analysis queue\n"
+msgstr ""
+
+#: analysis.c:255
+#, c-format
+msgid "Daemon received ack\n"
+msgstr ""
+
+#: analysis.c:262
+#, c-format
+msgid "Deleting daemon pid file '%s'\n"
+msgstr ""
+
+#: analysis.c:269
+#, c-format
+msgid "Daemon is clearing out analysis queue, deleting file '%s'\n"
+msgstr ""
+
+#: analysis.c:284
+#, c-format
+msgid "Daemon queuing song file '%s'\n"
+msgstr ""
+
+#: analysis.c:292
+#, c-format
+msgid "Detaching daemon\n"
+msgstr ""
+
+#: analysis.c:300
+#, c-format
+msgid "Attaching to daemon\n"
+msgstr ""
+
+#: analysis.c:310
+#, c-format
+msgid "Daemon Quitting\n"
+msgstr ""
+
+#: analysis.c:350
+#, c-format
+msgid "analyze(): File '%s' cannot be read\n"
+msgstr ""
+
+#: analysis.c:373
+#, c-format
+msgid "File '%s' is not a recognised song.\n"
+msgstr ""
+
+#: analysis.c:389
+#, c-format
+msgid "Analyzing song file '%s'\n"
+msgstr ""
+
+#: analysis.c:396
+#, c-format
+msgid "Analysis took %ld seconds\n"
+msgstr ""
+
+#: analysis.c:465
+#, c-format
+msgid "Unable to decode '%s' as no ogg decoder found"
+msgstr ""
+
+#: analysis.c:475
+#, c-format
+msgid "Unable to decode '%s' as no mp3 decoder found"
+msgstr ""
+
+#: analysis.c:485
+#, c-format
+msgid "Unable to decode '%s' as no flac decoder found"
+msgstr ""
+
+#: analysis.c:500
+#, c-format
+msgid "Unable to run decoder command '%s'\n"
+msgstr ""
+
+#: analysis.c:555
+#, c-format
+msgid ""
+"File is not a (converted) wav file. Modus is supposed to be 1 or 2 but is %"
+"d\n"
+msgstr ""
+
+#: analysis.c:562
+msgid "File is not a 16-bit stream\n"
+msgstr ""
+
+#: analysis.c:708
+#, c-format
+msgid "Frequencies: \n"
+msgstr ""
+
+#: analysis.c:765
+#, c-format
+msgid "BPM: %f\n"
+msgstr ""
+
+#: analysis.c:941
+#, c-format
+msgid "Daemon appears to have been orphaned. Quitting.\n"
+msgstr ""
+
+#: analysis.c:968
+#, c-format
+msgid "Analysis daemon done.\n"
+msgstr ""
+
+#: dbus.c:34
+#, c-format
+msgid "Failed to open connection to dbus bus: %s\n"
+msgstr ""
+
+#: dbus.c:61
+#, c-format
+msgid "dbus check found '%s' running: %s\n"
+msgstr ""
+
+#: flac.c:115
+#, c-format
+msgid "Unable to read FLAC metadata for file %s\n"
+msgstr ""
+
+#: flac.c:125
+msgid "Out of memory creating FLAC iterator.\n"
+msgstr ""
+
+#: flac.c:135
+#, c-format
+msgid "Could not get block from FLAC chain for %s\n"
+msgstr ""
+
+#: gjay_audacious.c:119
+msgid "Audacious is not running, start Audacious?"
+msgstr ""
+
+#: gjay_audacious.c:133
+#, c-format
+msgid "Cannot create audacious g_app: %s\n"
+msgstr ""
+
+#: gjay_audacious.c:140
+#, c-format
+msgid "Cannot launch audacious g_app: %s"
+msgstr ""
+
+#: gjay_audacious.c:157
+msgid "Unable to start Audacious"
+msgstr ""
+
+#: gjay.c:87
 #, c-format
 msgid "GJay version %s\n"
 msgstr ""
 
-#: gjay.c:86
+#: gjay.c:92
 #, c-format
 msgid ""
 "GJay comes with ABSOLUTELY NO WARRANTY.\n"
-"This is free software, and you are welcome to redistribute it under\n"
-"the terms of the GNU General Public License.\n"
-"For more information about these matters, see the files named COPYING.\n"
+"This program is free software; you can redistribute it and/or modify\n"
+"it under the terms of the GNU General Public License as published by\n"
+"the Free Software Foundation; either version 2 of the License, or\n"
+"(at your option) any later version.\n"
+msgstr ""
+
+#: gjay.c:111
+msgid "Analyze FILE and exit"
+msgstr ""
+
+#: gjay.c:111 gjay.c:114
+msgid "FILE"
+msgstr ""
+
+#: gjay.c:112
+msgid "Start playlist at color- Hex or name"
+msgstr ""
+
+#: gjay.c:112
+msgid "0xrrggbb|NAME"
+msgstr ""
+
+#: gjay.c:113
+msgid "Run as daemon"
+msgstr ""
+
+#: gjay.c:114
+msgid "Start playlist at file"
+msgstr ""
+
+#: gjay.c:115
+msgid "Playlist length"
+msgstr ""
+
+#: gjay.c:115
+msgid "seconds"
+msgstr ""
+
+#: gjay.c:116
+msgid "Generate a playlist"
+msgstr ""
+
+#: gjay.c:117
+msgid "Skip file verification"
 msgstr ""
 
 #: gjay.c:118
-msgid "- Automatic DJ and playlist creator"
+msgid "Use M3U playlist format"
+msgstr ""
+
+#: gjay.c:119
+msgid "LEVEL"
+msgstr ""
+
+#: gjay.c:120
+msgid "Play generated playlist in Audacious"
+msgstr ""
+
+#: gjay.c:121
+msgid "Show version"
 msgstr ""
 
 #: gjay.c:125
+msgid "- Automatic DJ and playlist creator"
+msgstr ""
+
+#: gjay.c:132
 #, c-format
 msgid "option parsing failed: %s\n"
 msgstr ""
 
-#: gjay.c:155
+#: gjay.c:162
 #, c-format
 msgid "Running as daemon. Ctrl+c to stop.\n"
 msgstr ""
 
-#: gjay.c:185
-#, c-format
+#: gjay.c:188
 msgid "Unable to allocate memory for app.\n"
 msgstr ""
 
-#: gjay.c:211 gjay.c:217
+#: gjay.c:219
 #, c-format
-msgid "Sorry, GJay requires %s; quitting\n"
+msgid "Could not create '%s'\n"
 msgstr ""
 
-#: gjay.c:230
+#: gjay.c:237
 #, c-format
-msgid "Could not create %s\n"
+msgid "Ogg not supported.\n"
 msgstr ""
 
-#: gjay.c:245
+#: gjay.c:243
 #, c-format
-msgid "Ogg not supported; %s"
+msgid "FLAC not supported.\n"
 msgstr ""
 
-#: gjay.c:270
+#: gjay.c:268
 #, c-format
 msgid "Error: app mode %d not supported\n"
 msgstr ""
 
-#: gjay.c:289
+#: gjay.c:282
 #, c-format
-msgid "Couldn't create the pipe %s.\n"
+msgid "Error opening the pipe '%s'.\n"
 msgstr ""
 
-#: gjay.c:294
+#: gjay.c:287
 #, c-format
-msgid "Couldn't open the pipe %s.\n"
+msgid "Couldn't create the pipe '%s'.\n"
 msgstr ""
 
-#: gjay.c:339
+#: gjay.c:292
 #, c-format
-msgid "Unable to convert from %s charset; perhaps encoded differently?"
+msgid "Couldn't open the pipe '%s'.\n"
 msgstr ""
 
-#: gjay.c:423
+#: gjay.c:372
 #, c-format
-msgid "Couldn't create %s\n"
+msgid "Couldn't create pipe directory '%s'.\n"
 msgstr ""
 
-#: gjay.c:500
-#, c-format
+#: gjay.c:443
 msgid "Unable to fork daemon.\n"
 msgstr ""
 
-#: gjay.c:514
+#: gjay.c:457
 msgid "Cannot initialise Gtk.\n"
+msgstr ""
+
+#: mp3.c:293
+#, c-format
+msgid "Invalid bitrate %0x in mp3 header.\n"
+msgstr ""
+
+#: mp3.c:298
+#, c-format
+msgid "Invalid frequency %0x in mp3 header.\n"
+msgstr ""
+
+#: mp3.c:350
+#, c-format
+msgid "mp3 file '%s' is smaller than 128 bytes.\n"
+msgstr ""
+
+#: mp3.c:355
+#, c-format
+msgid "Couldn't read last 128 bytes of '%s'\n"
+msgstr ""
+
+#: mp3.c:532
+#, c-format
+msgid "Unable to read song data for '%s'\n"
+msgstr ""
+
+#: playlist.c:94
+msgid "No songs to create playlist from"
+msgstr ""
+
+#: playlist.c:111
+#, c-format
+msgid ""
+"File '%s' not found in data file;\n"
+"perhaps it has not been analyzed. Using random starting song.\n"
+msgstr ""
+
+#: playlist.c:202
+#, c-format
+msgid "It took %d seconds to generate playlist\n"
+msgstr ""
+
+#: playlist.c:213
+#, c-format
+msgid "Sorry, cannot write playlist to '%s'."
+msgstr ""
+
+#: songs.c:335
+#, c-format
+msgid "Scanning '%s'...\n"
+msgstr ""
+
+#: songs.c:411
+#, c-format
+msgid "Unable to write song data %s\n"
+msgstr ""
+
+#: songs.c:451
+#, c-format
+msgid ""
+"Unable to write '%s'.\n"
+"Analysis for '%s' was skipped!\n"
+msgstr ""
+
+#: songs.c:559
+#, c-format
+msgid "Reading from data file '%s'\n"
+msgstr ""
+
+#: songs.c:860
+#, c-format
+msgid "Unable to read song data '%s' : %s\n"
+msgstr ""
+
+#: ui.c:149
+msgid "GJay Preferences"
+msgstr ""
+
+#: ui.c:246
+msgid "GJay: Messages"
+msgstr ""
+
+#: ui.c:456
+msgid "Continue analysis in background?"
+msgstr ""
+
+#: ui_prefs_view.c:77
+msgid "<b>Base Directory</b>"
+msgstr ""
+
+#: ui_prefs_view.c:86 ui_prefs_view.c:237
+msgid "Set base music directory"
+msgstr ""
+
+#: ui_prefs_view.c:108
+msgid "When you quit, song analysis should..."
+msgstr ""
+
+#: ui_prefs_view.c:109
+msgid "Stop"
+msgstr ""
+
+#: ui_prefs_view.c:112
+msgid "Continue in background"
+msgstr ""
+
+#: ui_prefs_view.c:115
+msgid "Ask"
+msgstr ""
+
+#: ui_prefs_view.c:157
+msgid "Use song ratings"
+msgstr ""
+
+#: ui_prefs_view.c:168
+msgid "Max working set"
+msgstr ""
+
+#: ui_prefs_view.c:173
+msgid ""
+"On large collections, building playlists can take a long time. So gjay first "
+"picks this number of songs randomly, then continues the  selection from that "
+"subset. Increase this number if you're willing to tolerate longer waiting "
+"times for increased accuracy."
+msgstr ""
+
+#: ui_prefs_view.c:226
+msgid "Choose base music directory"
+msgstr ""
+
+#: ui_prefs_view.c:269
+#, c-format
+msgid "Error getting status of directory '%s': %s"
+msgstr ""
+
+#: ui_prefs_view.c:280
+#, c-format
+msgid "Path '%s' is not a directory."
+msgstr ""
+
+#: ui_prefs_view.c:296
+msgid "Scanning tree..."
+msgstr ""
+
+#: ui_prefs_view.c:318
+#, c-format
+msgid "Base directory is '%s'"
+msgstr ""
+
+#: ui_prefs_view.c:321
+#, c-format
+msgid "No base directory set"
+msgstr ""
+
+#: util.c:69
+#, c-format
+msgid "Unable to convert from %s charset; perhaps encoded differently?"
 msgstr ""

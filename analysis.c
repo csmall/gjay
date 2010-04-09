@@ -45,6 +45,7 @@
 #include "gjay.h"
 #include "analysis.h"
 #include "ipc.h"
+#include "i18n.h"
 
 #define BPM_BUF_SIZE    32*1024
 #define SHARED_BUF_SIZE sizeof(short int) * BPM_BUF_SIZE
@@ -121,7 +122,7 @@ run_as_analyze_detached  ( const char * analyze_detached_fname)
 {
   if (access(analyze_detached_fname, R_OK) != 0)
   {
-    fprintf(stderr, "File %s not found\n", analyze_detached_fname);
+    fprintf(stderr, _("Song file %s not found\n"), analyze_detached_fname);
     exit(1);
   }
   analyze(analyze_detached_fname, TRUE);
@@ -136,7 +137,7 @@ void run_as_daemon(void)
   path = g_strdup_printf("%s/%s/%s", g_get_home_dir(),
       GJAY_DIR, GJAY_PID);
   if ((fp = fopen(path, "w")) == NULL) {
-    g_print("Cannot open %s for writing\n", path);
+    g_error(_("Cannot open %s for writing\n"), path);
     exit(1);
   }
   g_free(path);
@@ -177,7 +178,7 @@ static void add_file_to_queue ( char * fname) {
     FILE * f_queue, * f_add;
         
     if (verbosity > 1) {
-        printf("Adding '%s' to analysis queue\n", fname);
+        printf(_("Adding '%s' to analysis queue\n"), fname);
     }
     snprintf(queue_fname, BUFFER_SIZE, "%s/%s/%s", getenv("HOME"), 
              GJAY_DIR, GJAY_QUEUE);
@@ -251,21 +252,21 @@ gboolean ui_pipe_input (GIOChannel *source,
         break;
     case ACK:
         if (verbosity > 1)
-            printf("Daemon received ack\n");
+            printf(_("Daemon received ack\n"));
         // No need for action
         break;
     case UNLINK_DAEMON_FILE:
-        if (verbosity > 1)
-            printf("Deleting daemon pid file\n");
         snprintf(buffer, BUFFER_SIZE, "%s/%s/%s", 
                  getenv("HOME"), GJAY_DIR, GJAY_DAEMON_DATA);
+        if (verbosity > 1)
+            printf(_("Deleting daemon pid file '%s'\n"), buffer);
         unlink(buffer);
         break;
     case CLEAR_ANALYSIS_QUEUE:
-        if (verbosity > 1)
-            printf("Daemon is clearing out analysis queue, file\n");
         snprintf(buffer, BUFFER_SIZE, "%s/%s/%s", getenv("HOME"), 
                  GJAY_DIR, GJAY_QUEUE);
+        if (verbosity > 1)
+            printf(_("Daemon is clearing out analysis queue, deleting file '%s'\n"), buffer);
         unlink(buffer);
         for (list = g_list_first(queue); list; list = g_list_next(list)) 
             g_free(list->data);
@@ -280,7 +281,7 @@ gboolean ui_pipe_input (GIOChannel *source,
         buffer[len] = '\0';
         file = buffer + sizeof(ipc_type);
         if (verbosity > 1) 
-            printf("Queuing file %s\n", file);
+            printf(_("Daemon queuing song file '%s'\n"), file);
         add_file_to_queue(file);
         g_idle_add (daemon_idle, data);
         unlink(file);
@@ -288,7 +289,7 @@ gboolean ui_pipe_input (GIOChannel *source,
     case DETACH: 
         if (mode == DAEMON) {
             if (verbosity)
-                printf("Detaching daemon\n");
+                printf(_("Detaching daemon\n"));
             mode = DAEMON_DETACHED;
             g_idle_add (daemon_idle, (GMainLoop * ) data);
         }
@@ -296,7 +297,7 @@ gboolean ui_pipe_input (GIOChannel *source,
     case ATTACH:
         if (mode != DAEMON) {
             if (verbosity)
-                printf("Attaching to daemon\n");
+                printf(_("Attaching to daemon\n"));
             mode = DAEMON;
             if(in_analysis && analyze_song)
                 send_analyze_song_name();
@@ -306,7 +307,7 @@ gboolean ui_pipe_input (GIOChannel *source,
     case QUIT_IF_ATTACHED:
         if (mode == DAEMON) {
             if (verbosity)
-                printf("Daemon Quitting\n");
+                printf(_("Daemon Quitting\n"));
             g_main_quit ((GMainLoop * ) data);
         }
         break;
@@ -346,7 +347,7 @@ analyze(const char * fname,            /* File to analyze */
         /* File ain't there! The UI thread will check for non-existant
            files periodically. */
         if (verbosity)
-            fprintf(stderr, "analyze(): File %s cannot be read.\n",fname);
+            g_warning(_("analyze(): File '%s' cannot be read\n"),fname);
         in_analysis = FALSE;
         return;
     }
@@ -369,7 +370,7 @@ analyze(const char * fname,            /* File to analyze */
 
     if (!is_song) {
         if (verbosity)
-            fprintf(stderr, "File %s is not a recognised song.\n",fname);
+          g_warning(_("File '%s' is not a recognised song.\n"),fname);
         in_analysis = FALSE;
         return;
     }
@@ -385,14 +386,14 @@ analyze(const char * fname,            /* File to analyze */
     wsfile.header.data_length = (MAX(1, analyze_song->length - 1)) * wsfile.header.byte_p_sec;
 
     if (verbosity) {
-        printf("Analyzing %s\n", fname);
+        printf(_("Analyzing song file '%s'\n"), fname);
         t = time(NULL);
     }
 
     result = run_analysis(&wsfile, freq, &volume_diff, &analyze_bpm); 
 
     if (verbosity) 
-        printf("Analysis took %ld seconds\n", time(NULL) - t);
+        printf(_("Analysis took %ld seconds\n"), time(NULL) - t);
     
     send_ui_percent(0);
 
@@ -461,7 +462,7 @@ inflate_to_wav (const gchar * path, const song_file_type type)
     case OGG:
       if (ogg_decoder == NULL) {
         if (verbosity)
-          g_warning("Unable to decode %s as no ogg decoder found", path);
+          g_warning(_("Unable to decode '%s' as no ogg decoder found"), path);
         return NULL;
       }
       cmdline = g_strdup_printf("%s %s -d wav -f - 2> /dev/null",
@@ -471,7 +472,7 @@ inflate_to_wav (const gchar * path, const song_file_type type)
     case MP3:
       if (mp3_decoder == NULL) {
         if (verbosity)
-          g_warning("Unable to decode %s as no mp3 decoder found", path);
+          g_warning(_("Unable to decode '%s' as no mp3 decoder found"), path);
         return NULL;
       }
       cmdline = g_strdup_printf("%s -b 10000 %s -w - 2> /dev/null",
@@ -481,7 +482,7 @@ inflate_to_wav (const gchar * path, const song_file_type type)
     case FLAC:
       if (flac_decoder == NULL) {
         if (verbosity)
-          g_warning("Unable to decode %s as no flac decoder found", path);
+          g_warning(_("Unable to decode '%s' as no flac decoder found"), path);
         return NULL;
       }
       cmdline = g_strdup_printf("%s -d -c %s 2> /dev/null",
@@ -496,7 +497,7 @@ inflate_to_wav (const gchar * path, const song_file_type type)
   g_free(quoted_path);
   //fprintf(stderr,"Decoding with:\n ->%s\n->%s", cmdline,path);
   if (!(fp = popen(cmdline, "r"))) {
-    g_error("Unable to run %s\n", cmdline);
+    g_error(_("Unable to run decoder command '%s'\n"), cmdline);
     g_free(cmdline);
       return NULL;
   } 
@@ -551,14 +552,14 @@ run_analysis  (wav_file * wsfile,
 
     if (wsfile->header.modus != 1 && wsfile->header.modus != 2) {
       if (verbosity > 2)
-        fprintf(stderr, "File is not a (converted) wav file. Modus is supposed to be 1 or 2 but is %d\n", wsfile->header.modus);
+        g_warning(_("File is not a (converted) wav file. Modus is supposed to be 1 or 2 but is %d\n"), wsfile->header.modus);
         // Not a wav file
         return FALSE;
     }
     
     if (wsfile->header.byte_p_spl / wsfile->header.modus != 2) {
       if (verbosity > 2)
-        g_debug("File is not a 16-bit stream\n");
+        g_warning(_("File is not a 16-bit stream\n"));
         // Not 16-bit
         return FALSE;
     }
@@ -704,7 +705,7 @@ run_analysis  (wav_file * wsfile,
     }
 
     if (verbosity > 1) {
-        printf("Frequencies: \n");
+        printf(_("Frequencies: \n"));
         for (k = 0; k < NUM_FREQ_SAMPLES; k++) 
             printf("%f ", freq_results[k]);
         printf("\n");
@@ -761,7 +762,7 @@ run_analysis  (wav_file * wsfile,
         }
         *bpm_result = 4.0*(double)AUDIO_RATE*60.0/(double)minimumfoutat;
         if (verbosity > 1) 
-            printf("BPM: %f\n", *bpm_result);
+            printf(_("BPM: %f\n"), *bpm_result);
     }
     g_free (audio);
     g_free (freq_data);
@@ -937,7 +938,7 @@ gboolean daemon_idle (gpointer data) {
     if ((mode != DAEMON_DETACHED) && 
         (time(NULL) - last_ping > DAEMON_ATTACH_FREAKOUT)) {
         if (verbosity)
-            printf("Daemon appears to have been orphaned. Quitting.\n");
+            printf(_("Daemon appears to have been orphaned. Quitting.\n"));
         g_main_quit((GMainLoop *) data);
     } 
 
@@ -964,7 +965,7 @@ gboolean daemon_idle (gpointer data) {
 
     if (mode == DAEMON_DETACHED) {
         if (verbosity)
-            printf("Analysis daemon done.\n");
+            printf(_("Analysis daemon done.\n"));
         //g_main_quit((GMainLoop *) data);
     }
     return FALSE;

@@ -10,6 +10,7 @@
 #include "gjay.h"
 #include "ui.h"
 #include "ipc.h"
+#include "i18n.h"
 
 static char * tabs[TAB_LAST] = {
     "Explore",
@@ -23,8 +24,6 @@ static GtkWidget * analysis_label, * analysis_progress;
 static GtkWidget * add_files_label, * add_files_progress;
 static GtkWidget * explore_hbox, * playlist_hbox;
 static GtkWidget * paned;
-static GtkWidget * msg_window = NULL;
-static GtkWidget * msg_text_view = NULL;
 static GtkWidget * plugin_pane[1];
 static gboolean    destroy_window_flag = FALSE;
 
@@ -147,7 +146,7 @@ void make_app_ui ( void ) {
     
 
     gjay->prefs_window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
-    gtk_window_set_title(GTK_WINDOW(gjay->prefs_window), "GJay Preferences");
+    gtk_window_set_title(GTK_WINDOW(gjay->prefs_window), _("GJay Preferences"));
     gtk_container_set_border_width (GTK_CONTAINER (gjay->prefs_window), 5);
     view = make_prefs_view();
     gtk_widget_show_all(view);
@@ -239,59 +238,46 @@ gboolean daemon_pipe_input (GIOChannel *source,
     return TRUE;
 }
 
+GtkWidget * make_message_window( void)
+{
+  GtkWidget *window , *vbox, *swin, *msg_text_view, *button;
 
-void display_message ( gchar * msg ) {
-    GtkWidget * button, * swin, * vbox = NULL;
-    GtkTextBuffer *buffer;
-    
-    if (mode != UI) {
-        printf("%s\n", msg);
-        return;
-    }
-        
+  window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+  gtk_window_set_title (GTK_WINDOW (window), _("GJay: Messages"));
+  gtk_widget_set_usize(window, MSG_WIDTH, MSG_HEIGHT);
+  gtk_container_set_border_width (GTK_CONTAINER (window), 5);
 
-    if (msg_window == NULL) {
-        msg_window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
-        gtk_window_set_title (GTK_WINDOW (msg_window), "GJay: Messages");
-        gtk_widget_set_usize(msg_window, MSG_WIDTH, MSG_HEIGHT);
-        gtk_container_set_border_width (GTK_CONTAINER (msg_window), 5);
+  vbox = gtk_vbox_new (FALSE, 2);
+  gtk_container_add (GTK_CONTAINER (window), vbox);
 
-        vbox = gtk_vbox_new (FALSE, 2);
-        gtk_container_add (GTK_CONTAINER (msg_window), vbox);
+  swin = gtk_scrolled_window_new (NULL, NULL);
+  gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (swin),
+      GTK_POLICY_NEVER,
+      GTK_POLICY_AUTOMATIC);
+  gtk_box_pack_start(GTK_BOX(vbox), swin, TRUE, TRUE, 2);
+  msg_text_view = gtk_text_view_new ();
+  gtk_text_view_set_editable(GTK_TEXT_VIEW(msg_text_view), FALSE);
+  gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(msg_text_view),
+      GTK_WRAP_WORD);
+  gtk_container_add(GTK_CONTAINER(swin), msg_text_view);
+  g_object_set_data(G_OBJECT(window), "text_view", msg_text_view);
 
-        swin = gtk_scrolled_window_new (NULL, NULL);
-        gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (swin),
-                                        GTK_POLICY_NEVER,
-                                        GTK_POLICY_AUTOMATIC);
-        gtk_box_pack_start(GTK_BOX(vbox), swin, TRUE, TRUE, 2);
-        msg_text_view = gtk_text_view_new ();
-        gtk_text_view_set_editable(GTK_TEXT_VIEW(msg_text_view), FALSE);
-        gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(msg_text_view),
-                                    GTK_WRAP_WORD);
-        gtk_container_add(GTK_CONTAINER(swin), msg_text_view);
+  button = gtk_button_new_from_stock(GTK_STOCK_OK);
+  gtk_box_pack_start(GTK_BOX(vbox), button, FALSE, FALSE, 5);
 
-        button = gtk_button_new_with_label("OK");
-        gtk_box_pack_start(GTK_BOX(vbox), button, FALSE, FALSE, 5);
+  g_signal_connect_swapped (G_OBJECT (window), 
+      "delete_event",
+      G_CALLBACK(gtk_widget_hide),
+      G_OBJECT (window));
+  g_signal_connect_swapped (G_OBJECT (button), 
+      "clicked",
+      G_CALLBACK (gtk_widget_hide),
+      G_OBJECT (window));
+  GTK_WIDGET_SET_FLAGS (button, GTK_CAN_DEFAULT);
+  gtk_widget_grab_default (button);
+  gtk_widget_grab_focus (button);
 
-        g_signal_connect_swapped (G_OBJECT (msg_window), 
-                                  "delete_event",
-                                  G_CALLBACK(gtk_widget_hide),
-                                  G_OBJECT (msg_window));
-        g_signal_connect_swapped (G_OBJECT (button), 
-                                  "clicked",
-                                  G_CALLBACK (gtk_widget_hide),
-                                  G_OBJECT (msg_window));
-        GTK_WIDGET_SET_FLAGS (button, GTK_CAN_DEFAULT);
-        gtk_widget_grab_default (button);
-        gtk_widget_grab_focus (button);
-    }
-    
-    buffer = gtk_text_view_get_buffer (GTK_TEXT_VIEW (msg_text_view));
-    gtk_text_buffer_insert_at_cursor(buffer, 
-                                     msg, 
-                                     strlen(msg));
-    gtk_text_buffer_insert_at_cursor(buffer, "\n", 1);
-    gtk_widget_show_all (GTK_WIDGET(msg_window));
+  return window;
 }
 
 
@@ -467,7 +453,7 @@ gboolean quit_app (GtkWidget *widget,
                                         GTK_DIALOG_DESTROY_WITH_PARENT,
                                         GTK_MESSAGE_QUESTION,
                                         GTK_BUTTONS_YES_NO,
-                                        "Continue analysis in background?");
+                                        _("Continue analysis in background?"));
         g_signal_connect (GTK_OBJECT (dialog), 
                           "response",
                           G_CALLBACK (respond_quit_analysis),
