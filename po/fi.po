@@ -1,0 +1,489 @@
+# Finnish messages for gjay.
+# Copyright © 2010 Free Software Foundation, Inc.
+# Copyright © 2010 Craig Small
+# This file is distributed under the same license as the gjay package.
+# Jorma Karvonen <karvonen.jorma@gmail.com>, 2010.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: gjay 0.3.1\n"
+"Report-Msgid-Bugs-To: csmall@enc.com.au\n"
+"POT-Creation-Date: 2010-03-28 17:47+1100\n"
+"PO-Revision-Date: 2010-04-01 22:53+0200\n"
+"Last-Translator: Jorma Karvonen <karvonen.jorma@gmail.com>\n"
+"Language-Team: Finnish <translation-team-fi@lists.sourceforge.net>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: analysis.c:125
+#, c-format
+msgid "Song file %s not found\n"
+msgstr "Laulutiedostoa %s ei löytynyt\n"
+
+# Kirjoitettavan tiedoston nimi on gjay.pid ja argumentti sisältää myös sen polun.
+#: analysis.c:140
+#, c-format
+msgid "Cannot open %s for writing\n"
+msgstr "Ei voi avata tiedostoa %s kirjoittamista varten\n"
+
+#  Argumentti on tiedostonimi
+#: analysis.c:181
+#, c-format
+msgid "Adding '%s' to analysis queue\n"
+msgstr "Lisätään tiedosto ’%s’ analyysijonoon\n"
+
+#: analysis.c:255
+#, c-format
+msgid "Daemon received ack\n"
+msgstr "Taustaprosessi vastaanotti ack-kuittauksen\n"
+
+#: analysis.c:262
+#, c-format
+msgid "Deleting daemon pid file '%s'\n"
+msgstr "Poistetaan taustaprosessin prosessitunnistiedosto ’%s’\n"
+
+#: analysis.c:269
+#, c-format
+msgid "Daemon is clearing out analysis queue, deleting file '%s'\n"
+msgstr "Taustaprosessi tyhjentää analyysijonoa, poistetaan tiedosto ’%s’\n"
+
+#: analysis.c:284
+#, c-format
+msgid "Daemon queuing song file '%s'\n"
+msgstr "Taustaprosessi jonottaa laulutiedostoa ’%s’\n"
+
+#: analysis.c:292
+#, c-format
+msgid "Detaching daemon\n"
+msgstr "Irrotetaan taustaprosessi\n"
+
+#: analysis.c:300
+#, c-format
+msgid "Attaching to daemon\n"
+msgstr "Liitytään taustaprosessiin\n"
+
+#: analysis.c:310
+#, c-format
+msgid "Daemon Quitting\n"
+msgstr "Poistutaan taustaprosessista\n"
+
+#: analysis.c:350
+#, c-format
+msgid "analyze(): File '%s' cannot be read\n"
+msgstr "analyze(): Tiedostoa ’%s’ ei voida lukea\n"
+
+#: analysis.c:373
+#, c-format
+msgid "File '%s' is not a recognised song.\n"
+msgstr "Tiedosto ’%s’ ei ole tunnistettava laulu.\n"
+
+#: analysis.c:389
+#, c-format
+msgid "Analyzing song file '%s'\n"
+msgstr "Analysoidaan laulutiedostoa ’%s’\n"
+
+#: analysis.c:396
+#, c-format
+msgid "Analysis took %ld seconds\n"
+msgstr "Analyysi kesti %ld sekuntia\n"
+
+#: analysis.c:465
+#, c-format
+msgid "Unable to decode '%s' as no ogg decoder found"
+msgstr "Ei kyetä dekoodaamaan ’%s’ koska ogg-dekooderia ei löytynyt"
+
+#: analysis.c:475
+#, c-format
+msgid "Unable to decode '%s' as no mp3 decoder found"
+msgstr "Ei kyetä dekoodaamaan ’%s’ koska mp3-dekooderia ei löytynyt"
+
+#: analysis.c:485
+#, c-format
+msgid "Unable to decode '%s' as no flac decoder found"
+msgstr "Ei kyetä dekoodaamaan ’%s’ koska flac-dekooderia ei löytynyt"
+
+#: analysis.c:500
+#, c-format
+msgid "Unable to run decoder command '%s'\n"
+msgstr "Ei kyetä suorittamaan dekoodauskäskyä ’%s’\n"
+
+#: analysis.c:555
+#, c-format
+msgid "File is not a (converted) wav file. Modus is supposed to be 1 or 2 but is %d\n"
+msgstr "Tiedosto ei ole (muunnettu) wav-tiedosto. Modus-arvon otaksutaan olevan 1 tai 2 mutta se on %d\n"
+
+#: analysis.c:562
+msgid "File is not a 16-bit stream\n"
+msgstr "Tiedosto ei ole 16-bittinen vuo\n"
+
+#: analysis.c:708
+#, c-format
+msgid "Frequencies: \n"
+msgstr "Taajuudet: \n"
+
+#: analysis.c:765
+#, c-format
+msgid "BPM: %f\n"
+msgstr "BPM: %f\n"
+
+#: analysis.c:941
+#, c-format
+msgid "Daemon appears to have been orphaned. Quitting.\n"
+msgstr "Taustaprosessi näyttää orpoutuneen. Poistutaan.\n"
+
+#: analysis.c:968
+#, c-format
+msgid "Analysis daemon done.\n"
+msgstr "Analyysitaustaprosessi valmis.\n"
+
+#: dbus.c:34
+#, c-format
+msgid "Failed to open connection to dbus bus: %s\n"
+msgstr "Yhteyden avaaminen dbus-väylään epäonnistui: %s\n"
+
+#: dbus.c:61
+#, c-format
+msgid "dbus check found '%s' running: %s\n"
+msgstr "dbus-tarkistus löysi ’%s’-suorituksen: %s\n"
+
+#: flac.c:115
+#, c-format
+msgid "Unable to read FLAC metadata for file %s\n"
+msgstr "Ei kyetä lukemaan FLAC-metatietoja tiedostolle %s\n"
+
+#: flac.c:125
+msgid "Out of memory creating FLAC iterator.\n"
+msgstr "Muisti loppui luotaessa FLAC-iteraattoria.\n"
+
+#: flac.c:135
+#, c-format
+msgid "Could not get block from FLAC chain for %s\n"
+msgstr "Ei voitu hakea lohkoa FLAC-ketjusta kohteelle %s\n"
+
+#: gjay_audacious.c:119
+msgid "Audacious is not running, start Audacious?"
+msgstr "Audacious ei ole käynnissä, käynnistetäänkö Audacious?"
+
+#  Tässä g_app viittaa lähdekoodin mukaan johonkin gtk-perustaiseen viritykseen
+#: gjay_audacious.c:133
+#, c-format
+msgid "Cannot create audacious g_app: %s\n"
+msgstr "Ei voida luoda gtk-pohjaista audacious-sovellusta: %s\n"
+
+#  Tässä g_app viittaa lähdekoodin mukaan johonkin gtk-perustaiseen viritykseen
+#: gjay_audacious.c:140
+#, c-format
+msgid "Cannot launch audacious g_app: %s"
+msgstr "Ei voida käynnistää gtk-pohjaista audacious-sovellusta: %s"
+
+#: gjay_audacious.c:157
+msgid "Unable to start Audacious"
+msgstr "Ei kyetä käynnistämään Audacious-ohjelmaa"
+
+#: gjay.c:87
+#, c-format
+msgid "GJay version %s\n"
+msgstr "GJay-versio %s\n"
+
+#: gjay.c:92
+#, c-format
+msgid ""
+"GJay comes with ABSOLUTELY NO WARRANTY.\n"
+"This program is free software; you can redistribute it and/or modify\n"
+"it under the terms of the GNU General Public License as published by\n"
+"the Free Software Foundation; either version 2 of the License, or\n"
+"(at your option) any later version.\n"
+msgstr ""
+"GJay tulee EHDOTTOMASTI ILMAN MITÄÄN TAKUUTA.\n"
+"Tämä ohjelma on vapaa ohjelmisto; voit jakaa sitä edelleen ja/tai muokata\n"
+"sitä Free Software Foundation julkaiseman GNU General Public Lisenssin\n"
+"version 2, tai (valintasi mukaan) minkä tahansa\n"
+"myöhäisemmän version ehtojen alaisena.\n"
+
+#: gjay.c:111
+msgid "Analyze FILE and exit"
+msgstr "Analysoi TIEDOSTO ja poistu"
+
+#: gjay.c:111 gjay.c:114
+msgid "FILE"
+msgstr "TIEDOSTO"
+
+#: gjay.c:112
+msgid "Start playlist at color- Hex or name"
+msgstr "Aloita soittolista värillä- heksaluku tai nimi"
+
+#: gjay.c:112
+msgid "0xrrggbb|NAME"
+msgstr "0xrrggbb|NIMI"
+
+#: gjay.c:113
+msgid "Run as daemon"
+msgstr "Suorita taustaprosessina"
+
+#: gjay.c:114
+msgid "Start playlist at file"
+msgstr "Aloita soittolista tiedostossa"
+
+#: gjay.c:115
+msgid "Playlist length"
+msgstr "Soittolistapituus"
+
+#: gjay.c:115
+msgid "seconds"
+msgstr "sekuntia"
+
+#: gjay.c:116
+msgid "Generate a playlist"
+msgstr "Tuota soittolista"
+
+#: gjay.c:117
+msgid "Skip file verification"
+msgstr "Ohita tiedostotodennus"
+
+#: gjay.c:118
+msgid "Use M3U playlist format"
+msgstr "Käytä M3U-soittolistamuotoa"
+
+#: gjay.c:119
+msgid "LEVEL"
+msgstr "TASO"
+
+#: gjay.c:120
+msgid "Play generated playlist in Audacious"
+msgstr "Soita tuotettu soittolista Audacious-ohjelmassa"
+
+#: gjay.c:121
+msgid "Show version"
+msgstr "Näytä versio"
+
+#: gjay.c:125
+msgid "- Automatic DJ and playlist creator"
+msgstr "- Automaattinen DJ- ja soittolistaluoja"
+
+#: gjay.c:132
+#, c-format
+msgid "option parsing failed: %s\n"
+msgstr "valitsinjäsennys epäonnistui: %s\n"
+
+#: gjay.c:162
+#, c-format
+msgid "Running as daemon. Ctrl+c to stop.\n"
+msgstr "Suoritetaan taustaprosessina. Pysäytä painikkeilla Ctrl+c.\n"
+
+#: gjay.c:188
+msgid "Unable to allocate memory for app.\n"
+msgstr "Ei kyetä varaamaan muistia sovellukselle.\n"
+
+#  Lähdekoodin mukaan argumentti on "~/.gjay"-hakemisto
+#: gjay.c:219
+#, c-format
+msgid "Could not create '%s'\n"
+msgstr "Ei voitu luoda hakemistoa ’%s’\n"
+
+#: gjay.c:237
+#, c-format
+msgid "Ogg not supported.\n"
+msgstr "Ogg ei ole tuettu.\n"
+
+#: gjay.c:243
+#, c-format
+msgid "FLAC not supported.\n"
+msgstr "FLAC ei ole tuettu.\n"
+
+#: gjay.c:268
+#, c-format
+msgid "Error: app mode %d not supported\n"
+msgstr "Virhe: sovellustilaa %d ei tueta\n"
+
+#: gjay.c:282
+#, c-format
+msgid "Error opening the pipe '%s'.\n"
+msgstr "Virhe avattaessa putkea ’%s’.\n"
+
+#: gjay.c:287
+#, c-format
+msgid "Couldn't create the pipe '%s'.\n"
+msgstr "Ei voitu luoda putkea ’%s’.\n"
+
+#: gjay.c:292
+#, c-format
+msgid "Couldn't open the pipe '%s'.\n"
+msgstr "Ei voitu avata putkea ’%s’.\n"
+
+#: gjay.c:372
+#, c-format
+msgid "Couldn't create pipe directory '%s'.\n"
+msgstr "Ei voitu luoda putkihakemistoa ’%s’.\n"
+
+#: gjay.c:443
+msgid "Unable to fork daemon.\n"
+msgstr "Ei kyetä luomaan lapsiprosessia taustaprosessista.\n"
+
+#: gjay.c:457
+msgid "Cannot initialise Gtk.\n"
+msgstr "Ei voida alustaa Gtk:ta.\n"
+
+#: mp3.c:293
+#, c-format
+msgid "Invalid bitrate %0x in mp3 header.\n"
+msgstr "Virheellinen tiedonsiirtonopeus %0x mp3-otsakkeessa.\n"
+
+#: mp3.c:298
+#, c-format
+msgid "Invalid frequency %0x in mp3 header.\n"
+msgstr "Virheellinen taajuus %0x mp3-otsakkeessa.\n"
+
+#: mp3.c:350
+#, c-format
+msgid "mp3 file '%s' is smaller than 128 bytes.\n"
+msgstr "mp3-tiedosto ’%s’ on pienempi kuin 128 tavua.\n"
+
+#  Argumenttina on mp3-tiedostonimi
+#: mp3.c:355
+#, c-format
+msgid "Couldn't read last 128 bytes of '%s'\n"
+msgstr "Ei voitu lukea tiedoston ’%s’ viimeistä 128 tavua\n"
+
+#  Argumenttina on polku, jonka lopussa piti olla mp3-tiedosto
+#: mp3.c:532
+#, c-format
+msgid "Unable to read song data for '%s'\n"
+msgstr "Ei kyetä lukemaan laulutietoja kohteesta ’%s’\n"
+
+#: playlist.c:94
+msgid "No songs to create playlist from"
+msgstr "Ei ole lauluja soittolistan luomiseksi"
+
+#: playlist.c:111
+#, c-format
+msgid ""
+"File '%s' not found in data file;\n"
+"perhaps it has not been analyzed. Using random starting song.\n"
+msgstr ""
+"Tiedostoa ’%s’ ei löytynyt data-tiedostosta;\n"
+"sitä ei ehkä ole analysoitu. Käytetään satunnaista aloituslaulua.\n"
+
+#: playlist.c:202
+#, c-format
+msgid "It took %d seconds to generate playlist\n"
+msgstr "Kesti %d sekuntia tuottaa soittolista\n"
+
+#  Argumentti on tiedostonimi
+#: playlist.c:213
+#, c-format
+msgid "Sorry, cannot write playlist to '%s'."
+msgstr "Valitan, ei voida kirjoittaa soittolistaa tiedostoon ’%s’."
+
+#: songs.c:335
+#, c-format
+msgid "Scanning '%s'...\n"
+msgstr "Tutkitaan ’%s’...\n"
+
+#  Argumentti on tilapäinen tiedosto
+#: songs.c:411
+#, c-format
+msgid "Unable to write song data %s\n"
+msgstr "Ei kyetä kirjoittamaan laulutietoja tiedostoon %s\n"
+
+#  Ensimmäinen argumentti on puskuri. Toinen on argumentti on laulu ja sitä edeltävä polku
+#: songs.c:451
+#, c-format
+msgid ""
+"Unable to write '%s'.\n"
+"Analysis for '%s' was skipped!\n"
+msgstr ""
+"Ei kyetä kirjoittamaan puskuriin ’%s’.\n"
+"Laulun ’%s’ analyysi ohitettiin!\n"
+
+#: songs.c:559
+#, c-format
+msgid "Reading from data file '%s'\n"
+msgstr "Luetaan datatiedostosta ’%s’\n"
+
+#: songs.c:860
+#, c-format
+msgid "Unable to read song data '%s' : %s\n"
+msgstr "Ei kyetä lukemaan laulutietoja ’%s’ : %s\n"
+
+#: ui.c:149
+msgid "GJay Preferences"
+msgstr "GJay-asetukset"
+
+#: ui.c:246
+msgid "GJay: Messages"
+msgstr "GJay: Viestit"
+
+#: ui.c:456
+msgid "Continue analysis in background?"
+msgstr "Jatketaanko analyysia taustalla?"
+
+#: ui_prefs_view.c:77
+msgid "<b>Base Directory</b>"
+msgstr "<b>Perushakemisto</b>"
+
+#: ui_prefs_view.c:86 ui_prefs_view.c:237
+msgid "Set base music directory"
+msgstr "Aseta perusmusiikkihakemisto"
+
+#: ui_prefs_view.c:108
+msgid "When you quit, song analysis should..."
+msgstr "Poistuttaessa lauluanalyysi pitäisi..."
+
+#: ui_prefs_view.c:109
+msgid "Stop"
+msgstr "Pysäytä"
+
+#: ui_prefs_view.c:112
+msgid "Continue in background"
+msgstr "Jatka taustalla"
+
+#: ui_prefs_view.c:115
+msgid "Ask"
+msgstr "Kysy"
+
+#: ui_prefs_view.c:157
+msgid "Use song ratings"
+msgstr "Käytä lauluarvosanoja"
+
+#: ui_prefs_view.c:168
+msgid "Max working set"
+msgstr "Enimmäistyöskentelyjoukko"
+
+#: ui_prefs_view.c:173
+msgid "On large collections, building playlists can take a long time. So gjay first picks this number of songs randomly, then continues the  selection from that subset. Increase this number if you're willing to tolerate longer waiting times for increased accuracy."
+msgstr "Laajoilla kokoelmilla soittolistojen rakentaminen kestää kauan. Joten gjay ensin poimii tämän laulumäärän satunnaisesti, jatkaa sitten valintaa tuosta alijoukosta. Kasvata tätä numeroa, josa olet halukas sietämään pitempiä odotusaikoja tarkkuuden kasvattamiseksi."
+
+#: ui_prefs_view.c:226
+msgid "Choose base music directory"
+msgstr "Valitse perusmusiikkihakemisto"
+
+#: ui_prefs_view.c:269
+#, c-format
+msgid "Error getting status of directory '%s': %s"
+msgstr "Virhe haettaessa hakemiston tilaa ’%s’: %s"
+
+#: ui_prefs_view.c:280
+#, c-format
+msgid "Path '%s' is not a directory."
+msgstr "Polku ’%s’ ei ole hakemisto."
+
+#: ui_prefs_view.c:296
+msgid "Scanning tree..."
+msgstr "Tutkitaan puuta..."
+
+#: ui_prefs_view.c:318
+#, c-format
+msgid "Base directory is '%s'"
+msgstr "Perushakemisto on ’%s’"
+
+#: ui_prefs_view.c:321
+#, c-format
+msgid "No base directory set"
+msgstr "Perushakemistoa ei ole asetettu"
+
+#: util.c:69
+#, c-format
+msgid "Unable to convert from %s charset; perhaps encoded differently?"
+msgstr "Ei kyetä muuntamaan %s-merkistöstä; ehkä koodattu eritavalla?"

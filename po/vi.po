@@ -1,0 +1,477 @@
+# Vietnamese translation for Gjay.
+# Copyright © 2010 Free Software Foundation, Inc.
+# This file is distributed under the same license as the gjay package.
+# Clytie Siddall <clytie@riverland.net.au>, 2010.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: gjay 0.3.1\n"
+"Report-Msgid-Bugs-To: csmall@enc.com.au\n"
+"POT-Creation-Date: 2010-03-28 17:47+1100\n"
+"PO-Revision-Date: 2010-03-30 00:54+1030\n"
+"Last-Translator: Clytie Siddall <clytie@riverland.net.au>\n"
+"Language-Team: Vietnamese <vi-VN@googlegroups.com>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"X-Generator: LocFactoryEditor 1.8\n"
+
+#: analysis.c:125
+#, c-format
+msgid "Song file %s not found\n"
+msgstr "Không tìm thấy tập tin bài hát %s\n"
+
+#: analysis.c:140
+#, c-format
+msgid "Cannot open %s for writing\n"
+msgstr "Không mở được %s để ghi vào\n"
+
+#: analysis.c:181
+#, c-format
+msgid "Adding '%s' to analysis queue\n"
+msgstr "Đang thêm « %s » vào hàng đợi phân tích\n"
+
+#: analysis.c:255
+#, c-format
+msgid "Daemon received ack\n"
+msgstr "Trình nền nhận được sự xác nhận\n"
+
+#: analysis.c:262
+#, c-format
+msgid "Deleting daemon pid file '%s'\n"
+msgstr "Đang xoá tập tin PID của trình nền « %s »\n"
+
+#: analysis.c:269
+#, c-format
+msgid "Daemon is clearing out analysis queue, deleting file '%s'\n"
+msgstr "Trình nền đang làm sạch hàng đợi phân tích thì xoá tập tin « %s »\n"
+
+#: analysis.c:284
+#, c-format
+msgid "Daemon queuing song file '%s'\n"
+msgstr "Trình nền đang thêm vào hàng đợi tập tin bài hát « %s »\n"
+
+#: analysis.c:292
+#, c-format
+msgid "Detaching daemon\n"
+msgstr "Đang tách rời trình nền\n"
+
+#: analysis.c:300
+#, c-format
+msgid "Attaching to daemon\n"
+msgstr "Đang đính kèm trình nền\n"
+
+#: analysis.c:310
+#, c-format
+msgid "Daemon Quitting\n"
+msgstr "Trình nền đang thoát\n"
+
+#: analysis.c:350
+#, c-format
+msgid "analyze(): File '%s' cannot be read\n"
+msgstr "analyze(): Tập tin « %s » không có khả năng đọc.\n"
+
+#: analysis.c:373
+#, c-format
+msgid "File '%s' is not a recognised song.\n"
+msgstr "Tập tin « %s » không phải là một bài hát nhận ra.\n"
+
+#: analysis.c:389
+#, c-format
+msgid "Analyzing song file '%s'\n"
+msgstr "Đang phân tích tập tin bài hát « %s »\n"
+
+#: analysis.c:396
+#, c-format
+msgid "Analysis took %ld seconds\n"
+msgstr "Phân tích được trong %ld giây\n"
+
+#: analysis.c:465
+#, c-format
+msgid "Unable to decode '%s' as no ogg decoder found"
+msgstr "Không thể giải mã « %s » vì không tìm thấy hàm giải mã OGG"
+
+#: analysis.c:475
+#, c-format
+msgid "Unable to decode '%s' as no mp3 decoder found"
+msgstr "Không thể giải mã « %s » vì không tìm thấy hàm giải mã MP3"
+
+#: analysis.c:485
+#, c-format
+msgid "Unable to decode '%s' as no flac decoder found"
+msgstr "Không thể giải mã « %s » vì không tìm thấy hàm giải mã FLAC"
+
+#: analysis.c:500
+#, c-format
+msgid "Unable to run decoder command '%s'\n"
+msgstr "Không thể thực hiện câu lệnh giải mã « %s »\n"
+
+#: analysis.c:555
+#, c-format
+msgid "File is not a (converted) wav file. Modus is supposed to be 1 or 2 but is %d\n"
+msgstr "Tập tin không phải là một tập tin WAV (đã chuyển đổi). Chế độ nên là 1 hay 2 còn là %d\n"
+
+#: analysis.c:562
+msgid "File is not a 16-bit stream\n"
+msgstr "Tập tin không phải là một luồng 16-bit\n"
+
+#: analysis.c:708
+#, c-format
+msgid "Frequencies: \n"
+msgstr "Tần số : \n"
+
+#: analysis.c:765
+#, c-format
+msgid "BPM: %f\n"
+msgstr "BPM: %f\n"
+
+#: analysis.c:941
+#, c-format
+msgid "Daemon appears to have been orphaned. Quitting.\n"
+msgstr "Có vẻ là trình nền côi cút nên thoát.\n"
+
+#: analysis.c:968
+#, c-format
+msgid "Analysis daemon done.\n"
+msgstr "Hoàn tất chạy trình nền phân tích.\n"
+
+#: dbus.c:34
+#, c-format
+msgid "Failed to open connection to dbus bus: %s\n"
+msgstr "Lỗi mở kết nối đến mạch nối dbus: %s\n"
+
+#: dbus.c:61
+#, c-format
+msgid "dbus check found '%s' running: %s\n"
+msgstr "Kiểm tra dbus thì tìm thấy « %s » đang chạy: %s\n"
+
+#: flac.c:115
+#, c-format
+msgid "Unable to read FLAC metadata for file %s\n"
+msgstr "Không đọc được siêu dữ liệu FLAC cho tập tin %s\n"
+
+#: flac.c:125
+msgid "Out of memory creating FLAC iterator.\n"
+msgstr "Tràn bộ nhớ khi tạo bộ lặp lại FLAC.\n"
+
+#: flac.c:135
+#, c-format
+msgid "Could not get block from FLAC chain for %s\n"
+msgstr "Không thể lấy khối từ dãy FLAC cho %s\n"
+
+#: gjay_audacious.c:119
+msgid "Audacious is not running, start Audacious?"
+msgstr "Chương trình Audacious chưa chạy nên khởi chạy ?"
+
+#: gjay_audacious.c:133
+#, c-format
+msgid "Cannot create audacious g_app: %s\n"
+msgstr "Không thể tạo ứng dụng g_app audacious: %s\n"
+
+#: gjay_audacious.c:140
+#, c-format
+msgid "Cannot launch audacious g_app: %s"
+msgstr "Không thể khởi chạy ứng dụng g_app audacious: %s"
+
+#: gjay_audacious.c:157
+msgid "Unable to start Audacious"
+msgstr "Không thể khởi chạy Audacious"
+
+#: gjay.c:87
+#, c-format
+msgid "GJay version %s\n"
+msgstr "Phiên bản Gjay %s\n"
+
+#: gjay.c:92
+#, c-format
+msgid ""
+"GJay comes with ABSOLUTELY NO WARRANTY.\n"
+"This program is free software; you can redistribute it and/or modify\n"
+"it under the terms of the GNU General Public License as published by\n"
+"the Free Software Foundation; either version 2 of the License, or\n"
+"(at your option) any later version.\n"
+msgstr ""
+"Gjay KHÔNG BẢO ĐẢM GÌ CẢ.\n"
+"Chương trình này là phần mềm tự do; bạn có thể phát hành lại nó và/hoặc sửa đổi nó với điều kiện của Giấy Phép Công Cộng GNU như được xuất bản bởi Tổ chức Phần mềm Tự do; hoặc phiên bản 2 của Giấy phép này, hoặc (tùy chọn) bất kỳ phiên bản sau nào.\n"
+
+#: gjay.c:111
+msgid "Analyze FILE and exit"
+msgstr "Phân tích TỆP và thoát"
+
+#: gjay.c:111 gjay.c:114
+msgid "FILE"
+msgstr "TỆP"
+
+#: gjay.c:112
+msgid "Start playlist at color- Hex or name"
+msgstr "Bắt đầu danh mục nhạc ở màu theo thập lục hay tên"
+
+#: gjay.c:112
+msgid "0xrrggbb|NAME"
+msgstr "0xđỏlụxa|TÊN"
+
+#: gjay.c:113
+msgid "Run as daemon"
+msgstr "Chạy như là trình nền"
+
+#: gjay.c:114
+msgid "Start playlist at file"
+msgstr "Bắt đầu danh mục nhạc ở tập tin"
+
+#: gjay.c:115
+msgid "Playlist length"
+msgstr "Chiều dài danh mục nhạc"
+
+#: gjay.c:115
+msgid "seconds"
+msgstr "giây"
+
+#: gjay.c:116
+msgid "Generate a playlist"
+msgstr "Tạo danh mục nhạc"
+
+#: gjay.c:117
+msgid "Skip file verification"
+msgstr "Bỏ qua bước thẩm tra tập tin"
+
+#: gjay.c:118
+msgid "Use M3U playlist format"
+msgstr "Dùng định dạng danh mục phát M3U"
+
+#: gjay.c:119
+msgid "LEVEL"
+msgstr "CẤP"
+
+#: gjay.c:120
+msgid "Play generated playlist in Audacious"
+msgstr "Chạy bằng Audacious danh mục phát đã tạo"
+
+#: gjay.c:121
+msgid "Show version"
+msgstr "Hiện phiên bản"
+
+#: gjay.c:125
+msgid "- Automatic DJ and playlist creator"
+msgstr "— Trình tự động DJ và tạo danh mục nhạc"
+
+#: gjay.c:132
+#, c-format
+msgid "option parsing failed: %s\n"
+msgstr "lỗi phân tích tùy chọn: %s\n"
+
+#: gjay.c:162
+#, c-format
+msgid "Running as daemon. Ctrl+c to stop.\n"
+msgstr "Đang chạy như là trình nền. Bấm Ctrl+c để dừng chạy.\n"
+
+#: gjay.c:188
+msgid "Unable to allocate memory for app.\n"
+msgstr "Không thể cấp phát vùng nhớ cho ứng dụng.\n"
+
+#: gjay.c:219
+#, c-format
+msgid "Could not create '%s'\n"
+msgstr "Không thể tạo « %s »\n"
+
+#: gjay.c:237
+#, c-format
+msgid "Ogg not supported.\n"
+msgstr "Không hỗ trợ OGG.\n"
+
+#: gjay.c:243
+#, c-format
+msgid "FLAC not supported.\n"
+msgstr "Không hỗ trợ FLAC.\n"
+
+#: gjay.c:268
+#, c-format
+msgid "Error: app mode %d not supported\n"
+msgstr "Lỗi: chế độ ứng dụng %d không được hỗ trợ\n"
+
+#: gjay.c:282
+#, c-format
+msgid "Error opening the pipe '%s'.\n"
+msgstr "Gặp lỗi khi mở ống dẫn « %s ».\n"
+
+#: gjay.c:287
+#, c-format
+msgid "Couldn't create the pipe '%s'.\n"
+msgstr "Không thể tạo ống dẫn « %s ».\n"
+
+#: gjay.c:292
+#, c-format
+msgid "Couldn't open the pipe '%s'.\n"
+msgstr "Không thể mở ống dẫn %s.\n"
+
+#: gjay.c:372
+#, c-format
+msgid "Couldn't create pipe directory '%s'.\n"
+msgstr "Không thể tạo thư mục ống dẫn « %s ».\n"
+
+#: gjay.c:443
+msgid "Unable to fork daemon.\n"
+msgstr "Không thể phân nhánh trình nền.\n"
+
+#: gjay.c:457
+msgid "Cannot initialise Gtk.\n"
+msgstr "Không thể sơ khởi Gtk.\n"
+
+#: mp3.c:293
+#, c-format
+msgid "Invalid bitrate %0x in mp3 header.\n"
+msgstr "Gặp tỷ lệ bit %0x sai trong phần đầu MP3.\n"
+
+#: mp3.c:298
+#, c-format
+msgid "Invalid frequency %0x in mp3 header.\n"
+msgstr "Gặp tần số %0x sai trong phần đầu MP3.\n"
+
+#: mp3.c:350
+#, c-format
+msgid "mp3 file '%s' is smaller than 128 bytes.\n"
+msgstr "Tập tin MP3 « %s » nhỏ hơn 128 byte.\n"
+
+#: mp3.c:355
+#, c-format
+msgid "Couldn't read last 128 bytes of '%s'\n"
+msgstr "Không đọc được 128 byte cuối cùng của « %s »\n"
+
+#: mp3.c:532
+#, c-format
+msgid "Unable to read song data for '%s'\n"
+msgstr "Không đọc được dữ liệu bài hát cho « %s »\n"
+
+#: playlist.c:94
+msgid "No songs to create playlist from"
+msgstr "Không có bài hát từ đó cần tạo danh mục nhạc"
+
+#: playlist.c:111
+#, c-format
+msgid ""
+"File '%s' not found in data file;\n"
+"perhaps it has not been analyzed. Using random starting song.\n"
+msgstr ""
+"Tập tin « %s » không tìm thấy trong tập tin dữ liệu.\n"
+"Có thể là nó chưa được phân tích.\n"
+"Vì thế đang sử dụng bài hát đầu tiên ngẫu nhiên.\n"
+
+#: playlist.c:202
+#, c-format
+msgid "It took %d seconds to generate playlist\n"
+msgstr "Tạo được danh mục nhạc trong %d giây\n"
+
+#: playlist.c:213
+#, c-format
+msgid "Sorry, cannot write playlist to '%s'."
+msgstr "Tiếc là không thể ghi danh mục nhạc vào « %s »."
+
+#: songs.c:335
+#, c-format
+msgid "Scanning '%s'...\n"
+msgstr "Đang quét « %s »...\n"
+
+#: songs.c:411
+#, c-format
+msgid "Unable to write song data %s\n"
+msgstr "Không thể ghi nhớ dữ liệu bài hát %s\n"
+
+#: songs.c:451
+#, c-format
+msgid ""
+"Unable to write '%s'.\n"
+"Analysis for '%s' was skipped!\n"
+msgstr ""
+"Không thể ghi nhớ « %s ».\n"
+"Bước phân tích « %s » bị bỏ qua !\n"
+
+#: songs.c:559
+#, c-format
+msgid "Reading from data file '%s'\n"
+msgstr "Đang đọc từ tập tin dữ liệu « %s »\n"
+
+#: songs.c:860
+#, c-format
+msgid "Unable to read song data '%s' : %s\n"
+msgstr "Không đọc được dữ liệu bài hát « %s »: %s\n"
+
+#: ui.c:149
+msgid "GJay Preferences"
+msgstr "Tùy thích GJay"
+
+#: ui.c:246
+msgid "GJay: Messages"
+msgstr "GJay: Thông báo"
+
+#: ui.c:456
+msgid "Continue analysis in background?"
+msgstr "Tiếp tục phân tích trong nền sau ?"
+
+#: ui_prefs_view.c:77
+msgid "<b>Base Directory</b>"
+msgstr "<b>Thư mục cơ bản</b>"
+
+#: ui_prefs_view.c:86 ui_prefs_view.c:237
+msgid "Set base music directory"
+msgstr "Lập thư mục âm nhạc cơ bản"
+
+#: ui_prefs_view.c:108
+msgid "When you quit, song analysis should..."
+msgstr "Thoát thì tiến trình phân tích bài hát nên..."
+
+#: ui_prefs_view.c:109
+msgid "Stop"
+msgstr "Dừng"
+
+#: ui_prefs_view.c:112
+msgid "Continue in background"
+msgstr "Tiếp tục trong nền sau"
+
+#: ui_prefs_view.c:115
+msgid "Ask"
+msgstr "Hỏi"
+
+#: ui_prefs_view.c:157
+msgid "Use song ratings"
+msgstr "Dùng đánh giá bài hát"
+
+#: ui_prefs_view.c:168
+msgid "Max working set"
+msgstr "Tập hợp làm việc tối đa"
+
+#: ui_prefs_view.c:173
+msgid "On large collections, building playlists can take a long time. So gjay first picks this number of songs randomly, then continues the  selection from that subset. Increase this number if you're willing to tolerate longer waiting times for increased accuracy."
+msgstr "Đối với tập hợp lớn thì tiến trình xây dựng danh mục nhạc có thể mất nhiều thời gian. Do đó trước tiên GJay chọn ngẫu nhiên số các bài hát này, sau đó tiếp tục lại lựa chọn từ tập hợp phụ đó. Tăng số này nếu bạn thoả hiệp thời gian đợi dài hơn với độ chính xác lớn hơn."
+
+#: ui_prefs_view.c:226
+msgid "Choose base music directory"
+msgstr "Chọn thư mục âm nhạc cơ bản"
+
+#: ui_prefs_view.c:269
+#, c-format
+msgid "Error getting status of directory '%s': %s"
+msgstr "Gặp lỗi khi lấy trạng thái về thư mục « %s »: %s"
+
+#: ui_prefs_view.c:280
+#, c-format
+msgid "Path '%s' is not a directory."
+msgstr "Đường dẫn « %s » không phải là một thư mục."
+
+#: ui_prefs_view.c:296
+msgid "Scanning tree..."
+msgstr "Đang quét cây..."
+
+#: ui_prefs_view.c:318
+#, c-format
+msgid "Base directory is '%s'"
+msgstr "Thư mục cơ bản là « %s »"
+
+#: ui_prefs_view.c:321
+#, c-format
+msgid "No base directory set"
+msgstr "Chưa lập thư mục cơ bản"
+
+#: util.c:69
+#, c-format
+msgid "Unable to convert from %s charset; perhaps encoded differently?"
+msgstr "Không thể chuyển đổi từ bộ ký tự %s — bảng mã khác ?"
