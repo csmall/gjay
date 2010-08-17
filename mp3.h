@@ -1,16 +1,11 @@
 /*
- * GJay, copyright (c) 2002-3 Chuck Groom <cgroom@users.sourceforge.net>
- *
- * MP3 header information take from mp3info package's mp3tech.h, which is
- * copyright (C) 2000-2001  Cedric Tefft <cedric@earthling.net>, which is
- * in turn based in part on:
- *    MP3Info 0.5 by Ricardo Cerqueira <rmc@rccn.net>
- *    MP3Stat 0.9 by Ed Sweetman <safemode@voicenet.com> and 
- *     	             Johannes Overmann <overmann@iname.com>
+ * Gjay - Gtk+ DJ music playlist creator
+ * Copyright (C) 2002,2003 Chuck Groom
+ * Copyright (C) 2010 Craig Small 
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 1, or (at
+ * published by the Free Software Foundation; either version 2, or (at
  * your option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but
@@ -18,10 +13,17 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
- * USA
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, see <http://www.gnu.org/licenses/>.
+ *
+ * MP3 header information comes from mp3info package's mp3tech.h:
+ * Copyright (C) 2000-2006 Cedr Cedric Tefft <cedric@earthling.net>
+ * which is licensed under version 2 of the GNU General Public License.
+ *
+ * mp3tech.h is based in part on:
+ *    MP3Info 0.5 by Ricardo Cerqueira <rmc@rccn.net>
+ *    MP3Stat 0.9 by Ed Sweetman <safemode@voicenet.com> and 
+ *     	             Johannes Overmann <overmann@iname.com>
  */
 
 #include <stdio.h>

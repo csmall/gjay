@@ -1,7 +1,10 @@
-/**
- * GJay, copyright (c) 2002 Chuck Groom. Sections of this code come
- * from spectromatic, copyright (C) 1997-2002 Daniel Franklin, and 
- * BpmDJ by Werner Van Belle.
+/*
+ * Gjay - Gtk+ DJ music playlist creator
+ * Copyright (C) 2010 Craig Small 
+ * Copyright (C) 2002 Chuck Groom.
+ *
+ * Sections of this code come from spectromatic, copyright (C)
+ * 1997-2002 Daniel Franklin, and BpmDJ by Werner Van Belle.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -14,9 +17,7 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
- * USA
+ * with this program; if not, see <http://www.gnu.org/licenses/>.
  *
  * Analysis.c -- manages the background threads and processes involved
  * in song analysis.

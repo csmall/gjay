@@ -1,6 +1,5 @@
 /*
  * Gjay - Gtk+ DJ music playlist creator
- * Copyright (C) 2002 Chuck Groom
  * Copyright (C) 2010 Craig Small 
  *
  * This program is free software; you can redistribute it and/or
@@ -16,22 +15,18 @@
  * You should have received a copy of the GNU General Public License along
  * with this program; if not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef _RGBHSB_H_
-#define _RGBHSB_H_
 
-#include <gtk/gtk.h>
+#ifndef _GJAY_EXAILE_H_
+#define _GJAY_EXAILE_H_
 
-typedef struct {float R, G, B;} RGB; 
-typedef struct {float H, S, V;} HSV; 
-typedef struct {float H, B;}    HB;
+#include "gjay.h" 
 
-HSV     rgb_to_hsv ( RGB rgb );
-RGB     hsv_to_rgb ( HSV hsv );
-guint32 rgb_to_hex ( RGB rgb );
-HSV     hb_to_hsv  ( HB hb );
-HB      hsv_to_hb  ( HSV hsv );
-int     get_named_color (char * str, RGB * rgb );
-char *  known_colors (void);
+#define EXAILE_DBUS_SERVICE "org.exaile.Exaile"
+#define EXAILE_DBUS_PATH "/DBusInterfaceObject"
+#define EXAILE_DBUS_INTERFACE "org.exaileDBusInterface"
 
+song*     exaile_get_current_song(void);
+gboolean  exaile_is_running(void);
+void      exaile_play_files(GList *list);
 
-#endif
+#endif /* _GJAY_EXAILE_H_ */

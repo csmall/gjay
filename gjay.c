@@ -45,7 +45,6 @@
 #include <string.h>
 #include <ctype.h>
 #include "gjay.h"
-#include "gjay_audacious.h"
 #include "dbus.h"
 #include "analysis.h"
 #include "ipc.h"
@@ -53,7 +52,6 @@
 #include "vorbis.h"
 #include "flac.h"
 #include "ui.h"
-#include "gjay_audacious.h"
 #include "i18n.h"
 
 GjayApp *gjay;
@@ -464,6 +462,7 @@ static void run_as_ui(int argc, char *argv[] )
   /* Ping the daemon ocassionally to let it know that the UI 
    * process is still around */
   gtk_timeout_add( UI_PING, ping_daemon, NULL);
+  player_init();
     make_app_ui();
     gtk_widget_show_all(gjay->main_window);
     gjay->connection = gjay_dbus_connection();
@@ -492,7 +491,7 @@ static void run_as_ui(int argc, char *argv[] )
     }        
     
     set_selected_file(NULL, NULL, FALSE);
-    audacious_is_running();
+    gjay->player_is_running();
     gtk_main();
     
     save_prefs();

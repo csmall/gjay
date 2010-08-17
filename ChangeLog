@@ -1,3 +1,8 @@
+Changes in 0.3.2
+================
+  * Fixed all file headers to use standard format and GPL v2+
+	* Made the code that handles the players generic
+
 Changes in 0.3.1
 ================
 	* Shell quote the filenames Debian #573554 and SF# 297427

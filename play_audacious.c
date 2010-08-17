@@ -1,9 +1,11 @@
-/**
- * GJay, copyright (c) 2010 Craig Small
+/*
+ * Gjay - Gtk+ DJ music playlist creator
+ * play_audacious.c : Output for Audacious
+ * Copyright (C) 2010 Craig Small 
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; either version 1, or (at
+ * published by the Free Software Foundation; either version 2, or (at
  * your option) any later version.
  *
  * This program is distributed in the hope that it will be useful, but
@@ -11,10 +13,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
- * USA
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, see <http://www.gnu.org/licenses/>.
+ *
  */
 
 #ifdef HAVE_CONFIG_H
@@ -31,30 +32,11 @@
 #include "songs.h" 
 #include "dbus.h"
 #include "i18n.h"
+#include "play_audacious.h"
 
-static void play_files ( GList *list);
 static void audacious_connect(void);
 
 /* public functions */
-void
-play_song(song *s)
-{
-  GList *list;
-
-  list = g_list_append(NULL, strdup_to_latin1(s->path));
-  play_files(list);
-  g_free((gchar*)list->data);
-  g_list_free(list);
-}
-
-void play_songs (GList *slist) {
-  GList *list = NULL;
-  
-  for (; slist; slist = g_list_next(slist)) 
-    list = g_list_append(list, strdup_to_latin1(SONG(slist)->path));
-  play_files(list);
-}
-
 
 gboolean
 audacious_is_running(void)
@@ -63,7 +45,7 @@ audacious_is_running(void)
 }
 
 song *
-get_current_audacious_song(void) {
+audacious_get_current_song(void) {
   gchar *playlist_file;
   gchar *uri;
   gint pos;
@@ -83,22 +65,8 @@ get_current_audacious_song(void) {
   return s;
 }
 
-/* static functions */
-
-/* Connect and init audacious instance */
-static void
-audacious_connect(void)
-{
-  if (gjay->audacious_proxy != NULL)
-    return;
-
-  gjay->audacious_proxy = dbus_g_proxy_new_for_name(gjay->connection,
-      AUDACIOUS_DBUS_SERVICE, AUDACIOUS_DBUS_PATH, AUDACIOUS_DBUS_INTERFACE);
-
-}
-
-static void
-play_files ( GList *list) {
+void
+audacious_play_files ( GList *list) {
   GList *lptr = NULL;
   gchar *uri = NULL;
 
@@ -173,6 +141,21 @@ play_files ( GList *list) {
   }
   audacious_remote_play(gjay->audacious_proxy);
 }
+
+/* static functions */
+
+/* Connect and init audacious instance */
+static void
+audacious_connect(void)
+{
+  if (gjay->audacious_proxy != NULL)
+    return;
+
+  gjay->audacious_proxy = dbus_g_proxy_new_for_name(gjay->connection,
+      AUDACIOUS_DBUS_SERVICE, AUDACIOUS_DBUS_PATH, AUDACIOUS_DBUS_INTERFACE);
+
+}
+
 
 
 

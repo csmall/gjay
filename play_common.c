@@ -1,6 +1,5 @@
 /*
  * Gjay - Gtk+ DJ music playlist creator
- * Copyright (C) 2002 Chuck Groom
  * Copyright (C) 2010 Craig Small 
  *
  * This program is free software; you can redistribute it and/or
@@ -16,22 +15,38 @@
  * You should have received a copy of the GNU General Public License along
  * with this program; if not, see <http://www.gnu.org/licenses/>.
  */
-#ifndef _RGBHSB_H_
-#define _RGBHSB_H_
 
-#include <gtk/gtk.h>
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif /* HAVE_CONFIG_H */
 
-typedef struct {float R, G, B;} RGB; 
-typedef struct {float H, S, V;} HSV; 
-typedef struct {float H, B;}    HB;
+#include "gjay.h" 
+#include "play_audacious.h"
 
-HSV     rgb_to_hsv ( RGB rgb );
-RGB     hsv_to_rgb ( HSV hsv );
-guint32 rgb_to_hex ( RGB rgb );
-HSV     hb_to_hsv  ( HB hb );
-HB      hsv_to_hb  ( HSV hsv );
-int     get_named_color (char * str, RGB * rgb );
-char *  known_colors (void);
+void
+player_init(void)
+{
+  gjay->player_get_current_song = &audacious_get_current_song;
+  gjay->player_is_running = &audacious_is_running;
+  gjay->player_play_files = &audacious_play_files;
+}
 
+void
+play_song(song *s)
+{
+  GList *list;
 
-#endif
+  list = g_list_append(NULL, strdup_to_latin1(s->path));
+  gjay->player_play_files(list);
+  g_free((gchar*)list->data);
+  g_list_free(list);
+}
+
+void play_songs (GList *slist) {
+  GList *list = NULL;
+  
+  for (; slist; slist = g_list_next(slist)) 
+    list = g_list_append(list, strdup_to_latin1(SONG(slist)->path));
+  gjay->player_play_files(list);
+}
+
