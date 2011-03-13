@@ -1,28 +1,48 @@
-.\" GJay (C) 2002-2003 Chuck Groom <cgroom@users.sourceforge.net>
-.\" GJay (C) 2010 Craig Small <csmall@enc.com.au>
-.\" This manpage written by Chuck Groom 
+.\" 
+.\" man page for gjay
 .\"
-.TH GJay 
+.\" Copyright (C) 2002-2003 Chuck Groom <cgroom@users.sourceforge.net>
+.\" Copyright (C) 2010 Craig Small <csmall@enc.com.au>
+.\"
+.\" This man page is free software; you can redistribute it and/or modify
+.\" it under the terms of the GNU General Public License as published by
+.\" the Free Software Foundation; either version 2 of the License, or
+.\" (at your option) any later version.
+.\"
+.pc
+.TH GJAY 1 2010-10-28
 .SH NAME
 gjay \- organizes music collections 
 .SH SYNOPSIS
 .B gjay 
-.B [ \-dvhpux\ ]
-.B [ \--help\ ]
-.B [ \-c color\ ] 
-.B [ \-l length\ ]
-.B [ \-f filename\ ]
-
-.PP
+.RB [\| \-a
+.IR file \|]
+.RB [\| \-c
+.IR color \|]
+.RB [\| \-d \|]
+.RB [\| \-f \|]
+.IR file \|]
+.RB [\| \-l
+.IR length \|]
+.RB [\| \-p \|]
+.RB [\| \-s \|]
+.RB [\| \-u \|]
+.RB [\| \-v
+.IR verbosity \|]
+.RB [\| \-P \|]
+.br
+.B gjay
+.BR [\| \-hV \|]
 .SH DESCRIPTION
-.I gjay
+.B gjay
 (Gtk+ DJ) analyzes and categorizes collections of MP3, OGG, FLAC and WAV music
 files so that interesting playlists can be generated. Each song is assigned
 characteristics (BPM and spectrum) and user-assigned attributes
 (rating and color). "Color" is just a handy way for a user to describe
 a song.
 
-GJay has both a user-visible interface and a background processing
+.B gjay
+has both a user-visible interface and a background processing
 component. The user-visible component is used to select the base music
 directory, set song attributes, and generate playlists. The background
 component (the daemon) analyzes songs.
@@ -39,47 +59,48 @@ You can create playlists from within the GJay or from the command line.
 If you generate a playlist from the command line, the previous session's 
 playlist preferences for the importance of various attributes will be used.
 
-.LP
 .SH OPTIONS
-.IP -d
-Run just the analysis daemon
-.IP "-v"
-Increase output verbosity. -vv will increase it even more.
-.IP "-h, --help"
-Display help, which is like this only less so 
-.IP "-p"
-Generate a playlist
-
-.LP
-.SH PLAYLIST OPTIONS
-.IP "-f filename"
-Start the playlist at a particular file.
-.IP "-c color"
-Start the playlist at a particular color. 
-.B color
-may be a hex value 0xRRGGBB or a named color. Run 
-.I gjay -c
-to see a list of colors.
-.IP "-l length"
-Set the playlist length, in minutes
-.IP "-u"
-Use the M3U playlist format, which includes title, artist, and length information
-.IP "-x" 
-Play the generated playlist in mp3 player
-
-.LP
-.SH OTHER OPTIONS
-.IP "--analyze-standalone filename"
-Print the results of analyzing a file to stdout. Does not consult existing file data. 
-  
-.SH AUTHOR
-Written by Chuck Groom <cgroom@users.sourceforge.net>
-and Craig Small <csmall@enc.com.au>
-
-.SH COPYRIGHT
-Copyright (c) 2002-2003 by Chuck Groom and 2010 Craig Small.
-This program is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2 of the License, or
-(at your option) any later version.
-.\" end of file
+.TP
+.BI \-a\ file ,\ \-\-analyze\-standalone= file
+Run the analysis daemon on
+.I file
+and then exit. Print the results of analyzing a file to stdout. Does not 
+consult existing file data. 
+.TP
+.BI \-a\  color ,\ \-\-color= color
+Start the playlist with the initial color of
+.IR color .
+.I color
+can either be one of the named colors or a hex tuple in the format of
+.RI 0x RRGGBB .
+.TP
+.B \-d, \-\-daemon
+Run
+.B gjay
+as a daemon only with no GUI frontend.
+.TP
+.BI \-f\  file ,\ \-\-file= file
+Start the playlist with
+.IR file .
+.TP
+.BI \-l\  minutes ,\ \-\-length= minutes
+Override the playlist length, the default is set in the preferences.
+.TP
+.B \-s, \-\-skip\-verification
+Skip file verification.
+.TP
+.B \-u, \-\-m3u\-playlist
+When generating a playlist, make it in the m3u format.
+.TP
+.BI \-v\  verbosity ,\ \-\-verbose= verbosity
+Set the level of how verbose
+.B gjay
+is.
+.TP
+.B \-P, \-\-play\-audacious
+Start the music player after making a playlist.
+.TP
+.B \-V, \-\-version
+Show the version and copyright information for the program.
+.SH "SEE ALSO"
+.BR audacious (1)

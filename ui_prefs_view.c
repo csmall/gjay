@@ -27,6 +27,8 @@
 #include "ipc.h"
 #include "i18n.h"
 
+extern char *music_player_names[];
+
 static char * welcome_str =
   "Welcome to GJay!\n\n" \
   "This program generates playlists spanning your music collection. "\
@@ -53,6 +55,7 @@ static void click_daemon_radio ( GtkToggleButton *togglebutton,
                                 gpointer user_data );
 static void tooltips_toggled ( GtkToggleButton *togglebutton,
                                gpointer user_data );
+static void player_combo_box_changed(GtkComboBox *combo, gpointer user_data);
 static void useratings_toggled ( GtkToggleButton *togglebutton,
                                  gpointer user_data );
 static void max_working_set_callback (GtkWidget *widget,
@@ -66,6 +69,7 @@ GtkWidget * make_prefs_window ( void )
   GtkWidget * player_cbox;
   GtkWidget * hseparator, * hbox1, *max_working_set_entry, *table;
   char buffer[BUFFER_SIZE];
+  int i;
 
   window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
   gtk_window_set_title(GTK_WINDOW(window), _("GJay Preferences"));
@@ -88,9 +92,13 @@ GtkWidget * make_prefs_window ( void )
   label = gtk_label_new(_("Music Player:"));
 
   player_cbox = gtk_combo_box_new_text();
-  gtk_combo_box_append_text(GTK_COMBO_BOX(player_cbox), _("Audacious"));
-  gtk_combo_box_append_text(GTK_COMBO_BOX(player_cbox), _("Exaile"));
-  gtk_combo_box_set_active(GTK_COMBO_BOX(player_cbox), 0);
+  i=0;
+  while (music_player_names[i] != NULL)
+  {
+    gtk_combo_box_append_text(GTK_COMBO_BOX(player_cbox), music_player_names[i]);
+    i++;
+  }
+  gtk_combo_box_set_active(GTK_COMBO_BOX(player_cbox), gjay->prefs->music_player);
 
   alignment = gtk_alignment_new(0, 0, 0, 0);
   gtk_container_add(GTK_CONTAINER(alignment), label);
@@ -100,6 +108,8 @@ GtkWidget * make_prefs_window ( void )
   gtk_container_add(GTK_CONTAINER(alignment), player_cbox);
   gtk_table_attach(GTK_TABLE(table), alignment, 1, 2, 0, 1,
       (GTK_EXPAND|GTK_FILL),(GTK_EXPAND|GTK_FILL),6,0);
+  g_signal_connect (G_OBJECT (player_cbox), "changed",
+                    G_CALLBACK (player_combo_box_changed), NULL);
 
     /* Song Ratings checkbox */
     label = gtk_label_new(_("Use song ratings"));
@@ -222,7 +232,7 @@ GtkWidget * make_prefs_window ( void )
     hseparator = gtk_hseparator_new();
     gtk_box_pack_start(GTK_BOX(vbox1), hseparator, TRUE, TRUE, 2);
 
-    alignment = gtk_alignment_new(1, 0, 0.3, 0);
+    alignment = gtk_alignment_new(0, 0, 0.3, 0);
     gtk_box_pack_start(GTK_BOX(vbox1), alignment, TRUE, TRUE, 0);
 
     button = gtk_button_new_from_stock(GTK_STOCK_OK);
@@ -374,6 +384,20 @@ click_daemon_radio ( GtkToggleButton *togglebutton, gpointer user_data )
         gjay->prefs->daemon_action = (pref_daemon_action)user_data;
         save_prefs();
     }
+}
+
+static void player_combo_box_changed(GtkComboBox *combo, gpointer user_data)
+{
+  gint new_player;
+
+  new_player = gtk_combo_box_get_active(combo);
+  if (new_player >= 0)
+  {
+    g_free(gjay->prefs->music_player_name);
+    gjay->prefs->music_player_name = gtk_combo_box_get_active_text(combo);
+    gjay->prefs->music_player = new_player;
+    save_prefs();
+  }
 }
 
 static void tooltips_toggled ( GtkToggleButton *togglebutton,

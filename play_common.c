@@ -22,13 +22,23 @@
 
 #include "gjay.h" 
 #include "play_audacious.h"
+/*#include "play_exaile.h"*/
+#include "i18n.h"
 
 void
 player_init(void)
 {
-  gjay->player_get_current_song = &audacious_get_current_song;
-  gjay->player_is_running = &audacious_is_running;
-  gjay->player_play_files = &audacious_play_files;
+  switch (gjay->prefs->music_player)
+  {
+    case PLAYER_AUDACIOUS:
+      audacious_init();
+      break;
+    /*case PLAYER_EXAILE:
+      exaile_init();
+      break;*/
+    default:
+      g_error("Unknown music player.\n");
+  }
 }
 
 void
@@ -47,6 +57,48 @@ void play_songs (GList *slist) {
   
   for (; slist; slist = g_list_next(slist)) 
     list = g_list_append(list, strdup_to_latin1(SONG(slist)->path));
+  if (!list)
+    return;
+  
+
+  if (!gjay->player_is_running())
+  {
+    int i;
+    GtkWidget *dialog;
+    gint result;
+    GError *error;
+    gchar *msg;
+
+    msg = g_strdup_printf(_("%s is not running, start %s?"),
+        gjay->prefs->music_player_name,
+        gjay->prefs->music_player_name);
+    dialog = gtk_message_dialog_new(GTK_WINDOW(gjay->main_window),
+        GTK_DIALOG_DESTROY_WITH_PARENT,
+        GTK_MESSAGE_QUESTION,
+        GTK_BUTTONS_YES_NO,
+        msg);
+    result = gtk_dialog_run(GTK_DIALOG(dialog));
+    gtk_widget_destroy(dialog);
+    g_free(msg);
+    if (result == GTK_RESPONSE_YES)
+    {
+      if (gjay->player_start() == FALSE)
+      {
+        msg = g_strdup_printf(_("Unable to start %s"), 
+            gjay->prefs->music_player_name);
+        dialog = gtk_message_dialog_new(GTK_WINDOW(gjay->main_window),
+            GTK_DIALOG_DESTROY_WITH_PARENT,
+            GTK_MESSAGE_ERROR,
+            GTK_BUTTONS_CLOSE,
+            msg);
+        gtk_dialog_run(GTK_DIALOG(dialog));
+        gtk_widget_destroy(dialog);
+        g_free(msg);
+        return;
+      }
+    } else /* user clicked no */
+      return;
+  }
   gjay->player_play_files(list);
 }
 

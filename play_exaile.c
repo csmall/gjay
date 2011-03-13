@@ -36,26 +36,69 @@ static void exaile_connect(void);
 
 /* public functions */
 
+void
+exaile_init(void)
+{
+  gjay->player_get_current_song = &exaile_get_current_song;
+  gjay->player_is_running = &exaile_is_running;
+  gjay->player_play_files = &exaile_play_files;
+  gjay->player_start = &exaile_start;
+}
+
+gboolean
+exaile_start(void)
+{
+  GError *error = NULL;
+  GAppInfo *app;
+  int i;
+
+  if ((app = g_app_info_create_from_commandline(
+    EXAILE_BIN,
+    "exaile",
+    G_APP_INFO_CREATE_NONE,
+    &error)) == NULL)
+  {
+    g_warning(_("Cannot create exaile g_app: %s\n"), error->message);
+    g_error_free(error);
+    return FALSE;
+  }
+  error=NULL;
+  if (g_app_info_launch(app, NULL, NULL, &error) == FALSE)
+  {
+    g_warning(_("Cannot launch exaile g_app: %s"), error->message);
+    g_error_free(error);
+    return FALSE;
+  }
+  /* Give it 3 tries */
+  for(i=1; i<= 3; i++)
+  {
+    if (exaile_is_running())
+      return TRUE;
+    sleep(1);
+  }
+  return FALSE;
+}
+
 gboolean
 exaile_is_running(void)
 {
-  return gjay_dbus_is_running(exaile_DBUS_SERVICE);
+  return gjay_dbus_is_running(EXAILE_DBUS_INTERFACE);
 }
 
 song *
-exaile_get_current_song(void) {
-  gchar *playlist_file;
-  gchar *uri;
-  gint pos;
-  song *s;
+exaile_get_current_song(void)
+{
+  gchar buf[BUFSIZ];
 
   exaile_connect();
+  
+  exaile_dbus_query(gjay->player_proxy, "get_title", &buf);
+  printf("title: %s\n", buf);
   g_warning("not implemented yet\n");
   return NULL;
-  
   /*
-  pos = exaile_remote_get_playlist_pos(gjay->exaile_proxy);
-  playlist_file = exaile_remote_get_playlist_file(gjay->exaile_proxy, pos);
+  pos = exaile_remote_get_playlist_pos(gjay->player_proxy);
+  playlist_file = exaile_remote_get_playlist_file(gjay->player_proxy, pos);
   if (playlist_file == NULL)
     return NULL;
   uri = g_filename_from_uri(playlist_file, NULL, NULL);
@@ -70,8 +113,6 @@ exaile_get_current_song(void) {
 
 void
 exaile_play_files ( GList *list) {
-  GList *lptr = NULL;
-  gchar *uri = NULL;
 
   if (!list)
     return;
@@ -96,7 +137,7 @@ exaile_play_files ( GList *list) {
       GAppInfo *aud_app;
 
       if ((aud_app = g_app_info_create_from_commandline(
-          exaile_BIN,
+          EXAILE_BIN,
           "exaile",
           G_APP_INFO_CREATE_NONE,
           &error)) == NULL)
@@ -138,14 +179,14 @@ exaile_play_files ( GList *list) {
   g_warning("not implemented\n");
   return;
   /*
-  exaile_remote_stop(gjay->exaile_proxy);
-  exaile_remote_playlist_clear(gjay->exaile_proxy);
+  exaile_remote_stop(gjay->player_proxy);
+  exaile_remote_playlist_clear(gjay->player_proxy);
   for (lptr=list; lptr; lptr = g_list_next(lptr)) {
       uri = g_filename_to_uri(lptr->data, NULL, NULL);
-      exaile_remote_playlist_add_url_string(gjay->exaile_proxy, uri);
+      exaile_remote_playlist_add_url_string(gjay->player_proxy, uri);
       g_free(uri);
   }
-  exaile_remote_play(gjay->exaile_proxy);
+  exaile_remote_play(gjay->player_proxy);
   */
 }
 
@@ -155,12 +196,35 @@ exaile_play_files ( GList *list) {
 static void
 exaile_connect(void)
 {
-  if (gjay->exaile_proxy != NULL)
+  if (gjay->player_proxy != NULL)
     return;
 
-  gjay->exaile_proxy = dbus_g_proxy_new_for_name(gjay->connection,
+  gjay->player_proxy = dbus_g_proxy_new_for_name(gjay->connection,
       EXAILE_DBUS_SERVICE, EXAILE_DBUS_PATH, EXAILE_DBUS_INTERFACE);
 
 }
 
+gboolean
+exaile_dbus_query(DBusGProxy *proxy, const char *method, char *dest)
+{
+  char *str = 0;
+  GError *error = NULL;
+
+  if (!dbus_g_proxy_call_with_timeout(proxy, method, 42, &error,
+        G_TYPE_INVALID,
+        G_TYPE_STRING, &str,
+        G_TYPE_INVALID))
+  {
+    g_warning("Cannot proxy call to Exaile: %s\n", error->message);
+    return FALSE;
+  }
+
+  assert(str);
+  strncpy(dest, str, BUFSIZ);
+  dest[BUFSIZ-1] = '\0';
+  g_free(str);
+
+  return TRUE;
+}
+        
 

@@ -27,6 +27,12 @@ typedef enum {
     PREF_DAEMON_ASK
 } pref_daemon_action;
 
+typedef enum {
+  PLAYER_AUDACIOUS,
+  PLAYER_EXAILE,
+  PLAYER_LAST
+} music_player_type;
+
 typedef struct {
     /* Root directory (latin1) */
     gchar   * song_root_dir;
@@ -68,6 +74,10 @@ typedef struct {
 
     /* Store how a color was loaded */
     gboolean use_hsv;
+
+    /* which player will we use */
+    gushort music_player;
+    gchar *music_player_name;
 } GjayPrefs;
 
 

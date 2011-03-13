@@ -1,7 +1,17 @@
+2011-03-01  gettextize  <bug-gnu-gettext@gnu.org>
+
+	* configure.ac (AM_GNU_GETTEXT_VERSION): Bump to 0.18.1.
+
 Changes in 0.3.2
 ================
-  * Fixed all file headers to use standard format and GPL v2+
+	* Fixed all file headers to use standard format and GPL v2+
 	* Made the code that handles the players generic
+	* Re-arranged the command line for mpg321
+	* Rewrote man page, including specifying that verbose flag needs
+	  a verobse level, Debian #601614
+	* playlist length option now really sets the playlist length
+	* analysis aborts if canot expand file, Debian #60613
+	* Explicitly linked to dl library, Debian #615725
 
 Changes in 0.3.1
 ================

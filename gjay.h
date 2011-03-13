@@ -78,7 +78,7 @@ struct _GjayApp {
   GjayPrefs *prefs;
 
   DBusGConnection *connection;
-  DBusGProxy *audacious_proxy;
+  DBusGProxy *player_proxy;
 
   //GdkPixbuf   * pixbufs[PM_LAST];
   GdkPixbuf   * pixbufs[50]; //FIXME
@@ -116,6 +116,7 @@ struct _GjayApp {
   song* (*player_get_current_song)(void);
   gboolean (*player_is_running)(void);
   void (*player_play_files)(GList *list);
+  gboolean (*player_start)(void);
 };
 
 /* From daemon.c */

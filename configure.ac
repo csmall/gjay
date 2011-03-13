@@ -1,8 +1,8 @@
 #                                               -*- Autoconf -*-
 # Process this file with autoconf to produce a configure script.
 
-AC_PREREQ([2.65])
-AC_INIT([gjay], [0.3.2], [csmall@enc.com.au])
+AC_PREREQ([2.67])
+AC_INIT([gjay],[0.3.2],[csmall@enc.com.au])
 AC_CONFIG_SRCDIR([gjay.h])
 AC_CONFIG_HEADERS([config.h])
 AM_INIT_AUTOMAKE([1.10])
@@ -14,13 +14,15 @@ PKG_PROG_PKG_CONFIG
 
 dnl Check for language stuff
 AM_GNU_GETTEXT([external])
+AM_GNU_GETTEXT_VERSION([0.18.1])
 
 # Checks for libraries.
 AM_PATH_GTK_2_0
 PKG_CHECK_MODULES([DBUS_GLIB], [dbus-glib-1])
 
-AM_PATH_GSL
+AX_PATH_GSL
 AC_CHECK_LIB([audclient], [audacious_remote_playlist])
+AC_CHECK_LIB([dl], [dlopen])
 
 # Checks for header files.
 #AC_CHECK_HEADER([FLAC/metadata.h], [], [AC_MSG_WARN(No FLAC header found: FLAC support will not be compilied in)])

@@ -21,12 +21,14 @@
 
 #include "gjay.h" 
 
-#define EXAILE_DBUS_SERVICE "org.exaile.Exaile"
+#define EXAILE_DBUS_SERVICE "org.exaile.DBusInterface"
 #define EXAILE_DBUS_PATH "/DBusInterfaceObject"
-#define EXAILE_DBUS_INTERFACE "org.exaileDBusInterface"
+#define EXAILE_DBUS_INTERFACE "org.exaile.DBusInterface"
 
+void      exaile_init(void);
 song*     exaile_get_current_song(void);
 gboolean  exaile_is_running(void);
 void      exaile_play_files(GList *list);
+gboolean  exaile_start(void);
 
 #endif /* _GJAY_EXAILE_H_ */

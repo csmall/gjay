@@ -38,6 +38,48 @@ static void audacious_connect(void);
 
 /* public functions */
 
+void 
+audacious_init(void)
+{
+  gjay->player_get_current_song = &audacious_get_current_song;
+  gjay->player_is_running = &audacious_is_running;
+  gjay->player_play_files = &audacious_play_files;
+  gjay->player_start = &audacious_start;
+}
+
+gboolean
+audacious_start(void)
+{
+  GError *error = NULL;
+  GAppInfo *aud_app;
+  int i;
+
+  if ((aud_app = g_app_info_create_from_commandline(
+    AUDACIOUS_BIN,
+    "Audacious",
+    G_APP_INFO_CREATE_NONE,
+    &error)) == NULL)
+  {
+    g_warning(_("Cannot create audacious g_app: %s\n"), error->message);
+    g_error_free(error);
+    return FALSE;
+  }
+  error=NULL;
+  if (g_app_info_launch(aud_app, NULL, NULL, &error) == FALSE)
+  {
+    g_warning(_("Cannot launch audacious g_app: %s"), error->message);
+    g_error_free(error);
+    return FALSE;
+  }
+  /* Give it 3 tries */
+  for(i=1; i<= 3; i++)
+  {
+    if (audacious_is_running())
+      return TRUE;
+    sleep(1);
+  }
+  return FALSE;
+}
 gboolean
 audacious_is_running(void)
 {
@@ -52,8 +94,8 @@ audacious_get_current_song(void) {
   song *s;
 
   audacious_connect();
-  pos = audacious_remote_get_playlist_pos(gjay->audacious_proxy);
-  playlist_file = audacious_remote_get_playlist_file(gjay->audacious_proxy, pos);
+  pos = audacious_remote_get_playlist_pos(gjay->player_proxy);
+  playlist_file = audacious_remote_get_playlist_file(gjay->player_proxy, pos);
   if (playlist_file == NULL)
     return NULL;
   uri = g_filename_from_uri(playlist_file, NULL, NULL);
@@ -70,76 +112,16 @@ audacious_play_files ( GList *list) {
   GList *lptr = NULL;
   gchar *uri = NULL;
 
-  if (!list)
-    return;
 
-  if (!audacious_is_running())
-  {
-    int i;
-    GtkWidget *dialog;
-    gint result;
-    GError *error;
-
-    dialog = gtk_message_dialog_new(GTK_WINDOW(gjay->main_window),
-        GTK_DIALOG_DESTROY_WITH_PARENT,
-        GTK_MESSAGE_QUESTION,
-        GTK_BUTTONS_YES_NO,
-        _("Audacious is not running, start Audacious?"));
-    result = gtk_dialog_run(GTK_DIALOG(dialog));
-    gtk_widget_destroy(dialog);
-    if (result == GTK_RESPONSE_YES)
-    {
-      error = NULL;
-      GAppInfo *aud_app;
-
-      if ((aud_app = g_app_info_create_from_commandline(
-          AUDACIOUS_BIN,
-          "Audacious",
-          G_APP_INFO_CREATE_NONE,
-          &error)) == NULL)
-      {
-        g_warning(_("Cannot create audacious g_app: %s\n"), error->message);
-        g_error_free(error);
-        return;
-      }
-      error=NULL;
-      if (g_app_info_launch(aud_app, NULL, NULL, &error) == FALSE)
-      {
-        g_warning(_("Cannot launch audacious g_app: %s"), error->message);
-        g_error_free(error);
-        return;
-      }
-      /* Give it 3 tries */
-      for(i=1; i<= 3; i++)
-      {
-        if (audacious_is_running())
-          break;
-        sleep(1);
-      }
-      if (i == 3) /* never got running */
-      {
-        dialog = gtk_message_dialog_new(GTK_WINDOW(gjay->main_window),
-            GTK_DIALOG_DESTROY_WITH_PARENT,
-            GTK_MESSAGE_ERROR,
-            GTK_BUTTONS_CLOSE,
-            _("Unable to start Audacious"));
-        gtk_dialog_run(GTK_DIALOG(dialog));
-        gtk_widget_destroy(dialog);
-        return;
-      }
-
-    } else /* user clicked no */
-      return;
-  }
   audacious_connect();
-  audacious_remote_stop(gjay->audacious_proxy);
-  audacious_remote_playlist_clear(gjay->audacious_proxy);
+  audacious_remote_stop(gjay->player_proxy);
+  audacious_remote_playlist_clear(gjay->player_proxy);
   for (lptr=list; lptr; lptr = g_list_next(lptr)) {
       uri = g_filename_to_uri(lptr->data, NULL, NULL);
-      audacious_remote_playlist_add_url_string(gjay->audacious_proxy, uri);
+      audacious_remote_playlist_add_url_string(gjay->player_proxy, uri);
       g_free(uri);
   }
-  audacious_remote_play(gjay->audacious_proxy);
+  audacious_remote_play(gjay->player_proxy);
 }
 
 /* static functions */
@@ -148,10 +130,10 @@ audacious_play_files ( GList *list) {
 static void
 audacious_connect(void)
 {
-  if (gjay->audacious_proxy != NULL)
+  if (gjay->player_proxy != NULL)
     return;
 
-  gjay->audacious_proxy = dbus_g_proxy_new_for_name(gjay->connection,
+  gjay->player_proxy = dbus_g_proxy_new_for_name(gjay->connection,
       AUDACIOUS_DBUS_SERVICE, AUDACIOUS_DBUS_PATH, AUDACIOUS_DBUS_INTERFACE);
 
 }

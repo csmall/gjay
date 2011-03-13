@@ -379,7 +379,13 @@ analyze(const char * fname,            /* File to analyze */
     send_analyze_song_name();
     send_ipc_text(daemon_pipe_fd, ANIMATE_START, analyze_song->path);
 
-    f = inflate_to_wav(fname, type);
+    if ( (f = inflate_to_wav(fname, type)) == NULL)
+    {
+      if (verbosity)
+        g_warning(_("Unable to inflate song '%s'.\n"), fname);
+      in_analysis = FALSE;
+      return;
+    }
     memset(&wsfile, 0x00, sizeof(wav_file));
     wsfile.f = f;
     fread(&wsfile.header, sizeof(waveheaderstruct), 1, f);
@@ -476,7 +482,7 @@ inflate_to_wav (const gchar * path, const song_file_type type)
           g_warning(_("Unable to decode '%s' as no mp3 decoder found"), path);
         return NULL;
       }
-      cmdline = g_strdup_printf("%s -b 10000 %s -w - 2> /dev/null",
+      cmdline = g_strdup_printf("%s -w - -b 10000 %s 2> /dev/null",
           mp3_decoder,
           quoted_path);
       break;

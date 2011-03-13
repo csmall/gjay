@@ -36,6 +36,7 @@
  * <color type="hsv">float float float</color>
  * <time>int</time>
  * <max_working_set>int</max_working_set>
+ * <player>int</player>
  */
 
 #ifdef HAVE_CONFIG_H
@@ -80,6 +81,7 @@ typedef enum {
     PE_SELECTED,
     PE_SONGS,
     PE_DIR,
+    PE_MUSIC_PLAYER,
     PE_LAST
 } pref_element_type;
 
@@ -112,9 +114,20 @@ char * pref_element_strs[PE_LAST] = {
     "random",
     "selected",
     "songs",
-    "dir"
+    "dir",
+    "player"
 };
 
+
+const char *music_player_names[] =
+{
+  "Audacious",
+  "Exaile",
+  NULL
+};
+
+#define print_pref_float(f,name,value) fprintf(f, "<%s>%f</%s>\n", pref_element_strs[(name)], (value), pref_element_strs[(name)])
+#define print_pref_int(f,name,value) fprintf(f, "<%s>%d</%s>\n", pref_element_strs[(name)], (value), pref_element_strs[(name)])
 
 static void     data_start_element  ( GMarkupParseContext *context,
                                       const gchar         *element_name,
@@ -166,6 +179,8 @@ load_prefs ( void ) {
     prefs->hide_tips = FALSE;
     snprintf(buffer, BUFFER_SIZE, "%s/%s/%s", getenv("HOME"), 
              GJAY_DIR, GJAY_PREFS);
+    prefs->music_player = 0;
+    prefs->music_player_name = g_strdup(music_player_names[0]);
 
     f = fopen(buffer, "r");
     if (f) {
@@ -221,10 +236,6 @@ void save_prefs ( void ) {
             fprintf(f, " %s=\"t\"", pref_element_strs[PE_USE_RATINGS]);
         fprintf(f, "></%s>\n", pref_element_strs[PE_FLAGS]);
         
-        fprintf(f, "<%s>%d</%s>\n", 
-                pref_element_strs[PE_DAEMON_ACTION],
-                prefs->daemon_action,
-                pref_element_strs[PE_DAEMON_ACTION]);
 
         fprintf(f, "<%s>", pref_element_strs[PE_START]);
         if (prefs->start_selected)
@@ -270,41 +281,15 @@ void save_prefs ( void ) {
         fprintf(f, "%f", prefs->rating);
         fprintf(f, "</%s>\n", pref_element_strs[PE_RATING]);
         
-        fprintf(f, "<%s>%f</%s>\n",
-                pref_element_strs[PE_VARIANCE],
-                prefs->variance, 
-                pref_element_strs[PE_VARIANCE]);
-
-        fprintf(f, "<%s>%f</%s>\n",
-                pref_element_strs[PE_HUE],
-                prefs->hue,
-                pref_element_strs[PE_HUE]);
-
-        fprintf(f, "<%s>%f</%s>\n",
-                pref_element_strs[PE_BRIGHTNESS],
-                prefs->brightness,
-                pref_element_strs[PE_BRIGHTNESS]);
-
-        fprintf(f, "<%s>%f</%s>\n",
-                pref_element_strs[PE_SATURATION],
-                prefs->saturation,
-                pref_element_strs[PE_SATURATION]);
-        
-        fprintf(f, "<%s>%f</%s>\n",
-                pref_element_strs[PE_BPM],
-                prefs->bpm,
-                pref_element_strs[PE_BPM]);
-
-        fprintf(f, "<%s>%f</%s>\n",
-                pref_element_strs[PE_FREQ],
-                prefs->freq,
-                pref_element_strs[PE_FREQ]);
-
-        fprintf(f, "<%s>%f</%s>\n",
-                pref_element_strs[PE_PATH_WEIGHT],
-                prefs->path_weight,
-                pref_element_strs[PE_PATH_WEIGHT]);
-
+        print_pref_int(f,PE_DAEMON_ACTION, prefs->daemon_action);
+        print_pref_int(f,PE_MUSIC_PLAYER, prefs->music_player);
+        print_pref_float(f,PE_VARIANCE,prefs->variance);
+        print_pref_float(f,PE_HUE,prefs->hue);
+        print_pref_float(f,PE_BRIGHTNESS,prefs->brightness);
+        print_pref_float(f,PE_SATURATION,prefs->saturation);
+        print_pref_float(f,PE_BPM,prefs->bpm);
+        print_pref_float(f,PE_FREQ,prefs->freq);
+        print_pref_float(f,PE_PATH_WEIGHT,prefs->path_weight);
         fprintf(f, "</gjay_prefs>\n");
         fclose(f);
         rename(buffer_temp, buffer);
@@ -369,6 +354,7 @@ void data_text ( GMarkupParseContext *context,
     gchar * buffer_str;
     pref_element_type * element = (pref_element_type *) user_data;    
     pref_element_type val;
+    int i;
 
     memcpy(buffer, text, text_len);
     buffer[text_len] = '\0';
@@ -379,6 +365,16 @@ void data_text ( GMarkupParseContext *context,
         break;
     case PE_DAEMON_ACTION:
         gjay->prefs->daemon_action = atoi(buffer);
+        break;
+    case PE_MUSIC_PLAYER:
+        gjay->prefs->music_player = atoi(buffer);
+        g_free(gjay->prefs->music_player_name);
+        for(i=0; music_player_names[i] != NULL; i++)
+          if (gjay->prefs->music_player == i)
+          {
+            gjay->prefs->music_player_name = g_strdup(music_player_names[i]);
+            break;
+          }
         break;
     case PE_START:
     case PE_SELECTION_LIMIT:
