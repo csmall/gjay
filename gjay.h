@@ -1,7 +1,7 @@
 /*
  * Gjay - Gtk+ DJ music playlist creator
  * Copyright (C) 2002-2004 Chuck Groom
- * Copyright (C) 2010 Craig Small 
+ * Copyright (C) 2010-2011 Craig Small 
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -76,9 +76,13 @@ gchar * parent_dir            ( const char * path );
 
 struct _GjayApp {
   GjayPrefs *prefs;
-
+  /* Player connections/handles */
   DBusGConnection *connection;
   DBusGProxy *player_proxy;
+#ifdef WITH_MPDCLIENT
+  struct mpd_connection *mpdclient_connection;
+#endif /* WITH_MPDCLIENT */
+
 
   //GdkPixbuf   * pixbufs[PM_LAST];
   GdkPixbuf   * pixbufs[50]; //FIXME
@@ -111,6 +115,7 @@ struct _GjayApp {
   /* Supported filetypes */
   gboolean ogg_supported;
   gboolean flac_supported;
+
 
   /* Player calls */
   song* (*player_get_current_song)(void);

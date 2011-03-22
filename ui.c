@@ -1,7 +1,7 @@
 /*
  * Gjay - Gtk+ DJ music playlist creator
  * Copyright (C) 2002 Chuck Groom
- * Copyright (C) 2010 Craig Small 
+ * Copyright (C) 2010-2011 Craig Small 
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -79,7 +79,7 @@ static void     destroy_app           ( void);
 
 void make_app_ui ( void ) {
     GtkWidget * vbox1, * hbox1, * hbox2;
-    GtkWidget * alignment, * menubar, * view;
+    GtkWidget * alignment, * menubar;
     
     /* FIXME
     if (prefs.hide_tips) 
@@ -559,7 +559,7 @@ void show_about_window( void ) {
   };
   static const gchar copyright[] = \
     "Copyright \xc2\xa9 2004 Chuck Groom\n"
-    "Copyright \xc2\xa9 2010 Craig Small";
+    "Copyright \xc2\xa9 2010-2011 Craig Small";
 
   static const gchar comments[] = \
     "GTK+ playlist generator for a collection of music based upon "
@@ -583,4 +583,16 @@ void show_prefs_window( void ) {
 
 void hide_prefs_window( void ) {
     gtk_widget_hide(gjay->prefs_window);
+}
+
+void gjay_error_dialog(char *msg) {
+  GtkWidget *dialog;
+
+  dialog = gtk_message_dialog_new(GTK_WINDOW(gjay->main_window),
+      GTK_DIALOG_DESTROY_WITH_PARENT,
+      GTK_MESSAGE_ERROR,
+      GTK_BUTTONS_CLOSE,
+      msg);
+  gtk_dialog_run(GTK_DIALOG(dialog));
+  gtk_widget_destroy(dialog);
 }

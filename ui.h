@@ -105,6 +105,7 @@ void        set_add_files_progress         ( char * str,
 gboolean    quit_app                      ( GtkWidget *widget,
                                             GdkEvent *event,
                                             gpointer user_data );
+void        gjay_error_dialog(char *msg);
 
 /* Explore files pane  */
 void        explore_view_set_root        ( const gchar * root_dir );

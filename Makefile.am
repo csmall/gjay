@@ -15,7 +15,9 @@ gjay_SOURCES = gjay.h songs.h prefs.h ui.h rgbhsv.h analysis.h playlist.h \
 							 ui_playlist_view.c ui_colorwheel.c \
 							 ui_menubar.c analysis.c playlist.c \
 							 vorbis.c mp3.c flac.c util.c \
-							 play_common.c play_audacious.c
+							 play_common.c play_common.h \
+							 play_audacious.c plaY_audacious.h \
+							 play_mpdclient.c play_mpdclient.h
 #play_exaile.h play_exaile.c
 
 #ddui_colorbox.c 

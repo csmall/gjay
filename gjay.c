@@ -53,6 +53,7 @@
 #include "flac.h"
 #include "ui.h"
 #include "i18n.h"
+#include "play_common.h"
 
 GjayApp *gjay;
 
@@ -73,7 +74,7 @@ static void     fork_or_connect_to_daemon(void);
 static void     run_as_ui      (int argc, char * argv[]);
 static void     run_as_playlist  ( guint playlist_minutes,
     gboolean m3u_format, 
-    gboolean playlist_in_audacious );
+    gboolean player_autostart );
 void gjay_message_log(const gchar *log_domain, 
     GLogLevelFlags log_level,
     const gchar *message,
@@ -115,7 +116,7 @@ parse_commandline(int *argc_p, char ***argv_p, guint *playlist_minutes, gboolean
     { "skip-verification", 's', 0, G_OPTION_ARG_NONE, &skip_verify, _("Skip file verification"), NULL },
     { "m3u-playlist", 'u', 0, G_OPTION_ARG_NONE, m3u_format, _("Use M3U playlist format"), NULL },
     { "verbose", 'v', 0, G_OPTION_ARG_INT, &verbosity, "Set verbosity/debug level", _("LEVEL") },
-    { "play-audacious", 'P', 0, G_OPTION_ARG_NONE, run_player, _("Play generated playlist in Audacious"), NULL },
+    { "player-start", 'P', 0, G_OPTION_ARG_NONE, run_player, _("Start player using generated playlist"), NULL },
     { "version", 'V', G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK , &print_version, _("Show version"), NULL },
     { NULL }
   };
@@ -177,7 +178,7 @@ parse_commandline(int *argc_p, char ***argv_p, guint *playlist_minutes, gboolean
 
 int main( int argc, char *argv[] ) {
   gchar * analyze_detached_fname=NULL;
-  gboolean m3u_format, playlist_in_audacious;
+  gboolean m3u_format, player_autostart;
   guint playlist_minutes;
   gchar *gjay_home;
 
@@ -193,10 +194,10 @@ int main( int argc, char *argv[] ) {
   skip_verify = 0;
   playlist_minutes = 0;
   m3u_format = FALSE;
-  playlist_in_audacious = FALSE;
+  player_autostart = FALSE;
   gjay->prefs = load_prefs();
    
-  parse_commandline(&argc, &argv, &playlist_minutes, &m3u_format, &playlist_in_audacious, &analyze_detached_fname);
+  parse_commandline(&argc, &argv, &playlist_minutes, &m3u_format, &player_autostart, &analyze_detached_fname);
 
     /* Intialize vars */
     daemon_pipe_fd = -1;
@@ -255,7 +256,7 @@ int main( int argc, char *argv[] ) {
         break;
     case PLAYLIST:
         read_data_file();
-        run_as_playlist(playlist_minutes, m3u_format, playlist_in_audacious);
+        run_as_playlist(playlist_minutes, m3u_format, player_autostart);
         break;
     case DAEMON_INIT:
     case DAEMON_DETACHED: 
@@ -514,7 +515,7 @@ static void run_as_ui(int argc, char *argv[] )
 
 
 /* Playlist mode */
-static void run_as_playlist(guint playlist_minutes, gboolean m3u_format, gboolean playlist_in_audacious)
+static void run_as_playlist(guint playlist_minutes, gboolean m3u_format, gboolean player_autostart)
 {
     GList * list;
     gjay->prefs->use_selected_songs = FALSE;
@@ -525,7 +526,7 @@ static void run_as_playlist(guint playlist_minutes, gboolean m3u_format, gboolea
     if (playlist_minutes == 0)
       playlist_minutes = gjay->prefs->time;
     list = generate_playlist(playlist_minutes);
-    if (playlist_in_audacious) {
+    if (player_autostart) {
         play_songs(list);
     } else {
         write_playlist(list, stdout, m3u_format);

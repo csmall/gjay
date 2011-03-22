@@ -16,6 +16,10 @@
  * You should have received a copy of the GNU General Public License along
  * with this program; if not, see <http://www.gnu.org/licenses/>.
  */
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif /* HAVE_CONFIG_H */
+
 #include <sys/types.h>
 #include <dirent.h>
 #include <stdlib.h>
@@ -143,7 +147,7 @@ NULL);
  * Note that root_dir is UTF8 encoded
  */
 void explore_view_set_root (const gchar* root_dir ) {
-    GList * llist;
+    GList * llist=NULL;
     char buffer[BUFFER_SIZE];
 
     if (!root_dir)
@@ -153,7 +157,7 @@ void explore_view_set_root (const gchar* root_dir ) {
     gjay->tree_depth = 0;
     
     /* Unmark current songs */
-    for (llist = g_list_first(gjay->songs); llist; llist = g_list_next(llist)) {
+    for (llist = g_list_first(gjay->songs); llist!=NULL; llist = g_list_next(llist)) {
         SONG(llist)->in_tree = FALSE;
     }
     

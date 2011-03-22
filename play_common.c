@@ -1,6 +1,6 @@
 /*
  * Gjay - Gtk+ DJ music playlist creator
- * Copyright (C) 2010 Craig Small 
+ * Copyright (C) 2010-2011 Craig Small 
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -22,6 +22,9 @@
 
 #include "gjay.h" 
 #include "play_audacious.h"
+#ifdef WITH_MPDCLIENT
+#include "play_mpdclient.h"
+#endif /* WITH_MPDCLIENT */
 /*#include "play_exaile.h"*/
 #include "i18n.h"
 
@@ -36,6 +39,11 @@ player_init(void)
     /*case PLAYER_EXAILE:
       exaile_init();
       break;*/
+#ifdef WITH_MPDCLIENT
+    case PLAYER_MPDCLIENT:
+      mpdclient_init();
+      break;
+#endif /* WITH_MPDCLIENT */
     default:
       g_error("Unknown music player.\n");
   }
@@ -63,10 +71,8 @@ void play_songs (GList *slist) {
 
   if (!gjay->player_is_running())
   {
-    int i;
     GtkWidget *dialog;
     gint result;
-    GError *error;
     gchar *msg;
 
     msg = g_strdup_printf(_("%s is not running, start %s?"),

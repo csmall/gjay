@@ -30,6 +30,7 @@ typedef enum {
 typedef enum {
   PLAYER_AUDACIOUS,
   PLAYER_EXAILE,
+  PLAYER_MPDCLIENT,
   PLAYER_LAST
 } music_player_type;
 

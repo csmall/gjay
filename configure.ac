@@ -7,6 +7,18 @@ AC_CONFIG_SRCDIR([gjay.h])
 AC_CONFIG_HEADERS([config.h])
 AM_INIT_AUTOMAKE([1.10])
 
+dnl Options
+AC_SUBST([WITH_MPDCLIENT])
+AC_ARG_ENABLE([mpdclient],
+              AC_HELP_STRING([--with-mpdclient], [Enable mpd  client(default is YES)]),
+              [enable_mpdclient=$enableval],
+              [enable_mpdclient="yes"])
+if test "$enable_mpdclient" = "yes"; then
+  AC_DEFINE([WITH_MPDCLIENT], [1], [Enable mpd music player])
+  PKG_CHECK_MODULES([MPDCLIENT], [libmpdclient])
+fi
+
+
 # Checks for programs.
 AC_PROG_CC
 AC_PROG_INSTALL

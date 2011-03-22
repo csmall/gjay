@@ -87,3 +87,6 @@
 
 /* Version number of package */
 #undef VERSION
+
+/* Enable mpd music player */
+#undef WITH_MPDCLIENT

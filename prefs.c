@@ -123,6 +123,7 @@ const char *music_player_names[] =
 {
   "Audacious",
   "Exaile",
+  "MPD",
   NULL
 };
 

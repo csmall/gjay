@@ -162,13 +162,7 @@ exaile_play_files ( GList *list) {
       }
       if (i == 3) /* never got running */
       {
-        dialog = gtk_message_dialog_new(GTK_WINDOW(gjay->main_window),
-            GTK_DIALOG_DESTROY_WITH_PARENT,
-            GTK_MESSAGE_ERROR,
-            GTK_BUTTONS_CLOSE,
-            _("Unable to start exaile"));
-        gtk_dialog_run(GTK_DIALOG(dialog));
-        gtk_widget_destroy(dialog);
+        gjay_error_dialog(_("Unable to start exaile"));
         return;
       }
 
