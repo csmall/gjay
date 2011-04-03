@@ -10,7 +10,7 @@ AM_INIT_AUTOMAKE([1.10])
 dnl Options
 AC_SUBST([WITH_MPDCLIENT])
 AC_ARG_ENABLE([mpdclient],
-              AC_HELP_STRING([--with-mpdclient], [Enable mpd  client(default is YES)]),
+              AS_HELP_STRING([--with-mpdclient], [Enable mpd  client(default is YES)]),
               [enable_mpdclient=$enableval],
               [enable_mpdclient="yes"])
 if test "$enable_mpdclient" = "yes"; then
@@ -31,9 +31,10 @@ AM_GNU_GETTEXT_VERSION([0.18.1])
 # Checks for libraries.
 AM_PATH_GTK_2_0
 PKG_CHECK_MODULES([DBUS_GLIB], [dbus-glib-1])
+PKG_CHECK_MODULES([AUDACIOUS], [audacious])
 
 AX_PATH_GSL
-AC_CHECK_LIB([audclient], [audacious_remote_playlist])
+dnl AC_CHECK_LIB([audclient], [audacious_remote_playlist])
 AC_CHECK_LIB([dl], [dlopen])
 
 # Checks for header files.

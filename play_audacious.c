@@ -1,7 +1,7 @@
 /*
  * Gjay - Gtk+ DJ music playlist creator
  * play_audacious.c : Output for Audacious
- * Copyright (C) 2010 Craig Small 
+ * Copyright (C) 2010-2011 Craig Small 
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -22,29 +22,61 @@
 #include "config.h"
 #endif /* HAVE_CONFIG_H */
 
+
 #include <stdio.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <dlfcn.h>
 #include <audacious/dbus.h>
 #include <audacious/audctrl.h>
 #include "gjay.h" 
 #include "songs.h" 
 #include "dbus.h"
 #include "i18n.h"
+#include "ui.h"
 #include "play_audacious.h"
 
 static void audacious_connect(void);
 
+/* dlym'ed functions */
+gint (*gjaud_get_playlist_pos)(DBusGProxy *proxy);
+gchar *(*gjaud_get_playlist_file)(DBusGProxy *proxy, guint pos);
+void (*gjaud_stop)(DBusGProxy *proxy);
+void (*gjaud_playlist_clear)(DBusGProxy *proxy);
+void (*gjaud_playlist_add_url_string)(DBusGProxy *proxy, gchar *string);
+void (*gjaud_play)(DBusGProxy *proxy);
+
 /* public functions */
 
-void 
+gboolean 
 audacious_init(void)
 {
+  void *lib;
+
+  if ( (lib = dlopen("libaudclient.so.2", RTLD_GLOBAL | RTLD_LAZY)) == NULL)
+  {
+    gjay_error_dialog(_("Unable to open audcious client library, defaulting to no play."));
+    return FALSE;
+  }
+  if ( (gjaud_get_playlist_pos = gjay_dlsym(lib, "audacious_remote_get_playlist_pos")) == NULL)
+    return FALSE;
+  if ( (gjaud_get_playlist_file = gjay_dlsym(lib, "audacious_remote_get_playlist_file")) == NULL)
+    return FALSE;
+  if ( (gjaud_stop = gjay_dlsym(lib, "audacious_remote_stop")) == NULL)
+    return FALSE;
+  if ( (gjaud_play = gjay_dlsym(lib, "audacious_remote_play")) == NULL)
+    return FALSE;
+  if ( (gjaud_playlist_clear = gjay_dlsym(lib, "audacious_remote_playlist_clear")) == NULL)
+    return FALSE;
+  if ( (gjaud_playlist_add_url_string = gjay_dlsym(lib, "audacious_remote_playlist_add_url_string")) == NULL)
+    return FALSE;
+
   gjay->player_get_current_song = &audacious_get_current_song;
   gjay->player_is_running = &audacious_is_running;
   gjay->player_play_files = &audacious_play_files;
   gjay->player_start = &audacious_start;
+  return TRUE;
 }
 
 gboolean
@@ -80,6 +112,7 @@ audacious_start(void)
   }
   return FALSE;
 }
+
 gboolean
 audacious_is_running(void)
 {
@@ -94,8 +127,8 @@ audacious_get_current_song(void) {
   song *s;
 
   audacious_connect();
-  pos = audacious_remote_get_playlist_pos(gjay->player_proxy);
-  playlist_file = audacious_remote_get_playlist_file(gjay->player_proxy, pos);
+  pos = (*gjaud_get_playlist_pos)(gjay->player_proxy);
+  playlist_file = (*gjaud_get_playlist_file)(gjay->player_proxy, pos);
   if (playlist_file == NULL)
     return NULL;
   uri = g_filename_from_uri(playlist_file, NULL, NULL);
@@ -114,14 +147,14 @@ audacious_play_files ( GList *list) {
 
 
   audacious_connect();
-  audacious_remote_stop(gjay->player_proxy);
-  audacious_remote_playlist_clear(gjay->player_proxy);
+  (*gjaud_stop)(gjay->player_proxy);
+  (*gjaud_playlist_clear)(gjay->player_proxy);
   for (lptr=list; lptr; lptr = g_list_next(lptr)) {
       uri = g_filename_to_uri(lptr->data, NULL, NULL);
-      audacious_remote_playlist_add_url_string(gjay->player_proxy, uri);
+      (*gjaud_playlist_add_url_string)(gjay->player_proxy, uri);
       g_free(uri);
   }
-  audacious_remote_play(gjay->player_proxy);
+  (*gjaud_play)(gjay->player_proxy);
 }
 
 /* static functions */
@@ -137,7 +170,6 @@ audacious_connect(void)
       AUDACIOUS_DBUS_SERVICE, AUDACIOUS_DBUS_PATH, AUDACIOUS_DBUS_INTERFACE);
 
 }
-
 
 
 

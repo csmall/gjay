@@ -1,6 +1,6 @@
 /*
  * Gjay - Gtk+ DJ music playlist creator
- * Copyright (C) 2009-2010 Craig Small 
+ * Copyright (C) 2009-2011 Craig Small 
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -21,7 +21,7 @@
 
 #include "gjay.h" 
 
-void      audacious_init(void);
+gboolean      audacious_init(void);
 song*     audacious_get_current_song(void);
 gboolean  audacious_is_running(void);
 void      audacious_play_files(GList *list);

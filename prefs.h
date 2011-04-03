@@ -27,12 +27,11 @@ typedef enum {
     PREF_DAEMON_ASK
 } pref_daemon_action;
 
-typedef enum {
-  PLAYER_AUDACIOUS,
-  PLAYER_EXAILE,
-  PLAYER_MPDCLIENT,
-  PLAYER_LAST
-} music_player_type;
+/* Music Player types */
+#define PLAYER_NONE 0
+#define PLAYER_AUDACIOUS 1
+#define PLAYER_MPDCLIENT 2
+#define PLAYER_LAST 3
 
 typedef struct {
     /* Root directory (latin1) */

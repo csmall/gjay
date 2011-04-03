@@ -1,14 +1,19 @@
      ../analysis.c \
      ../dbus.c \
      ../flac.c \
-     ../gjay_audacious.c \
      ../gjay.c \
      ../ipc.c \
      ../mp3.c \
+     ../play_audacious.c \
+     ../play_common.c \
+     ../play_exaile.c \
      ../playlist.c \
+     ../play_mpdclient.c \
+     ../play_quodlibet.c \
      ../prefs.c \
      ../rgbhsv.c \
      ../songs.c \
+     ../test.c \
      ../ui.c \
      ../ui_colorwheel.c \
      ../ui_explore_view.c \

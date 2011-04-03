@@ -28,31 +28,43 @@
 /*#include "play_exaile.h"*/
 #include "i18n.h"
 
+static void noplayer_init(void);
+
 void
 player_init(void)
 {
+  gboolean player_configured = FALSE;
+
   switch (gjay->prefs->music_player)
   {
+    case PLAYER_NONE:
+      /* break out, configured later */
+      break;
     case PLAYER_AUDACIOUS:
-      audacious_init();
+      player_configured = audacious_init();
       break;
     /*case PLAYER_EXAILE:
       exaile_init();
       break;*/
 #ifdef WITH_MPDCLIENT
     case PLAYER_MPDCLIENT:
-      mpdclient_init();
+      player_configured = mpdclient_init();
       break;
 #endif /* WITH_MPDCLIENT */
     default:
       g_error("Unknown music player.\n");
   }
+  if (player_configured == FALSE)
+    noplayer_init();
 }
 
 void
 play_song(song *s)
 {
   GList *list;
+
+  if (gjay->player_play_files==NULL)
+    return;
 
   list = g_list_append(NULL, strdup_to_latin1(s->path));
   gjay->player_play_files(list);
@@ -62,6 +74,10 @@ play_song(song *s)
 
 void play_songs (GList *slist) {
   GList *list = NULL;
+
+  if (gjay->player_is_running==NULL || gjay->player_play_files == NULL
+      || gjay->player_start == NULL )
+    return;
   
   for (; slist; slist = g_list_next(slist)) 
     list = g_list_append(list, strdup_to_latin1(SONG(slist)->path));
@@ -108,3 +124,11 @@ void play_songs (GList *slist) {
   gjay->player_play_files(list);
 }
 
+static void 
+noplayer_init(void)
+{
+  gjay->player_get_current_song = NULL;
+  gjay->player_is_running = NULL;
+  gjay->player_play_files = NULL;
+  gjay->player_start = NULL;
+}

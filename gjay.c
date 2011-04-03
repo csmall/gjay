@@ -1,6 +1,6 @@
 /**
  * GJay, copyright (c) 2002-2004 Chuck Groom
- *       Copyright (c) 2010 Craig Small
+ *       Copyright (c) 2010-2011 Craig Small
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -87,7 +87,7 @@ print_version(const gchar *option_name, const gchar *value, gpointer data, GErro
   fprintf(stderr, _("GJay version %s\n"), VERSION);
   fprintf(stderr,
       "Copyright (C) 2002-2004 Chuck Groom\n"
-      "Copyright (C) 2010 Craig Small\n\n");
+      "Copyright (C) 2010-2011 Craig Small\n\n");
 	fprintf(stderr,
 		_("GJay comes with ABSOLUTELY NO WARRANTY.\n"
     "This program is free software; you can redistribute it and/or modify\n"
@@ -494,7 +494,7 @@ static void run_as_ui(int argc, char *argv[] )
     }        
     
     set_selected_file(NULL, NULL, FALSE);
-    gjay->player_is_running();
+    /*gjay->player_is_running();*/
     gtk_main();
     
     save_prefs();

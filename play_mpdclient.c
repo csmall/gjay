@@ -54,15 +54,10 @@ mpdclient_init(void)
 {
   void *lib;
 
-  gjay->player_get_current_song = &mpdclient_get_current_song;
-  gjay->player_is_running = &mpdclient_is_running;
-  gjay->player_play_files = &mpdclient_play_files;
-  gjay->player_start = &mpdclient_start;
-
   if ( (lib = dlopen("libmpdclient.so.2", RTLD_GLOBAL | RTLD_LAZY)) == NULL)
   {
     gjay_error_dialog(_("Unable to open mpd client library"));
-    exit(1);
+    return FALSE;
   }
   
   if ( (gjmpd_connection_new = gjay_dlsym(lib, "mpd_connection_new")) == NULL)
@@ -87,6 +82,12 @@ mpdclient_init(void)
     return FALSE;
   if ( (gjmpd_run_play = gjay_dlsym(lib, "mpd_run_play")) == NULL)
     return FALSE;
+  
+  /* Success! we update the function pointers */
+  gjay->player_get_current_song = &mpdclient_get_current_song;
+  gjay->player_is_running = &mpdclient_is_running;
+  gjay->player_play_files = &mpdclient_play_files;
+  gjay->player_start = &mpdclient_start;
   return TRUE;
 }
 

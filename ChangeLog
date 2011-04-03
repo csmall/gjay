@@ -4,12 +4,13 @@ Changes in 0.3.2
 	* Made the code that handles the players generic
 	* Re-arranged the command line for mpg321
 	* Rewrote man page, including specifying that verbose flag needs
-	  a verobse level, Debian #601614
+	  a verbose level, Debian #601614
 	* playlist length option now really sets the playlist length
-	* analysis aborts if canot expand file, Debian #60613
+	* analysis aborts if cannot expand file, Debian #60613
 	* Explicitly linked to dl library, Debian #615725
 	* configure.ac (AM_GNU_GETTEXT_VERSION): Bump to 0.18.1.
 	* gjay can now use Music Player Daemon as a music player
+	* soft-linked via dlsym for mpd and audacious client libraries
 
 Changes in 0.3.1
 ================

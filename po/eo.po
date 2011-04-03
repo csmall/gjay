@@ -1,0 +1,478 @@
+# Esperanto Translation
+# Copyright (C) 2011 Free Software Foundation, Inc.
+# This file is distributed under the same license as the gjay package.
+# Felipe Castro <fefcas@gmail.com>, 2011.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: gjay 0.3.1\n"
+"Report-Msgid-Bugs-To: csmall@enc.com.au\n"
+"POT-Creation-Date: 2010-03-28 17:47+1100\n"
+"PO-Revision-Date: 2011-03-10 20:09-0300\n"
+"Last-Translator: Felipe Castro <fefcas@gmail.com>\n"
+"Language-Team: Esperanto <translation-team-eo@lists.sourceforge.net>\n"
+"Language: eo\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: analysis.c:125
+#, c-format
+msgid "Song file %s not found\n"
+msgstr "Muzik-dosiero %s ne trovite\n"
+
+#: analysis.c:140
+#, c-format
+msgid "Cannot open %s for writing\n"
+msgstr "Ne povas malfermi %s por skribado\n"
+
+#: analysis.c:181
+#, c-format
+msgid "Adding '%s' to analysis queue\n"
+msgstr "Aldono de '%s' al analiza vico\n"
+
+#: analysis.c:255
+#, c-format
+msgid "Daemon received ack\n"
+msgstr "La demono ricevis 'ack'\n"
+
+#: analysis.c:262
+#, c-format
+msgid "Deleting daemon pid file '%s'\n"
+msgstr "Ni forigas la demonan pid-dosieron '%s'\n"
+
+#: analysis.c:269
+#, c-format
+msgid "Daemon is clearing out analysis queue, deleting file '%s'\n"
+msgstr "Demono purigas la analiz-vicon, forigante la dosieron '%s'\n"
+
+#: analysis.c:284
+#, c-format
+msgid "Daemon queuing song file '%s'\n"
+msgstr "Demono vicigas la musik-dosieron '%s'\n"
+
+#: analysis.c:292
+#, c-format
+msgid "Detaching daemon\n"
+msgstr "Dekonektado de demono\n"
+
+#: analysis.c:300
+#, c-format
+msgid "Attaching to daemon\n"
+msgstr "Konektado de demono\n"
+
+#: analysis.c:310
+#, c-format
+msgid "Daemon Quitting\n"
+msgstr "Demono Eliras\n"
+
+#: analysis.c:350
+#, c-format
+msgid "analyze(): File '%s' cannot be read\n"
+msgstr "analyze(): Dosiero '%s' ne povas esti legata\n"
+
+#: analysis.c:373
+#, c-format
+msgid "File '%s' is not a recognised song.\n"
+msgstr "Dosiero '%s' ne estas rekonata muziko.\n"
+
+#: analysis.c:389
+#, c-format
+msgid "Analyzing song file '%s'\n"
+msgstr "Analizado de muzik-dosiero '%s'\n"
+
+#: analysis.c:396
+#, c-format
+msgid "Analysis took %ld seconds\n"
+msgstr "Analizo daŭris %ld sekundojn\n"
+
+#: analysis.c:465
+#, c-format
+msgid "Unable to decode '%s' as no ogg decoder found"
+msgstr "Ne eblas dekodigi '%s' ĉar neniu dekodilo ogg estis trovata"
+
+#: analysis.c:475
+#, c-format
+msgid "Unable to decode '%s' as no mp3 decoder found"
+msgstr "Ne eblas dekodigi '%s' ĉar neniu dekodilo mp3 estis trovata"
+
+#: analysis.c:485
+#, c-format
+msgid "Unable to decode '%s' as no flac decoder found"
+msgstr "Ne eblas dekodigi '%s' ĉar neniu dekodilo flac estis trovata"
+
+#: analysis.c:500
+#, c-format
+msgid "Unable to run decoder command '%s'\n"
+msgstr "Ne eblas lanĉi la dekodilan komandon '%s'\n"
+
+#: analysis.c:555
+#, c-format
+msgid "File is not a (converted) wav file. Modus is supposed to be 1 or 2 but is %d\n"
+msgstr "Dosiero ne estas (konvertita) dosiero wav. Reĝimo devus esti 1 aŭ 2 sed estas %d\n"
+
+#: analysis.c:562
+msgid "File is not a 16-bit stream\n"
+msgstr "Dosiero ne estas 16-bita fluo\n"
+
+#: analysis.c:708
+#, c-format
+msgid "Frequencies: \n"
+msgstr "Frekvencoj: \n"
+
+#: analysis.c:765
+#, c-format
+msgid "BPM: %f\n"
+msgstr "BPM: %f\n"
+
+#: analysis.c:941
+#, c-format
+msgid "Daemon appears to have been orphaned. Quitting.\n"
+msgstr "Demono ŝajne estis forlasata. Ni ĉesigas.\n"
+
+#: analysis.c:968
+#, c-format
+msgid "Analysis daemon done.\n"
+msgstr "Analizo de demono farite.\n"
+
+#: dbus.c:34
+#, c-format
+msgid "Failed to open connection to dbus bus: %s\n"
+msgstr "Malsukceso dum malfermo de konekto al buso dbus: %s\n"
+
+#: dbus.c:61
+#, c-format
+msgid "dbus check found '%s' running: %s\n"
+msgstr "kontrolo de dbus trovis '%s' rulanta: %s\n"
+
+#: flac.c:115
+#, c-format
+msgid "Unable to read FLAC metadata for file %s\n"
+msgstr "Ne eblas legi metadatumaron FLAC el dosiero %s\n"
+
+#: flac.c:125
+msgid "Out of memory creating FLAC iterator.\n"
+msgstr "Mankis memoron por krei ripetumilon (iterator) FLAC.\n"
+
+#: flac.c:135
+#, c-format
+msgid "Could not get block from FLAC chain for %s\n"
+msgstr "Mi ne povis preni blokon el ĉeno FLAC por %s\n"
+
+#: gjay_audacious.c:119
+msgid "Audacious is not running, start Audacious?"
+msgstr "Audacious ne estas rulanta, ĉu ekigi ĝin?"
+
+#: gjay_audacious.c:133
+#, c-format
+msgid "Cannot create audacious g_app: %s\n"
+msgstr "Ni ne povas krei g_app por audacious: %s\n"
+
+#: gjay_audacious.c:140
+#, c-format
+msgid "Cannot launch audacious g_app: %s"
+msgstr "Ni ne povas lanĉi g_app audacious: %s"
+
+#: gjay_audacious.c:157
+msgid "Unable to start Audacious"
+msgstr "Ne eblas ekigi Audacious"
+
+#: gjay.c:87
+#, c-format
+msgid "GJay version %s\n"
+msgstr "GJay versio %s\n"
+
+#: gjay.c:92
+#, c-format
+msgid ""
+"GJay comes with ABSOLUTELY NO WARRANTY.\n"
+"This program is free software; you can redistribute it and/or modify\n"
+"it under the terms of the GNU General Public License as published by\n"
+"the Free Software Foundation; either version 2 of the License, or\n"
+"(at your option) any later version.\n"
+msgstr ""
+"GJay venas kun ABSOLUTE NENIU GARANTIO.\n"
+"Tiu ĉi programo estas libera programaro; vi povas redisdoni ĝin kaj/aŭ modifi\n"
+"ĝin sub la kondiĉoj de la Ĝenerala Publika Permesilo GNU, eldonite de\n"
+"la Free Software Foundation; aŭ versio 2 de la Permesilo, aŭ\n"
+"(laŭ via elekto) iu ajn posta versio.\n"
+
+#: gjay.c:111
+msgid "Analyze FILE and exit"
+msgstr "Analizi DOSIERON kaj eliri"
+
+#: gjay.c:111 gjay.c:114
+msgid "FILE"
+msgstr "DOSIERO"
+
+#: gjay.c:112
+msgid "Start playlist at color- Hex or name"
+msgstr "Ekigi ludliston je koloro- Deksesume aŭ nomo"
+
+#: gjay.c:112
+msgid "0xrrggbb|NAME"
+msgstr "0xrrggbb|NOMO"
+
+#: gjay.c:113
+msgid "Run as daemon"
+msgstr "Funkcii kiel demono"
+
+#: gjay.c:114
+msgid "Start playlist at file"
+msgstr "Ekigi ludliston je dosiero"
+
+#: gjay.c:115
+msgid "Playlist length"
+msgstr "Ludlista longo"
+
+#: gjay.c:115
+msgid "seconds"
+msgstr "sekundoj"
+
+#: gjay.c:116
+msgid "Generate a playlist"
+msgstr "Generi ludliston"
+
+#: gjay.c:117
+msgid "Skip file verification"
+msgstr "Preterpasi dosier-kontroladon"
+
+#: gjay.c:118
+msgid "Use M3U playlist format"
+msgstr "Uzi ludlisto-formon M3U"
+
+#: gjay.c:119
+msgid "LEVEL"
+msgstr "NIVELO"
+
+#: gjay.c:120
+msgid "Play generated playlist in Audacious"
+msgstr "Ludi generitan ludliston en Audacious"
+
+#: gjay.c:121
+msgid "Show version"
+msgstr "Montri version"
+
+#: gjay.c:125
+msgid "- Automatic DJ and playlist creator"
+msgstr "- Aŭtomata DJ kaj ludlista kreanto"
+
+#: gjay.c:132
+#, c-format
+msgid "option parsing failed: %s\n"
+msgstr "analizado de elektilo fiaskis: %s\n"
+
+#: gjay.c:162
+#, c-format
+msgid "Running as daemon. Ctrl+c to stop.\n"
+msgstr "Rulanta kiel demono. Ctrl+c por ĉesigi.\n"
+
+#: gjay.c:188
+msgid "Unable to allocate memory for app.\n"
+msgstr "Ne eblas rezervi memoron por aplikaĵon.\n"
+
+#: gjay.c:219
+#, c-format
+msgid "Could not create '%s'\n"
+msgstr "Ne eblis krei '%s'\n"
+
+#: gjay.c:237
+#, c-format
+msgid "Ogg not supported.\n"
+msgstr "Ogg ne subtenate.\n"
+
+#: gjay.c:243
+#, c-format
+msgid "FLAC not supported.\n"
+msgstr "FLAC ne subtenate.\n"
+
+#: gjay.c:268
+#, c-format
+msgid "Error: app mode %d not supported\n"
+msgstr "Eraro: app-reĝimo %d ne subtenate\n"
+
+#: gjay.c:282
+#, c-format
+msgid "Error opening the pipe '%s'.\n"
+msgstr "Eraro dum malfermo de dukto '%s'.\n"
+
+#: gjay.c:287
+#, c-format
+msgid "Couldn't create the pipe '%s'.\n"
+msgstr "Ni ne povis krei la dukton '%s'.\n"
+
+#: gjay.c:292
+#, c-format
+msgid "Couldn't open the pipe '%s'.\n"
+msgstr "Ni ne povis malfermi la dukton '%s'.\n"
+
+#: gjay.c:372
+#, c-format
+msgid "Couldn't create pipe directory '%s'.\n"
+msgstr "Ni ne povis krei la dukto-dosierujon '%s'.\n"
+
+#: gjay.c:443
+msgid "Unable to fork daemon.\n"
+msgstr "Ne eblis forki demonon.\n"
+
+#: gjay.c:457
+msgid "Cannot initialise Gtk.\n"
+msgstr "Ni ne povas ekigi Gtk.\n"
+
+#: mp3.c:293
+#, c-format
+msgid "Invalid bitrate %0x in mp3 header.\n"
+msgstr "Malvalida bitrapideco %0x en dosierkapo mp3.\n"
+
+#: mp3.c:298
+#, c-format
+msgid "Invalid frequency %0x in mp3 header.\n"
+msgstr "Malvalida frekvenco %0x en dosierkapo mp3.\n"
+
+#: mp3.c:350
+#, c-format
+msgid "mp3 file '%s' is smaller than 128 bytes.\n"
+msgstr "mp3-dosiero '%s' estas malpli longa ol 128 bajtoj.\n"
+
+#: mp3.c:355
+#, c-format
+msgid "Couldn't read last 128 bytes of '%s'\n"
+msgstr "Ni ne povis legi la lastajn 128 bajtojn de '%s'\n"
+
+#: mp3.c:532
+#, c-format
+msgid "Unable to read song data for '%s'\n"
+msgstr "Ne eblas legi muzik-datumaron por '%s'\n"
+
+#: playlist.c:94
+msgid "No songs to create playlist from"
+msgstr "Neniu muziko por krei ludliston"
+
+#: playlist.c:111
+#, c-format
+msgid ""
+"File '%s' not found in data file;\n"
+"perhaps it has not been analyzed. Using random starting song.\n"
+msgstr ""
+"Dosiero '%s' ne trovite en datumar-dosiero;\n"
+"eble ĝi ne estas analizita. Ni uzas hazardan ekigan muzikon.\n"
+
+#: playlist.c:202
+#, c-format
+msgid "It took %d seconds to generate playlist\n"
+msgstr "Ni uzis %d sekundojn por generi ludliston\n"
+
+#: playlist.c:213
+#, c-format
+msgid "Sorry, cannot write playlist to '%s'."
+msgstr "Pardonu, ni ne povas skribi ludliston al '%s'."
+
+#: songs.c:335
+#, c-format
+msgid "Scanning '%s'...\n"
+msgstr "Skanado de '%s'...\n"
+
+#: songs.c:411
+#, c-format
+msgid "Unable to write song data %s\n"
+msgstr "Ne eblas skribi muzik-datumaron %s\n"
+
+#: songs.c:451
+#, c-format
+msgid ""
+"Unable to write '%s'.\n"
+"Analysis for '%s' was skipped!\n"
+msgstr ""
+"Ne eblas skribi '%s'.\n"
+"Analizo de '%s' preterpasite!\n"
+
+#: songs.c:559
+#, c-format
+msgid "Reading from data file '%s'\n"
+msgstr "Ni legas el datumar-dosiero '%s'\n"
+
+#: songs.c:860
+#, c-format
+msgid "Unable to read song data '%s' : %s\n"
+msgstr "Ne eblas legi muzik-datumaron '%s' : %s\n"
+
+#: ui.c:149
+msgid "GJay Preferences"
+msgstr "GJay: Preferoj"
+
+#: ui.c:246
+msgid "GJay: Messages"
+msgstr "GJay: Mesaĝoj"
+
+#: ui.c:456
+msgid "Continue analysis in background?"
+msgstr "Ĉu daŭrigi analizon kaŝite?"
+
+#: ui_prefs_view.c:77
+msgid "<b>Base Directory</b>"
+msgstr "<b>Baza Dosierujo</b>"
+
+#: ui_prefs_view.c:86 ui_prefs_view.c:237
+msgid "Set base music directory"
+msgstr "Difini bazan muzik-dosierujon"
+
+#: ui_prefs_view.c:108
+msgid "When you quit, song analysis should..."
+msgstr "Kiam vi eliros, muzik-analizado devos..."
+
+#: ui_prefs_view.c:109
+msgid "Stop"
+msgstr "Ĉesi"
+
+#: ui_prefs_view.c:112
+msgid "Continue in background"
+msgstr "Daŭrigi kaŝite"
+
+#: ui_prefs_view.c:115
+msgid "Ask"
+msgstr "Demandi"
+
+#: ui_prefs_view.c:157
+msgid "Use song ratings"
+msgstr "Uzi muzik-taksadon"
+
+#: ui_prefs_view.c:168
+msgid "Max working set"
+msgstr "Maks prilaborata muzikaro"
+
+#: ui_prefs_view.c:173
+msgid "On large collections, building playlists can take a long time. So gjay first picks this number of songs randomly, then continues the  selection from that subset. Increase this number if you're willing to tolerate longer waiting times for increased accuracy."
+msgstr "En grandaj kolektoj, konstruo de ludlisto povas daŭri longan tempon. Do, gjay unue prenas tiun ĉi nombron da muzikoj hazarde, kaj daŭrigas la elektadon el tiu eta aro. Pliigu tiun ĉi nombron se vi deziras toleri pli longan atendadan tempon por pli bona precizeco."
+
+#: ui_prefs_view.c:226
+msgid "Choose base music directory"
+msgstr "Elekti bazan muzik-dosierujon"
+
+#: ui_prefs_view.c:269
+#, c-format
+msgid "Error getting status of directory '%s': %s"
+msgstr "Eraro dum legado de stato de la dosierujo '%s': %s"
+
+#: ui_prefs_view.c:280
+#, c-format
+msgid "Path '%s' is not a directory."
+msgstr "Vojo '%s' ne estas dosierujo."
+
+#: ui_prefs_view.c:296
+msgid "Scanning tree..."
+msgstr "Skanado de arbo..."
+
+#: ui_prefs_view.c:318
+#, c-format
+msgid "Base directory is '%s'"
+msgstr "Baza dosierujo estas '%s'"
+
+#: ui_prefs_view.c:321
+#, c-format
+msgid "No base directory set"
+msgstr "Neniu baza dosierujo difinite"
+
+#: util.c:69
+#, c-format
+msgid "Unable to convert from %s charset; perhaps encoded differently?"
+msgstr "Ne eblis konverti el signaro %s; eble enkodita alie?"

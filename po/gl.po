@@ -1,0 +1,475 @@
+# Galician translation for gjay package.
+# Copyright (C) 2010 Free Software Foundation, Inc.
+# This file is distributed under the same license as the gjay package.
+# Copyright (C) 2010 Leandro Regueiro.
+#
+# Leandro Regueiro <leandro.regueiro@gmail.com>, 2010.
+#
+# Proxecto Trasno - Adaptación do software libre á lingua galega:  Se desexas
+# colaborar connosco, podes atopar máis información en <http://www.trasno.net>
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: gjay 0.3.1\n"
+"Report-Msgid-Bugs-To: csmall@enc.com.au\n"
+"POT-Creation-Date: 2010-03-28 17:47+1100\n"
+"PO-Revision-Date: 2011-02-11 17:10+0100\n"
+"Last-Translator: Leandro Regueiro <leandro.regueiro@gmail.com>\n"
+"Language-Team: Galician <proxecto@trasno.net>\n"
+"Language: gl\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n!=1);\n"
+
+#: analysis.c:125
+#, c-format
+msgid "Song file %s not found\n"
+msgstr "Non se atopou o ficheiro de canción %s\n"
+
+#: analysis.c:140
+#, c-format
+msgid "Cannot open %s for writing\n"
+msgstr "Non foi posíbel abrir %s para escribir\n"
+
+#: analysis.c:181
+#, c-format
+msgid "Adding '%s' to analysis queue\n"
+msgstr ""
+
+#: analysis.c:255
+#, c-format
+msgid "Daemon received ack\n"
+msgstr ""
+
+#: analysis.c:262
+#, c-format
+msgid "Deleting daemon pid file '%s'\n"
+msgstr ""
+
+#: analysis.c:269
+#, c-format
+msgid "Daemon is clearing out analysis queue, deleting file '%s'\n"
+msgstr ""
+
+#: analysis.c:284
+#, c-format
+msgid "Daemon queuing song file '%s'\n"
+msgstr ""
+
+#: analysis.c:292
+#, c-format
+msgid "Detaching daemon\n"
+msgstr ""
+
+#: analysis.c:300
+#, c-format
+msgid "Attaching to daemon\n"
+msgstr ""
+
+#: analysis.c:310
+#, c-format
+msgid "Daemon Quitting\n"
+msgstr "O daemon está saíndo\n"
+
+#: analysis.c:350
+#, c-format
+msgid "analyze(): File '%s' cannot be read\n"
+msgstr ""
+
+#: analysis.c:373
+#, c-format
+msgid "File '%s' is not a recognised song.\n"
+msgstr "O ficheiro '%s' non é unha canción recoñecida.\n"
+
+#: analysis.c:389
+#, c-format
+msgid "Analyzing song file '%s'\n"
+msgstr "Analizando o ficheiro de canción '%s'\n"
+
+#: analysis.c:396
+#, c-format
+msgid "Analysis took %ld seconds\n"
+msgstr "A análise levou %ld segundos\n"
+
+#: analysis.c:465
+#, c-format
+msgid "Unable to decode '%s' as no ogg decoder found"
+msgstr "Non foi posíbel descodificar '%s' debido a que non se atopou ningún descodificador de ogg"
+
+#: analysis.c:475
+#, c-format
+msgid "Unable to decode '%s' as no mp3 decoder found"
+msgstr "Non foi posíbel descodificar '%s' debido a que non se atopou ningún descodificador de mp3"
+
+#: analysis.c:485
+#, c-format
+msgid "Unable to decode '%s' as no flac decoder found"
+msgstr "Non foi posíbel descodificar '%s' debido a que non se atopou ningún descodificador de flac"
+
+#: analysis.c:500
+#, c-format
+msgid "Unable to run decoder command '%s'\n"
+msgstr "Non foi posíbel executar a orde do descodificador '%s'\n"
+
+#: analysis.c:555
+#, c-format
+msgid "File is not a (converted) wav file. Modus is supposed to be 1 or 2 but is %d\n"
+msgstr ""
+
+#: analysis.c:562
+msgid "File is not a 16-bit stream\n"
+msgstr "O ficheiro non é un fluxo de 16 bits\n"
+
+#: analysis.c:708
+#, c-format
+msgid "Frequencies: \n"
+msgstr "Frecuencias: \n"
+
+#: analysis.c:765
+#, c-format
+msgid "BPM: %f\n"
+msgstr ""
+
+#: analysis.c:941
+#, c-format
+msgid "Daemon appears to have been orphaned. Quitting.\n"
+msgstr ""
+
+#: analysis.c:968
+#, c-format
+msgid "Analysis daemon done.\n"
+msgstr ""
+
+#: dbus.c:34
+#, c-format
+msgid "Failed to open connection to dbus bus: %s\n"
+msgstr "Produciuse un erro ao abrir a conexión ao bus de dbus: %s\n"
+
+#: dbus.c:61
+#, c-format
+msgid "dbus check found '%s' running: %s\n"
+msgstr ""
+
+#: flac.c:115
+#, c-format
+msgid "Unable to read FLAC metadata for file %s\n"
+msgstr "Non foi posíbel ler os metadatos FLAC do ficheiro %s\n"
+
+#: flac.c:125
+msgid "Out of memory creating FLAC iterator.\n"
+msgstr ""
+
+#: flac.c:135
+#, c-format
+msgid "Could not get block from FLAC chain for %s\n"
+msgstr ""
+
+#: gjay_audacious.c:119
+msgid "Audacious is not running, start Audacious?"
+msgstr "Non se está executando Audacious, desexa iniciar Audacious?"
+
+#: gjay_audacious.c:133
+#, c-format
+msgid "Cannot create audacious g_app: %s\n"
+msgstr ""
+
+#: gjay_audacious.c:140
+#, c-format
+msgid "Cannot launch audacious g_app: %s"
+msgstr ""
+
+#: gjay_audacious.c:157
+msgid "Unable to start Audacious"
+msgstr "Non foi posíbel iniciar Audacious"
+
+#: gjay.c:87
+#, c-format
+msgid "GJay version %s\n"
+msgstr "GJay versión %s\n"
+
+#: gjay.c:92
+#, c-format
+msgid ""
+"GJay comes with ABSOLUTELY NO WARRANTY.\n"
+"This program is free software; you can redistribute it and/or modify\n"
+"it under the terms of the GNU General Public License as published by\n"
+"the Free Software Foundation; either version 2 of the License, or\n"
+"(at your option) any later version.\n"
+msgstr ""
+
+#: gjay.c:111
+msgid "Analyze FILE and exit"
+msgstr "Analizar FICHEIRO e saír"
+
+#: gjay.c:111 gjay.c:114
+msgid "FILE"
+msgstr "FICHEIRO"
+
+#: gjay.c:112
+msgid "Start playlist at color- Hex or name"
+msgstr "Iniciar a lista de reprodución ca cor - Hexadecimal ou nome"
+
+#: gjay.c:112
+msgid "0xrrggbb|NAME"
+msgstr "0xrrggbb|NOME"
+
+#: gjay.c:113
+msgid "Run as daemon"
+msgstr "Executar como daemon"
+
+#: gjay.c:114
+msgid "Start playlist at file"
+msgstr "Iniciar a lista de reprodución do ficheiro"
+
+#: gjay.c:115
+msgid "Playlist length"
+msgstr "Lonxitude da lista de reprodución"
+
+#: gjay.c:115
+msgid "seconds"
+msgstr "segundos"
+
+#: gjay.c:116
+msgid "Generate a playlist"
+msgstr "Xerar unha lista de reprodución"
+
+#: gjay.c:117
+msgid "Skip file verification"
+msgstr "Saltar a verificación de ficheiro"
+
+#: gjay.c:118
+msgid "Use M3U playlist format"
+msgstr "Usar o formato de lista de reprodución M3U"
+
+#: gjay.c:119
+msgid "LEVEL"
+msgstr "NIVEL"
+
+#: gjay.c:120
+msgid "Play generated playlist in Audacious"
+msgstr "Reproducir en Audacious a lista de reprodución xerada"
+
+#: gjay.c:121
+msgid "Show version"
+msgstr "Mostrar a versión"
+
+#: gjay.c:125
+msgid "- Automatic DJ and playlist creator"
+msgstr ""
+
+#: gjay.c:132
+#, c-format
+msgid "option parsing failed: %s\n"
+msgstr "produciuse un erro ao analizar a opción: %s\n"
+
+#: gjay.c:162
+#, c-format
+msgid "Running as daemon. Ctrl+c to stop.\n"
+msgstr "Executando como daemon. Ctrl+c para parar.\n"
+
+#: gjay.c:188
+msgid "Unable to allocate memory for app.\n"
+msgstr "Non foi posíbel asignar memoria para o aplicativo.\n"
+
+#: gjay.c:219
+#, c-format
+msgid "Could not create '%s'\n"
+msgstr "Non foi posíbel crear '%s'\n"
+
+#: gjay.c:237
+#, c-format
+msgid "Ogg not supported.\n"
+msgstr "Non hai compatibilidade con Ogg.\n"
+
+#: gjay.c:243
+#, c-format
+msgid "FLAC not supported.\n"
+msgstr "Non hai compatibilidade con FLAC.\n"
+
+#: gjay.c:268
+#, c-format
+msgid "Error: app mode %d not supported\n"
+msgstr ""
+
+#: gjay.c:282
+#, c-format
+msgid "Error opening the pipe '%s'.\n"
+msgstr "Produciuse un erro ao abrir a canalización '%s'.\n"
+
+#: gjay.c:287
+#, c-format
+msgid "Couldn't create the pipe '%s'.\n"
+msgstr "Non foi posíbel crear a canalización '%s'.\n"
+
+#: gjay.c:292
+#, c-format
+msgid "Couldn't open the pipe '%s'.\n"
+msgstr "Non foi posíbel abrir a canalización '%s'.\n"
+
+#: gjay.c:372
+#, c-format
+msgid "Couldn't create pipe directory '%s'.\n"
+msgstr "Non foi posíbel crear o directorio de canalización '%s'.\n"
+
+#: gjay.c:443
+msgid "Unable to fork daemon.\n"
+msgstr "Non foi posíbel bifurcar o daemon.\n"
+
+#: gjay.c:457
+msgid "Cannot initialise Gtk.\n"
+msgstr "Non foi posíbel inicializar Gtk.\n"
+
+#: mp3.c:293
+#, c-format
+msgid "Invalid bitrate %0x in mp3 header.\n"
+msgstr ""
+
+#: mp3.c:298
+#, c-format
+msgid "Invalid frequency %0x in mp3 header.\n"
+msgstr "Frecuencia %0x incorrecta na cabeceira de mp3.\n"
+
+#: mp3.c:350
+#, c-format
+msgid "mp3 file '%s' is smaller than 128 bytes.\n"
+msgstr "o ficheiro mp3 '%s' ten menos de 128 bytes.\n"
+
+#: mp3.c:355
+#, c-format
+msgid "Couldn't read last 128 bytes of '%s'\n"
+msgstr "Non foi posíbel ler os últimos 128 bytes de '%s'\n"
+
+#: mp3.c:532
+#, c-format
+msgid "Unable to read song data for '%s'\n"
+msgstr "Non foi posíbel ler os datos da canción '%s'\n"
+
+#: playlist.c:94
+msgid "No songs to create playlist from"
+msgstr "Non hai cancións a partir das cales crear unha lista de reprodución"
+
+#: playlist.c:111
+#, c-format
+msgid ""
+"File '%s' not found in data file;\n"
+"perhaps it has not been analyzed. Using random starting song.\n"
+msgstr ""
+
+#: playlist.c:202
+#, c-format
+msgid "It took %d seconds to generate playlist\n"
+msgstr "Levou %d segundos xerar a lista de reprodución\n"
+
+#: playlist.c:213
+#, c-format
+msgid "Sorry, cannot write playlist to '%s'."
+msgstr "Non foi posíbel escribir a lista de reprodución en '%s'."
+
+#: songs.c:335
+#, c-format
+msgid "Scanning '%s'...\n"
+msgstr "Examinando '%s'...\n"
+
+#: songs.c:411
+#, c-format
+msgid "Unable to write song data %s\n"
+msgstr "Non foi posíbel escribir os datos da canción %s\n"
+
+#: songs.c:451
+#, c-format
+msgid ""
+"Unable to write '%s'.\n"
+"Analysis for '%s' was skipped!\n"
+msgstr ""
+
+#: songs.c:559
+#, c-format
+msgid "Reading from data file '%s'\n"
+msgstr "Lendo do ficheiro de datos '%s'\n"
+
+#: songs.c:860
+#, c-format
+msgid "Unable to read song data '%s' : %s\n"
+msgstr "Non foi posíbel ler os datos da canción '%s': %s\n"
+
+#: ui.c:149
+msgid "GJay Preferences"
+msgstr "Preferencias de GJay"
+
+#: ui.c:246
+msgid "GJay: Messages"
+msgstr "GJay: Mensaxes"
+
+#: ui.c:456
+msgid "Continue analysis in background?"
+msgstr "Desexa continuar a análise en segundo plano?"
+
+#: ui_prefs_view.c:77
+msgid "<b>Base Directory</b>"
+msgstr "<b>Directorio base</b>"
+
+#: ui_prefs_view.c:86 ui_prefs_view.c:237
+msgid "Set base music directory"
+msgstr "Definir o directorio base da música"
+
+#: ui_prefs_view.c:108
+msgid "When you quit, song analysis should..."
+msgstr "Ao saír a análise de cancións debe..."
+
+#: ui_prefs_view.c:109
+msgid "Stop"
+msgstr "Parar"
+
+#: ui_prefs_view.c:112
+msgid "Continue in background"
+msgstr "Continuar en segundo plano"
+
+#: ui_prefs_view.c:115
+msgid "Ask"
+msgstr "Preguntar"
+
+#: ui_prefs_view.c:157
+msgid "Use song ratings"
+msgstr ""
+
+#: ui_prefs_view.c:168
+msgid "Max working set"
+msgstr ""
+
+#: ui_prefs_view.c:173
+msgid "On large collections, building playlists can take a long time. So gjay first picks this number of songs randomly, then continues the  selection from that subset. Increase this number if you're willing to tolerate longer waiting times for increased accuracy."
+msgstr ""
+
+#: ui_prefs_view.c:226
+msgid "Choose base music directory"
+msgstr "Elixa o directorio base da música"
+
+#: ui_prefs_view.c:269
+#, c-format
+msgid "Error getting status of directory '%s': %s"
+msgstr "Produciuse un erro ao obter o estado do directorio '%s': %s"
+
+#: ui_prefs_view.c:280
+#, c-format
+msgid "Path '%s' is not a directory."
+msgstr "A ruta '%s' non é un directorio."
+
+#: ui_prefs_view.c:296
+msgid "Scanning tree..."
+msgstr "Examinando a árbore..."
+
+#: ui_prefs_view.c:318
+#, c-format
+msgid "Base directory is '%s'"
+msgstr "O directorio base é '%s'"
+
+#: ui_prefs_view.c:321
+#, c-format
+msgid "No base directory set"
+msgstr "Non se definiu ningún directorio base"
+
+#: util.c:69
+#, c-format
+msgid "Unable to convert from %s charset; perhaps encoded differently?"
+msgstr "Non foi posíbel converter desde o conxunto de caracteres %s; quizais usa outra codificación?"

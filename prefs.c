@@ -121,8 +121,8 @@ char * pref_element_strs[PE_LAST] = {
 
 const char *music_player_names[] =
 {
+  "None",
   "Audacious",
-  "Exaile",
   "MPD",
   NULL
 };

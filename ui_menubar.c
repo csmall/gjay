@@ -87,7 +87,20 @@ GtkWidget * make_menubar ( void ) {
 void menuitem_currentsong (void) {
   song * s;
   GtkWidget * dialog;
+  gchar * msg; 
 
+  if (gjay->player_get_current_song==NULL)
+  {
+    if (gjay->prefs->music_player == PLAYER_NONE)
+      gjay_error_dialog(_("Cannot get current song with no player selected."));
+    else {
+      msg = g_strdup_printf(_("Don't know how to get current song for music player %s."),
+          gjay->prefs->music_player_name);
+      gjay_error_dialog(msg);
+      g_free(msg);
+    }
+    return;
+  }
   s = gjay->player_get_current_song();
   if (s) {
     explore_select_song(s);
@@ -95,7 +108,6 @@ void menuitem_currentsong (void) {
     if (gjay->player_is_running()) {
       gjay_error_dialog(_("Sorry, GJay doesn't appear to know that song"));
     } else {
-      gchar * msg; 
       msg = g_strdup_printf(_("Sorry, unable to connect to %s.\nIs the player running?"),
           gjay->prefs->music_player_name);
       gjay_error_dialog(msg);
