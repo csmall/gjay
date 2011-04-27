@@ -128,6 +128,9 @@ const char *music_player_names[] =
 #ifdef WITH_MPDCLIENT
   "MPD",
 #endif
+#ifdef WITH_EXAILE
+  "Exaile",
+#endif
   NULL
 };
 
