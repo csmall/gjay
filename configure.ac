@@ -33,6 +33,15 @@ PKG_CHECK_MODULES([GTK], [gtk+-2.0])
 PKG_CHECK_MODULES([DBUS_GLIB], [dbus-glib-1])
 PKG_CHECK_MODULES([AUDACIOUS], [audacious])
 
+AC_ARG_ENABLE([latin1],
+              AS_HELP_STRING([--disable-latin1],
+                             [Disable handling of tags encoded in Latin-1, and assume tags are UTF-8 encoded.]),
+              [assume_latin1=$enableval],
+              [assume_latin1="yes"])
+if test "$assume_latin1" = "yes"; then
+  AC_DEFINE([ASSUME_LATIN1], [1], [Assume tag-strings are encoded in Latin-1])
+fi
+
 PKG_CHECK_MODULES([GSL], [gsl])
 
 dnl AC_CHECK_LIB([audclient], [audacious_remote_playlist])

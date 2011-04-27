@@ -50,6 +50,7 @@ gjay_dlsym(void *handle, const char const *func_name)
 /**
  * Duplicate a string from one encoding to another
  */
+#ifdef ASSUME_LATIN1
 gchar * strdup_convert ( const gchar * str, 
                          const gchar * enc_to, 
                          const gchar * enc_from ) {
@@ -68,6 +69,7 @@ gchar * strdup_convert ( const gchar * str,
     }
     return conv;
 }
+#endif /* ASSUME_LATIN1 */
 
 /**
  * Implement strtof, except make it locale agnostic w/r/t whether a

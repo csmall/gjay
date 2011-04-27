@@ -23,9 +23,15 @@
 void * gjay_dlsym(void *handle, const char const *func_name);
 #define strdup_to_utf8(str)   (strdup_convert(str, "UTF8", "LATIN1"))
 #define strdup_to_latin1(str) (strdup_convert(str, "LATIN1", "UTF8"))
+
+#ifdef ASSUME_LATIN1
 gchar * strdup_convert        ( const gchar * str, 
                                 const gchar * enc_to, 
                                 const gchar * enc_from );
+#else
+#define strdup_convert(str, enc_to, enc_from)	(g_strdup(str))
+#endif /* ASSUME_LATIN1 */
+
 float   strtof_gjay           ( const char * nptr,
                                 char ** endptr);
 
