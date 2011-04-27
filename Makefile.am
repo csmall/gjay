@@ -3,8 +3,8 @@ SUBDIRS = po doc icons
 
 bin_PROGRAMS = gjay
 
-gjay_LDADD = @GTK_LIBS@ @DBUS_GLIB_LIBS@ @GSL_LIBS@
-AM_CFLAGS = -Wall @GTK_CFLAGS@ @DBUS_GLIB_CFLAGS@ @GSL_CFLAGS@
+gjay_LDADD = $(GTK_LIBS) $(DBUS_GLIB_LIBS) $(GSL_LIBS)
+AM_CFLAGS = -Wall $(GTK_CFLAGS) $(DBUS_GLIB_CFLAGS) $(GSL_CFLAGS)
 
 gjay_SOURCES = gjay.h songs.h prefs.h ui.h rgbhsv.h analysis.h playlist.h \
 							 ipc.h constants.h vorbis.h mp3.h flac.h i18n.h \
