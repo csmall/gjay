@@ -18,6 +18,15 @@ if test "$enable_mpdclient" = "yes"; then
   PKG_CHECK_MODULES([MPDCLIENT], [libmpdclient])
 fi
 
+AC_SUBST([WITH_AUDCLIENT])
+AC_ARG_ENABLE([audclient],
+              AS_HELP_STRING([--disable-audclient], [Disable Audacious client (enabled by default)]),
+              [enable_audclient=$enableval],
+              [enable_audclient="yes"])
+if test "$enable_audclient" = "yes"; then
+  AC_DEFINE([WITH_AUDCLIENT], [1], [Enable Audacious music player])
+  PKG_CHECK_MODULES([AUDACIOUS], [audacious])
+fi
 
 # Checks for programs.
 AC_PROG_CC
@@ -31,7 +40,6 @@ AM_GNU_GETTEXT_VERSION([0.18.1])
 # Checks for libraries.
 PKG_CHECK_MODULES([GTK], [gtk+-2.0])
 PKG_CHECK_MODULES([DBUS_GLIB], [dbus-glib-1])
-PKG_CHECK_MODULES([AUDACIOUS], [audacious])
 
 AC_ARG_ENABLE([latin1],
               AS_HELP_STRING([--disable-latin1],

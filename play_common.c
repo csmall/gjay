@@ -40,9 +40,11 @@ player_init(void)
     case PLAYER_NONE:
       /* break out, configured later */
       break;
+#ifdef WITH_AUDCLIENT
     case PLAYER_AUDACIOUS:
       player_configured = audacious_init();
       break;
+#endif /* WITH_AUDCLIENT */
     /*case PLAYER_EXAILE:
       exaile_init();
       break;*/

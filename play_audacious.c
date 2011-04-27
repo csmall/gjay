@@ -22,6 +22,7 @@
 #include "config.h"
 #endif /* HAVE_CONFIG_H */
 
+#ifdef WITH_AUDCLIENT
 
 #include <stdio.h>
 #include <sys/types.h>
@@ -171,5 +172,4 @@ audacious_connect(void)
 
 }
 
-
-
+#endif /* WITH_AUDCLIENT */

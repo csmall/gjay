@@ -122,7 +122,9 @@ char * pref_element_strs[PE_LAST] = {
 const char *music_player_names[] =
 {
   "None",
+#ifdef WITH_AUDCLIENT
   "Audacious",
+#endif /* WITH_AUDCLIENT */
 #ifdef WITH_MPDCLIENT
   "MPD",
 #endif
