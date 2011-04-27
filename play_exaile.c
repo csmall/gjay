@@ -22,6 +22,8 @@
 #include "config.h"
 #endif /* HAVE_CONFIG_H */
 
+#ifdef WITH_EXAILE
+
 #include <stdio.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -221,4 +223,4 @@ exaile_dbus_query(DBusGProxy *proxy, const char *method, char *dest)
   return TRUE;
 }
         
-
+#endif /* WITH_EXAILE */

@@ -45,9 +45,11 @@ player_init(void)
       player_configured = audacious_init();
       break;
 #endif /* WITH_AUDCLIENT */
-    /*case PLAYER_EXAILE:
+#ifdef WITH_EXAILE
+    case PLAYER_EXAILE:
       exaile_init();
-      break;*/
+      break;
+#endif /* WITH_EXAILE */
 #ifdef WITH_MPDCLIENT
     case PLAYER_MPDCLIENT:
       player_configured = mpdclient_init();
