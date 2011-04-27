@@ -29,11 +29,12 @@ AM_GNU_GETTEXT([external])
 AM_GNU_GETTEXT_VERSION([0.18.1])
 
 # Checks for libraries.
-AM_PATH_GTK_2_0
+PKG_CHECK_MODULES([GTK], [gtk+-2.0])
 PKG_CHECK_MODULES([DBUS_GLIB], [dbus-glib-1])
 PKG_CHECK_MODULES([AUDACIOUS], [audacious])
 
-AX_PATH_GSL
+PKG_CHECK_MODULES([GSL], [gsl])
+
 dnl AC_CHECK_LIB([audclient], [audacious_remote_playlist])
 AC_CHECK_LIB([dl], [dlopen])
 
