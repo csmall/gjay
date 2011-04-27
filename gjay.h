@@ -32,7 +32,10 @@
 #include <assert.h>
 #include <limits.h>
 #include <math.h>
+
+#ifdef WITH_DBUSGLIB
 #include <dbus/dbus-glib.h>
+#endif /* WITH_DBUSGLIB */
 
 typedef struct _GjayApp GjayApp;
 extern GjayApp *gjay;
@@ -77,8 +80,12 @@ gchar * parent_dir            ( const char * path );
 struct _GjayApp {
   GjayPrefs *prefs;
   /* Player connections/handles */
+
+#ifdef WITH_DBUSGLIB
   DBusGConnection *connection;
   DBusGProxy *player_proxy;
+#endif /* WITH_DBUSGLIB */
+
 #ifdef WITH_MPDCLIENT
   struct mpd_connection *mpdclient_connection;
 #endif /* WITH_MPDCLIENT */

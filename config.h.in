@@ -88,5 +88,11 @@
 /* Version number of package */
 #undef VERSION
 
+/* Enable Audacious music player */
+#undef WITH_AUDCLIENT
+
+/* Build with dbus-glib */
+#undef WITH_DBUSGLIB
+
 /* Enable mpd music player */
 #undef WITH_MPDCLIENT

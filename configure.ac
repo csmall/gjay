@@ -8,12 +8,16 @@ AC_CONFIG_HEADERS([config.h])
 AM_INIT_AUTOMAKE([1.10])
 
 dnl Options
+# Don't require D-Bus unless building a component that needs it:
+enable_dbus=no
+
 AC_SUBST([WITH_MPDCLIENT])
 AC_ARG_ENABLE([mpdclient],
               AS_HELP_STRING([--with-mpdclient], [Enable mpd  client(default is YES)]),
               [enable_mpdclient=$enableval],
               [enable_mpdclient="yes"])
 if test "$enable_mpdclient" = "yes"; then
+  enable_dbus=yes
   AC_DEFINE([WITH_MPDCLIENT], [1], [Enable mpd music player])
   PKG_CHECK_MODULES([MPDCLIENT], [libmpdclient])
 fi
@@ -24,6 +28,7 @@ AC_ARG_ENABLE([audclient],
               [enable_audclient=$enableval],
               [enable_audclient="yes"])
 if test "$enable_audclient" = "yes"; then
+  enable_dbus=yes
   AC_DEFINE([WITH_AUDCLIENT], [1], [Enable Audacious music player])
   PKG_CHECK_MODULES([AUDACIOUS], [audacious])
 fi
@@ -39,7 +44,11 @@ AM_GNU_GETTEXT_VERSION([0.18.1])
 
 # Checks for libraries.
 PKG_CHECK_MODULES([GTK], [gtk+-2.0])
-PKG_CHECK_MODULES([DBUS_GLIB], [dbus-glib-1])
+
+if test "$enable_dbus" = "yes"; then
+  AC_DEFINE([WITH_DBUSGLIB], [1], [Build with dbus-glib])
+  PKG_CHECK_MODULES([DBUS_GLIB], [dbus-glib-1])
+fi
 
 AC_ARG_ENABLE([latin1],
               AS_HELP_STRING([--disable-latin1],

@@ -45,7 +45,11 @@
 #include <string.h>
 #include <ctype.h>
 #include "gjay.h"
+
+#ifdef WITH_DBUSGLIB
 #include "dbus.h"
+#endif /* WITH_DBUSGLIB */
+
 #include "analysis.h"
 #include "ipc.h"
 #include "playlist.h"
@@ -468,7 +472,11 @@ static void run_as_ui(int argc, char *argv[] )
   player_init();
     make_app_ui();
     gtk_widget_show_all(gjay->main_window);
+
+#ifdef WITH_DBUSGLIB
     gjay->connection = gjay_dbus_connection();
+#endif /* WITH_DBUSGLIB */
+
     gjay->message_window = make_message_window();
     g_log_set_handler(NULL,
         G_LOG_LEVEL_WARNING | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION,
