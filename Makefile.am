@@ -23,4 +23,4 @@ gjay_SOURCES = gjay.h songs.h prefs.h ui.h rgbhsv.h analysis.h playlist.h \
 
 ACLOCAL_AMFLAGS = -I m4
 
-EXTRA_DIST = config.rpath m4/ChangeLog
+EXTRA_DIST = config.rpath m4/ChangeLog autogen.sh
