@@ -1,7 +1,7 @@
 #                                               -*- Autoconf -*-
 # Process this file with autoconf to produce a configure script.
 
-AC_PREREQ([2.67])
+AC_PREREQ([2.62])
 AC_INIT([gjay],[0.3.2],[csmall@enc.com.au])
 AC_CONFIG_SRCDIR([gjay.h])
 AC_CONFIG_HEADERS([config.h])
