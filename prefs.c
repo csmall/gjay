@@ -123,7 +123,9 @@ const char *music_player_names[] =
 {
   "None",
   "Audacious",
+#ifdef WITH_MPDCLIENT
   "MPD",
+#endif
   NULL
 };
 
