@@ -7,6 +7,11 @@ AC_CONFIG_SRCDIR([gjay.h])
 AC_CONFIG_HEADERS([config.h])
 AM_INIT_AUTOMAKE([1.10])
 
+# Checks for programs.
+AC_PROG_CC
+AC_PROG_INSTALL
+PKG_PROG_PKG_CONFIG
+
 dnl Options
 # Don't require D-Bus unless building a component that needs it:
 enable_dbus=no
@@ -32,11 +37,6 @@ if test "$enable_audclient" = "yes"; then
   AC_DEFINE([WITH_AUDCLIENT], [1], [Enable Audacious music player])
   PKG_CHECK_MODULES([AUDACIOUS], [audacious])
 fi
-
-# Checks for programs.
-AC_PROG_CC
-AC_PROG_INSTALL
-PKG_PROG_PKG_CONFIG
 
 dnl Check for language stuff
 AM_GNU_GETTEXT([external])
