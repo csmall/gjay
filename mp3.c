@@ -473,11 +473,11 @@ int get_id3_tags( FILE   * fp,
                     bzero(tag, BUFFER_SIZE);
                     memcpy(tag, buffer + off + s, len);
                     if (id3_tag[k+1][0] == TITLE_CHAR[0]) {
-                        *title = strdup_to_utf8(tag);
+                        *title = strdup_to_utf8_auto(tag, len);
                     } else if (id3_tag[k+1][0] == ARTIST_CHAR[0]) {
-                        *artist = strdup_to_utf8(tag);
+                        *artist = strdup_to_utf8_auto(tag, len);
                     } else if (id3_tag[k+1][0] == ALBUM_CHAR[0]) {
-                        *album = strdup_to_utf8(tag);
+                        *album = strdup_to_utf8_auto(tag, len);
                     } 
                     off += s + len;
                     break;

@@ -48,16 +48,46 @@ gjay_dlsym(void *handle, const char const *func_name)
 }
 
 /**
+ * Duplicate a string from one encoding to UTF-8
+ * BOM marker, if any, used to identify UTF-16 and UTF-32
+ */
+gchar * strdup_to_utf8_auto ( const gchar * str,
+                              gssize length ) {
+    const gchar *enc_from;
+    const gchar *str_from;
+
+    /* identify BOM string */
+    if (memcmp(str, "\0\0\xfe\xff", 4) == 0) {
+        enc_from = "UTF32BE";
+        str_from = str + 4;
+    } else if (memcmp(str, "\xff\xfe\0\0", 4) == 0) {
+        enc_from = "UTF32LE";
+        str_from = str + 4;
+    } else if (memcmp(str, "\xfe\xff", 2) == 0) {
+        enc_from = "UTF16BE";
+        str_from = str + 2;
+    } else if (memcmp(str, "\xff\xfe", 2) == 0) {
+        enc_from = "UTF16LE";
+        str_from = str + 2;
+    } else {
+        enc_from = "LATIN1";
+        str_from = str;
+    }
+    return strdup_convert(str_from, length, "UTF8", enc_from);
+}
+
+/**
  * Duplicate a string from one encoding to another
  */
 #ifdef ASSUME_LATIN1
 gchar * strdup_convert ( const gchar * str, 
+                         gssize length,
                          const gchar * enc_to, 
                          const gchar * enc_from ) {
     gchar * conv;
     gsize b_read, b_written;
     conv = g_convert (str,
-                      -1, 
+                      length, 
                       enc_to,
                       enc_from,
                       &b_read,

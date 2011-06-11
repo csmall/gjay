@@ -21,11 +21,14 @@
 #include <glib.h>
 
 void * gjay_dlsym(void *handle, const char const *func_name);
-#define strdup_to_utf8(str)   (strdup_convert(str, "UTF8", "LATIN1"))
-#define strdup_to_latin1(str) (strdup_convert(str, "LATIN1", "UTF8"))
+#define strdup_to_utf8(str)   (strdup_convert(str, -1, "UTF8", "LATIN1"))
+#define strdup_to_latin1(str) (strdup_convert(str, -1, "LATIN1", "UTF8"))
+gchar * strdup_to_utf8_auto   ( const gchar * str,
+                                gssize length );
 
 #ifdef ASSUME_LATIN1
 gchar * strdup_convert        ( const gchar * str, 
+                                gssize length,
                                 const gchar * enc_to, 
                                 const gchar * enc_from );
 #else
