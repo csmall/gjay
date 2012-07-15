@@ -195,7 +195,7 @@ void explore_view_set_root (const gchar* root_dir ) {
     /* Check to see if the directory exists */
     if (access(root_dir, R_OK | X_OK)) {
         snprintf(buffer, BUFFER_SIZE, "Cannot acces the base directory '%s'! Maybe it moved? You can pick another directory in the prefs", root_dir);
-        g_warning(buffer);
+        g_warning("%s", buffer);
         return;
     }    
     if (iter_stack)
@@ -768,7 +768,7 @@ void explore_select_song ( song * s) {
  */
 
 static gint compare_str ( gconstpointer a, gconstpointer b) {
-    return g_strcasecmp((gchar *) a, (gchar *) b);
+    return g_ascii_strcasecmp((gchar *) a, (gchar *) b);
 }
 
 
