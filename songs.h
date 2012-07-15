@@ -78,9 +78,11 @@ struct _song {
     gboolean in_tree;
     gboolean marked; 
 
+#ifdef WITH_GUI
     /* Transient display pixbuf */
     GdkPixbuf * freq_pixbuf;
     GdkPixbuf * color_pixbuf;
+#endif /* WITH_GUI */
 
     /* How to tell if two songs with different paths are the same
        song (symlinked, most likely) */
@@ -100,8 +102,10 @@ song *      create_song            ( void );
 void        delete_song            ( song * s );
 song *      song_set_path          ( song * s, 
                                      char * path );
+#ifdef WITH_GUI
 void        song_set_freq_pixbuf   ( song * s);
 void        song_set_color_pixbuf  ( song * s);
+#endif /* WITH_GUI */
 void        song_set_repeats       ( song * s, 
                                      song * original );
 void        song_set_repeat_attrs  ( song * s);

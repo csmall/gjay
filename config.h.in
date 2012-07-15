@@ -94,5 +94,8 @@
 /* Build with dbus-glib */
 #undef WITH_DBUSGLIB
 
+/* Enable Gtk graphical interface */
+#undef WITH_GUI
+
 /* Enable mpd music player */
 #undef WITH_MPDCLIENT

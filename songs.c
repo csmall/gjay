@@ -35,8 +35,8 @@
 #include "mp3.h"
 #include "vorbis.h"
 #include "flac.h"
-#include "ui.h"
 #include "i18n.h"
+#include "ui.h"
 
 
 typedef enum {
@@ -139,10 +139,12 @@ song * create_song ( void ) {
 }
 
 void delete_song (song * s) {
+#ifdef WITH_GUI
     if(s->freq_pixbuf)
         gdk_pixbuf_unref(s->freq_pixbuf);
     if(s->color_pixbuf)
         gdk_pixbuf_unref(s->color_pixbuf);
+#endif /* WITH_GUI */
     g_free(s->path);
     g_free(s->title);
     g_free(s->artist);
@@ -167,6 +169,7 @@ song * song_set_path ( song * s,
 }
 
 
+#ifdef WITH_GUI
 /**
  * If the song does not have a pixbuf for its frequency, and it has been 
  * analyzed, create a pixbuf for its frequency. 
@@ -239,6 +242,7 @@ void song_set_color_pixbuf ( song * s) {
         }
     }
 }
+#endif /* WITH_GUI */
 
 
 /**
@@ -267,8 +271,10 @@ void song_set_repeats ( song * s, song * original ) {
     s->fname = fname;
     s->repeat_prev = NULL;
     s->repeat_next = NULL;
+#ifdef WITH_GUI
     s->freq_pixbuf = NULL;
     s->color_pixbuf = NULL;
+#endif /* WITH_GUI */
 
     for (ll = original; ll->repeat_next; ll = ll->repeat_next)
         ;
@@ -933,7 +939,7 @@ gdouble song_force ( song * a, song  * b ) {
 /* Attraction is a value -1...1 for the affinity between A and B,
    with criteria weighed by prefs */
 gdouble song_attraction (song * a, song  * b ) {
-    gdouble a_hue, a_saturation, a_brightness, a_freq, a_bpm, a_path;
+    gdouble a_hue, a_saturation, a_brightness, a_freq, a_bpm;
     gdouble d, ba, bb, v_diff, a_max, attraction = 0;
     gint i;
     GjayPrefs *prefs = gjay->prefs;
@@ -951,7 +957,6 @@ gdouble song_attraction (song * a, song  * b ) {
     a_saturation = prefs->saturation / a_max;
     a_freq = prefs->freq / a_max;
     a_bpm = prefs->bpm / a_max;
-    a_path = prefs->path_weight / a_max;
 
     if (!(a->no_color || b->no_color)) {
         /* Hue is 0...6 */
@@ -1009,7 +1014,10 @@ gdouble song_attraction (song * a, song  * b ) {
         attraction += d * a_freq;
     }
 
+#ifdef WITH_GUI
+	/* FIXME - This is not really a GUI thing but a function using Gtk */
     if (gjay->tree_depth && a->path && b->path) {
+        gdouble a_path = prefs->path_weight / a_max;
         d = explore_files_depth_distance(a->path, b->path);
         if (d >= 0) {
             d = 1.0 - 2.0 * (d / gjay->tree_depth);
@@ -1017,6 +1025,7 @@ gdouble song_attraction (song * a, song  * b ) {
             attraction += d * a_path;
         }
     }
+#endif /* WITH_GUI */
     return attraction;
 }
 

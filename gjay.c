@@ -56,6 +56,7 @@
 #include "vorbis.h"
 #include "flac.h"
 #include "ui.h"
+
 #include "i18n.h"
 #include "play_common.h"
 
@@ -75,7 +76,9 @@ static gint     ping_daemon ( gpointer data );
 static gboolean create_ui_daemon_pipe(void);
 static gboolean mode_attached ( gjay_mode m );
 static void     fork_or_connect_to_daemon(void);
+#ifdef WITH_GUI
 static void     run_as_ui      (int argc, char * argv[]);
+#endif /* WITH_GUI */
 static void     run_as_playlist  ( guint playlist_minutes,
     gboolean m3u_format, 
     gboolean player_autostart );
@@ -247,17 +250,21 @@ int main( int argc, char *argv[] ) {
       if (verbosity)
         printf(_("FLAC not supported.\n"));
 
+#ifdef WITH_GUI
     if (mode == UI) {
         /* UI needs a daemon */
         fork_or_connect_to_daemon();
     }
+#endif /* WITH_GUI */
 
     switch(mode) {
+#ifdef WITH_GUI
     case UI:
         read_data_file();
         sleep(1);
         run_as_ui(argc, argv);
         break;
+#endif /* WITH_GUI */
     case PLAYLIST:
         read_data_file();
         run_as_playlist(playlist_minutes, m3u_format, player_autostart);
@@ -453,6 +460,7 @@ fork_or_connect_to_daemon(void)
   }
 }
 
+#ifdef WITH_GUI
 
 static void run_as_ui(int argc, char *argv[] ) 
 {    
@@ -520,6 +528,7 @@ static void run_as_ui(int argc, char *argv[] )
     close(daemon_pipe_fd);
     close(ui_pipe_fd);
 }
+#endif /* WITH_GUI */
 
 
 /* Playlist mode */
@@ -548,13 +557,16 @@ void gjay_message_log(const gchar *log_domain,
     const gchar *message,
     gpointer user_data)
 {
+#ifdef WITH_GUI
   GtkWidget *msg_window = GTK_WIDGET(user_data);
   GtkWidget *msg_text_view;
   GtkTextBuffer *buffer;
 
   if (mode != UI) {
+#endif /* WITH_GUI */
     printf("%s\n", message);
     return;
+#ifdef WITH_GUI
   }
   msg_text_view = GTK_WIDGET(g_object_get_data(G_OBJECT(msg_window), "text_view"));
 
@@ -564,5 +576,6 @@ void gjay_message_log(const gchar *log_domain,
       strlen(message));
   gtk_text_buffer_insert_at_cursor(buffer, "\n", 1);
   gtk_widget_show_all (GTK_WIDGET(msg_window));
+#endif /* WITH_GUI */
 }
 

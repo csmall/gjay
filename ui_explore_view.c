@@ -644,30 +644,6 @@ static int file_depth ( char * file ) {
 
 
 
-/* How many directory steps separate files 1 and 2? */
-gint explore_files_depth_distance ( char * file1, 
-                                    char * file2 ) {
-    char buffer[BUFFER_SIZE];
-    int f1, f2, shared, k, len;
-
-    len = MIN(MIN(strlen(file1), strlen(file2)), BUFFER_SIZE);
-    for (k = 0; (k < len) && (file1[k] == file2[k]); k++) 
-        buffer[k] = file1[k];
-    /* Work backwards to find forward slash in common */
-    while(buffer[k] != '/')
-        k--;
-    /* Replace slash with null termination */
-    buffer[k] = '\0';
-    f1 = file_iter_depth(file1);
-    f2 = file_iter_depth(file2);
-    shared = file_iter_depth(buffer) + 1;
-
-    if (f1 && f2 && shared) 
-        return ((f1 - shared) + (f2 - shared));
-    else
-        return -1;
-}
-
 
 void explore_animate_pending ( char * file ) {
     explore_animate_stop();
@@ -853,6 +829,30 @@ static int gjay_ftw(const char *dir,
     }
     closedir(d);
     return retval;
+}
+
+/* How many directory steps separate files 1 and 2? */
+gint explore_files_depth_distance ( char * file1, 
+                                    char * file2 ) {
+    char buffer[BUFFER_SIZE];
+    int f1, f2, shared, k, len;
+
+    len = MIN(MIN(strlen(file1), strlen(file2)), BUFFER_SIZE);
+    for (k = 0; (k < len) && (file1[k] == file2[k]); k++) 
+        buffer[k] = file1[k];
+    /* Work backwards to find forward slash in common */
+    while(buffer[k] != '/')
+        k--;
+    /* Replace slash with null termination */
+    buffer[k] = '\0';
+    f1 = file_iter_depth(file1);
+    f2 = file_iter_depth(file2);
+    shared = file_iter_depth(buffer) + 1;
+
+    if (f1 && f2 && shared) 
+        return ((f1 - shared) + (f2 - shared));
+    else
+        return -1;
 }
 
 

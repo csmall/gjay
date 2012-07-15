@@ -20,6 +20,7 @@
 #ifndef __UI_H__ 
 #define __UI_H__ 
 
+
 #include "gjay.h"
 
 #define APP_WIDTH  620
@@ -74,6 +75,7 @@ typedef enum {
 #define PM_ABOUT    "about.png"
 
 
+#ifdef WITH_GUI
 /* UI utils */
 GdkPixbuf * load_gjay_pixbuf(const char *filename);
 GtkWidget * new_button_label_pixbuf      ( char * label_text, 
@@ -144,7 +146,9 @@ void        set_playlist_rating_visible   ( gboolean is_visible );
 /* Menu */
 GtkWidget * make_menubar                ( void );
 
+#else
+#define gjay_error_dialog(msg) g_error(msg)
+#endif /* WITH_GUI */
 #endif /* __UI_H__ */
-
 
 

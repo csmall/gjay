@@ -19,7 +19,10 @@
 #ifndef _RGBHSB_H_
 #define _RGBHSB_H_
 
+#include <glib.h>
+#ifdef WITH_GUI
 #include <gtk/gtk.h>
+#endif /* WITH_GUI */
 
 typedef struct {float R, G, B;} RGB; 
 typedef struct {float H, S, V;} HSV; 

@@ -16,6 +16,19 @@ dnl Options
 # Don't require D-Bus unless building a component that needs it:
 enable_dbus=no
 
+AC_SUBST([WITH_GUI])
+AC_ARG_ENABLE([gui],
+			  AS_HELP_STRING([--disable-gui], [Disable the Gtk graphical interface]),
+			  [enable_gui=$enableval],
+			  [enable_gui="yes"])
+if test "$enable_gui" = "yes"; then
+  AC_DEFINE([WITH_GUI], [1], [Enable Gtk graphical interface])
+  PKG_CHECK_MODULES([GTK], [gtk+-2.0])
+else
+  PKG_CHECK_MODULES([GLIB], [glib-2.0])
+fi
+AM_CONDITIONAL([WITH_GUI], [test "$enable_gui" = "yes"])
+
 AC_SUBST([WITH_MPDCLIENT])
 AC_ARG_ENABLE([mpdclient],
               AS_HELP_STRING([--with-mpdclient], [Enable mpd  client(default is YES)]),
@@ -26,6 +39,7 @@ if test "$enable_mpdclient" = "yes"; then
   AC_DEFINE([WITH_MPDCLIENT], [1], [Enable mpd music player])
   PKG_CHECK_MODULES([MPDCLIENT], [libmpdclient])
 fi
+AM_CONDITIONAL([WITH_MPDCLIENT], [test "$enable_mpdclient" = "yes"])
 
 AC_SUBST([WITH_AUDCLIENT])
 AC_ARG_ENABLE([audclient],
@@ -37,13 +51,13 @@ if test "$enable_audclient" = "yes"; then
   AC_DEFINE([WITH_AUDCLIENT], [1], [Enable Audacious music player])
   PKG_CHECK_MODULES([AUDACIOUS], [audacious])
 fi
+AM_CONDITIONAL([WITH_AUDCLIENT], [test "$enable_audclient" = "yes"])
 
 dnl Check for language stuff
 AM_GNU_GETTEXT([external])
 AM_GNU_GETTEXT_VERSION([0.18.1])
 
 # Checks for libraries.
-PKG_CHECK_MODULES([GTK], [gtk+-2.0])
 
 if test "$enable_dbus" = "yes"; then
   AC_DEFINE([WITH_DBUSGLIB], [1], [Build with dbus-glib])

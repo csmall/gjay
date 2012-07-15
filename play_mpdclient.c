@@ -56,7 +56,7 @@ mpdclient_init(void)
 
   if ( (lib = dlopen("libmpdclient.so.2", RTLD_GLOBAL | RTLD_LAZY)) == NULL)
   {
-    gjay_error_dialog(_("Unable to open mpd client library"));
+    gjay_error_dialog( _("Unable to open mpd client library"));
     return FALSE;
   }
   
@@ -144,7 +144,11 @@ mpdclient_play_files ( GList *list) {
   if ( (*gjmpd_run_stop)(gjay->mpdclient_connection) == FALSE) {
     errmsg = g_strdup_printf(_("Cannot stop Music Player Daemon: %s"),
         (*gjmpd_connection_get_error_message)(gjay->mpdclient_connection));
+#ifdef WITH_GUI
     gjay_error_dialog(errmsg);
+#else
+	g_error(errmsg);
+#endif /* WITH_GUI */
     g_free(errmsg);
   }
   if ( (*gjmpd_run_clear)(gjay->mpdclient_connection) == FALSE) {

@@ -91,6 +91,7 @@ void play_songs (GList *slist) {
 
   if (!gjay->player_is_running())
   {
+#ifdef WITH_GUI
     GtkWidget *dialog;
     gint result;
     gchar *msg;
@@ -124,6 +125,14 @@ void play_songs (GList *slist) {
       }
     } else /* user clicked no */
       return;
+#else
+	/* with no GUI assume you want it started */
+	if (gjay->player_start() == FALSE)
+    {
+	  g_warning(_("Unable to start %s"), gjay->prefs->music_player_name);
+	  return;
+	}
+#endif /* WITH_GUI */
   }
   gjay->player_play_files(list);
 }

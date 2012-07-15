@@ -23,12 +23,14 @@
 #include "util.h"
 
 /* Global definitions */
-#define AUDACIOUS_BIN "/usr/bin/audacious2"
+#define AUDACIOUS_BIN "/usr/bin/audacious"
 #define EXAILE_BIN "/usr/bin/exaile"
 
 #include <stdio.h>
-#include <gtk/gtk.h>
 #include <glib.h>
+#ifdef WITH_GUI
+#include <gtk/gtk.h>
+#endif /* WITH_GUI */
 #include <assert.h>
 #include <limits.h>
 #include <math.h>
@@ -44,7 +46,6 @@ extern GjayApp *gjay;
 #include "rgbhsv.h"
 #include "songs.h"
 #include "prefs.h"
-//#include "ui.h"
 
 /* Helper programs */
 #define OGG_DECODER_APP "ogg123"
@@ -91,11 +92,12 @@ struct _GjayApp {
 #endif /* WITH_MPDCLIENT */
 
 
-  //GdkPixbuf   * pixbufs[PM_LAST];
+#ifdef WITH_GUI
   GdkPixbuf   * pixbufs[50]; //FIXME
   GtkTooltips * tips;
   GtkWidget   * explore_view, * selection_view, * playlist_view,
      * no_root_view, * prefs_view, * about_view;
+#endif /* WITH_GUI */
   GList       * selected_songs, * selected_files; 
   /* We store a list of the directories which contain new songs (ie. lack
    * rating/color info */
@@ -103,11 +105,13 @@ struct _GjayApp {
   GHashTable  * new_song_dirs_hash;
   gint           tree_depth;               /* How deep does the tree go */
 
+#ifdef WITH_GUI
   /* Various Windows */
   GtkWidget *main_window;
   GtkWidget *notebook;
   GtkWidget * prefs_window;
   GtkWidget * message_window;
+#endif /* WITH_GUI */
 
 
   /* Songs */
