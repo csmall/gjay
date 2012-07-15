@@ -1,7 +1,7 @@
 /*
  * Gjay - Gtk+ DJ music playlist creator
  * Copyright (C) 2002-2004 Chuck Groom
- * Copyright (C) 2010-2011 Craig Small 
+ * Copyright (C) 2010-2012 Craig Small 
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -45,8 +45,8 @@ extern GjayApp *gjay;
 
 /* Helper programs */
 #define OGG_DECODER_APP "ogg123"
-#define MP3_DECODER_APP1 "mpg321"
-#define MP3_DECODER_APP2 "mpg123"
+#define MP3_DECODER_APP1 "mpg123"
+#define MP3_DECODER_APP2 "mpg321"
 #define FLAC_DECODER_APP "flac"
 
 

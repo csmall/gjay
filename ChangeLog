@@ -1,3 +1,7 @@
+Changes in 0.3.3
+================
+	* Check to see wav file decodes proper Debian #664516
+
 Changes in 0.3.2
 ================
 	* Fixed all file headers to use standard format and GPL v2+

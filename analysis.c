@@ -1,6 +1,6 @@
 /*
  * Gjay - Gtk+ DJ music playlist creator
- * Copyright (C) 2010 Craig Small 
+ * Copyright (C) 2010-2012 Craig Small 
  * Copyright (C) 2002 Chuck Groom.
  *
  * Sections of this code come from spectromatic, copyright (C)
@@ -373,6 +373,7 @@ analyze(const char * fname,            /* File to analyze */
         if (verbosity)
           g_warning(_("File '%s' is not a recognised song.\n"),fname);
         in_analysis = FALSE;
+		delete_song(analyze_song);
         return;
     }
     
@@ -384,11 +385,20 @@ analyze(const char * fname,            /* File to analyze */
       if (verbosity)
         g_warning(_("Unable to inflate song '%s'.\n"), fname);
       in_analysis = FALSE;
+	  delete_song(analyze_song);
       return;
     }
     memset(&wsfile, 0x00, sizeof(wav_file));
     wsfile.f = f;
     fread(&wsfile.header, sizeof(waveheaderstruct), 1, f);
+	/* Check to see if the decoder really decoded */
+	if (wsfile.header.main_chunk[0] == '\0') {
+	  if (verbosity)
+		g_warning(_("Decoding of song '%s' failed, bad wav header.\n"), fname);
+	  in_analysis = FALSE;
+	  delete_song(analyze_song);
+	  return;
+	}
     wav_header_swab(&wsfile.header);
     wsfile.header.data_length = (MAX(1, analyze_song->length - 1)) * wsfile.header.byte_p_sec;
 
