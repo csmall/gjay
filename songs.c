@@ -141,9 +141,9 @@ song * create_song ( void ) {
 void delete_song (song * s) {
 #ifdef WITH_GUI
     if(s->freq_pixbuf)
-        gdk_pixbuf_unref(s->freq_pixbuf);
+        g_object_unref(s->freq_pixbuf);
     if(s->color_pixbuf)
-        gdk_pixbuf_unref(s->color_pixbuf);
+        g_object_unref(s->color_pixbuf);
 #endif /* WITH_GUI */
     g_free(s->path);
     g_free(s->title);

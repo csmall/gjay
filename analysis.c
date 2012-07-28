@@ -22,6 +22,9 @@
  * Analysis.c -- manages the background threads and processes involved
  * in song analysis.
  */
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif /* HAVE_CONFIG_H */
 
 #include <stdlib.h>
 #include <string.h>
@@ -562,7 +565,7 @@ run_analysis  (wav_file * wsfile,
     double *total_mags;
     double sum, frame_sum, max_frame_sum, g_factor, freq, g_freq;
     signed short buffer[BPM_BUF_SIZE];
-    long count, pos, h, redux, startpos, num_frames;
+    long count, pos, h, redux, num_frames;
     unsigned long startshift = 0, stopshift = 0;
     unsigned char *audio;
     unsigned long audiosize;
@@ -604,7 +607,6 @@ run_analysis  (wav_file * wsfile,
     audio= g_malloc0(audiosize+1);
     assert(audio);
     pos=0;
-    startpos = pos;
 
     /* Read the first chunk of the file into the shared buffer */
     fread(wsfile->buffer, 1, SHARED_BUF_SIZE, wsfile->f);
