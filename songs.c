@@ -92,11 +92,14 @@ typedef struct {
     gboolean new;
     gboolean has_dev;
     element_type element;
-    song * s;
+    GjaySong * s;
+	GjayApp *gjay;
 } song_parse_state;
 
 
-static gdouble song_mass   ( song * s );
+static gdouble song_mass   ( const GjayPrefs *prefs,  GjaySong * s );
+static gdouble song_attraction (const GjayPrefs *prefs, GjaySong * a, GjaySong  * b,
+   const int tree_depth	);
 static void     write_not_song_data ( FILE * f, gchar * path );
 static gboolean read_song_file_type ( char * path, 
                                       song_file_type type,
@@ -104,7 +107,8 @@ static gboolean read_song_file_type ( char * path,
                                       gchar ** title,
                                       gchar ** artist,
                                       gchar ** album );
-static gboolean read_data           ( FILE * f );
+static gboolean read_data           ( GjayApp *gjay,
+	                                  FILE * f );
 static void     data_start_element  ( GMarkupParseContext *context,
                                       const gchar         *element_name,
                                       const gchar        **attribute_names,
@@ -121,15 +125,30 @@ static void     data_text           ( GMarkupParseContext *context,
                                       gpointer             user_data,
                                       GError             **error );
 static int      get_element         ( gchar * element_name );
-static void     song_copy_attrs     ( song * dest, 
-                                      song * original );
+static void     song_copy_attrs     ( GjaySong * dest, 
+                                      GjaySong * original );
+
+gboolean
+create_song_lists(GjaySongLists **sl) {
+
+  if ( (*sl = g_malloc0(sizeof(GjaySongLists))) == NULL)
+	return FALSE;
+
+  (*sl)->songs = NULL;
+  (*sl)->not_songs = NULL;
+  (*sl)->dirty = FALSE;
+  (*sl)->name_hash    = g_hash_table_new(g_str_hash, g_str_equal);
+  (*sl)->inode_dev_hash = g_hash_table_new(g_int_hash, g_int_equal);
+  (*sl)->not_hash     = g_hash_table_new(g_str_hash, g_str_equal);
+
+  return TRUE;
+}
 
 /* Create a new song with the given filename */
-song * create_song ( void ) {
-    song * s;
+GjaySong * create_song ( void ) {
+    GjaySong * s;
     
-    s = g_malloc(sizeof(song));
-    memset (s, 0x00, sizeof(song));
+    s = g_malloc0(sizeof(GjaySong));
     s->no_color = TRUE;
     s->no_rating = TRUE;
     s->no_data = TRUE;
@@ -138,7 +157,7 @@ song * create_song ( void ) {
     return s;
 }
 
-void delete_song (song * s) {
+void delete_song (GjaySong * s) {
 #ifdef WITH_GUI
     if(s->freq_pixbuf)
         g_object_unref(s->freq_pixbuf);
@@ -153,7 +172,7 @@ void delete_song (song * s) {
 }
 
 
-song * song_set_path ( song * s, 
+GjaySong * song_set_path ( GjaySong * s, 
                        char * path ) {
     int i;
     free(s->path);
@@ -174,7 +193,7 @@ song * song_set_path ( song * s,
  * If the song does not have a pixbuf for its frequency, and it has been 
  * analyzed, create a pixbuf for its frequency. 
  */
-void song_set_freq_pixbuf ( song * s) {
+void song_set_freq_pixbuf ( GjaySong * s) {
     guchar * data;
     int x, y, offset, rowstride;
     guchar r, g, b;
@@ -210,7 +229,7 @@ void song_set_freq_pixbuf ( song * s) {
  * If the song does not have a pixbuf for its frequency, and it has been 
  * analyzed, create a pixbuf for its frequency. 
  */
-void song_set_color_pixbuf ( song * s) {
+void song_set_color_pixbuf ( GjaySong * s) {
     guchar * data;
     int x, y, offset, rowstride;
     guchar r, g, b;
@@ -249,9 +268,9 @@ void song_set_color_pixbuf ( song * s) {
  * The song "s" repeats the song "original". It should copy the same info, 
  * but be marked as a copy.
  */
-void song_set_repeats ( song * s, song * original ) {
+void song_set_repeats ( GjaySong * s, GjaySong * original ) {
     char * path, * fname;
-    song * ll;
+    GjaySong * ll;
 
     path = s->path;
     fname = s->fname;
@@ -260,7 +279,7 @@ void song_set_repeats ( song * s, song * original ) {
     g_free(s->title);
     g_free(s->album);
     
-    memcpy(s, original, sizeof(song));
+    memcpy(s, original, sizeof(GjaySong));
     if (original->title)
         s->title = g_strdup(original->title);
     if (original->album)
@@ -286,8 +305,8 @@ void song_set_repeats ( song * s, song * original ) {
 /**
  * Copy the song's attributes to all other songs which repeat it.
  */
-void song_set_repeat_attrs( song * s) {
-    song * repeat;
+void song_set_repeat_attrs( GjaySong * s) {
+    GjaySong * repeat;
     for (repeat = s->repeat_prev; repeat; repeat = repeat->repeat_prev)
         song_copy_attrs(repeat, s);
     for (repeat = s->repeat_next; repeat; repeat = repeat->repeat_next)
@@ -295,7 +314,7 @@ void song_set_repeat_attrs( song * s) {
 }
 
 
-static void song_copy_attrs( song * dest, song * original ) {
+static void song_copy_attrs( GjaySong * dest, GjaySong * original ) {
     dest->bpm = original->bpm;
     dest->rating = original->rating;
     dest->color = original->color;
@@ -316,7 +335,10 @@ static void song_copy_attrs( song * dest, song * original ) {
  *
  * Note that we expect the path to be UTF8
  */
-void file_info ( gchar    * path,
+void file_info ( const guint verbosity,
+				 const gboolean ogg_supported,
+				 const gboolean flac_supported,
+				 gchar    * path,
                  gboolean * is_song,
                  guint32  * inode,
                  guint32  * dev,
@@ -350,7 +372,7 @@ void file_info ( gchar    * path,
     *inode = buf.st_ino;
 
 #ifdef HAVE_VORBIS_VORBISFILE_H
-    if (gjay->ogg_supported && read_ogg_file_type(latin1_path, length, title, artist, album) == TRUE)
+    if (ogg_supported && read_ogg_file_type(latin1_path, length, title, artist, album) == TRUE)
     {
       *is_song = TRUE;
       *type = OGG;
@@ -375,7 +397,7 @@ void file_info ( gchar    * path,
     }
 
 #ifdef HAVE_FLAC_METADATA_H
-    if (gjay->flac_supported && read_flac_file_type(latin1_path, length, title, artist, album) == TRUE)
+    if (flac_supported && read_flac_file_type(latin1_path, length, title, artist, album) == TRUE)
     {
       *is_song = TRUE;
       *type = FLAC;
@@ -388,11 +410,11 @@ void file_info ( gchar    * path,
 }
 
 
-void write_data_file(void) {
+void write_data_file(GjayApp *gjay) {
     gchar *tmp_filename, *data_filename;
     FILE * f;
     GList * llist, * w_songs = NULL;
-    song * s;
+    GjaySong * s;
 
     tmp_filename = g_strdup_printf("%s/%s/%s_temp",
         g_get_home_dir(), GJAY_DIR, GJAY_FILE_DATA);
@@ -400,7 +422,7 @@ void write_data_file(void) {
         g_get_home_dir(), GJAY_DIR, GJAY_FILE_DATA);
   
     /* Cull songs which are no longer there */
-    for (llist = g_list_first(gjay->songs); llist; llist = g_list_next(llist)) {
+    for (llist = g_list_first(gjay->songs->songs); llist; llist = g_list_next(llist)) {
         s = SONG(llist);
         if (!s->access_ok) {
             if (s->repeat_prev)
@@ -418,13 +440,13 @@ void write_data_file(void) {
         fprintf(f, "<gjay_data version=\"%s\">\n", VERSION);
         for (llist = g_list_first(w_songs); llist; llist = g_list_next(llist))
             write_song_data(f, SONG(llist));
-        for (llist = g_list_first(gjay->not_songs); 
+        for (llist = g_list_first(gjay->songs->not_songs); 
              llist; llist = g_list_next(llist))
             write_not_song_data(f, (char *) llist->data);
         fprintf(f, "</gjay_data>\n");
         fclose(f);
         rename(tmp_filename, data_filename);
-        gjay->songs_dirty = FALSE;
+        gjay->songs->dirty = FALSE;
     }
 
     g_list_free(w_songs);
@@ -439,7 +461,7 @@ void write_data_file(void) {
  * Return the file seek position of the start of the song/file, or -1 if
  * error
  */
-int append_daemon_file (song * s) {
+int append_daemon_file (GjaySong * s) {
     char buffer[BUFFER_SIZE];
     FILE * f;
     int file_seek; /* Get the seek position before the write */
@@ -476,7 +498,7 @@ int append_daemon_file (song * s) {
  *   <bpm>float</bpm>
  * </file>
  */
-void write_song_data (FILE * f, song * s) {
+void write_song_data (FILE * f, GjaySong * s) {
     gchar * escape; /* Escape XML elements from text */
     int k;
 
@@ -551,21 +573,23 @@ static void write_not_song_data (FILE * f, gchar * path) {
  * data.
  */
 #define NUM_DATA_FILES 2
-void read_data_file ( void ) {
+void read_data_file ( GjayApp *gjay) {
     char buffer[BUFFER_SIZE];
     char * files[NUM_DATA_FILES] = { GJAY_FILE_DATA, GJAY_DAEMON_DATA };
     FILE * f;
     gint k;
 
+    if (create_song_lists(&(gjay->songs)) == FALSE)
+	  return ;
     for (k = 0; k < NUM_DATA_FILES; k++) {
         snprintf(buffer, BUFFER_SIZE, "%s/%s/%s", 
                  getenv("HOME"), GJAY_DIR, files[k]);
-        if (verbosity) {
+        if (gjay->verbosity) {
             printf(_("Reading from data file '%s'\n"), buffer);
         }
         f = fopen(buffer, "r");
         if (f) {
-            read_data(f);
+            read_data(gjay, f);
             fclose(f);
         }
     }
@@ -576,7 +600,7 @@ void read_data_file ( void ) {
  * Read a song/file info from the file at the seek position, add to the
  * songs list. Return TRUE if the songs list was updated.
  */
-gboolean add_from_daemon_file_at_seek (int seek) {
+gboolean add_from_daemon_file_at_seek (GjayApp *gjay, const gint seek) {
     char buffer[BUFFER_SIZE];
     gboolean result;
     FILE * f;
@@ -587,10 +611,7 @@ gboolean add_from_daemon_file_at_seek (int seek) {
     f = fopen(buffer, "r");
     if (f) {
         fseek(f, seek, SEEK_SET);
-        result = read_data(f);
-        if (result) {
-            gjay->songs_dirty = TRUE;
-        }
+        result = read_data(gjay, f);
         fclose(f);
     }
     return result;
@@ -600,22 +621,23 @@ gboolean add_from_daemon_file_at_seek (int seek) {
 /**
  * Read file data from the file f to its end 
  */
-gboolean read_data (FILE * f ) {
+gboolean read_data (GjayApp *gjay, FILE * f ) {
     GMarkupParseContext * parse_context;
     GMarkupParser parser;
     gboolean result = TRUE;
     GError * error;
     char buffer[BUFFER_SIZE];
     gssize text_len;
-    song_parse_state state;
+    song_parse_state *state;
 
-    memset(&state, 0x00, sizeof(song_parse_state));
+	state = g_malloc0(sizeof(song_parse_state));
+	state->gjay = gjay;
     
     parser.start_element = data_start_element;
     parser.end_element = data_end_element;
     parser.text = data_text;
     
-    parse_context = g_markup_parse_context_new(&parser, 0, &state, NULL);
+    parse_context = g_markup_parse_context_new(&parser, 0, state, NULL);
     if (parse_context) {
         while (result && !feof(f)) {
             text_len = fread(buffer, 1, BUFFER_SIZE, f);
@@ -640,45 +662,49 @@ void data_start_element  (GMarkupParseContext *context,
                           GError             **error) {
     song_parse_state * state = (song_parse_state *) user_data;
     gchar * path = NULL, * repeat_path = NULL;
-    song * original;
+    GjaySong * original;
     element_type element;
     int k;
     
     element = get_element((char *) element_name);
     switch(element) {
     case E_FILE:
-        memset(state, 0x00, sizeof(song_parse_state));
-        for (k = 0; attribute_names[k]; k++) {
-            switch(get_element((char *) attribute_names[k])) {
-            case E_PATH:
-                path = (gchar *) attribute_values[k];
-                break;
-            case E_REPEATS:
-                repeat_path = (gchar *) attribute_values[k];
-                break;   
-            case E_NOT_SONG:
-                if (*attribute_values[k] == 't') 
-                    state->not_song = TRUE;
-                break;
-            }
+      state->is_repeat=FALSE;
+      state->not_song=FALSE;
+      state->use_hb=FALSE;
+      state->new=FALSE;
+      state->has_dev=FALSE;
+      for (k = 0; attribute_names[k]; k++) {
+        switch(get_element((char *) attribute_names[k])) {
+          case E_PATH:
+            path = (gchar *) attribute_values[k];
+            break;
+          case E_REPEATS:
+            repeat_path = (gchar *) attribute_values[k];
+            break;   
+          case E_NOT_SONG:
+            if (*attribute_values[k] == 't') 
+                state->not_song = TRUE;
+            break;
         }
-        assert(path);
+	  }
+      assert(path);
         
-        if (state->not_song) {
-            if (!g_hash_table_lookup(gjay->not_song_hash, path)) {
-                state->new = TRUE;
-                /* Only keep track of files which still exist */
-                if (!access(path, R_OK)) {
-                    path = g_strdup(path);
-                    gjay->not_songs = g_list_append(gjay->not_songs, path);
-                    g_hash_table_insert ( gjay->not_song_hash,
+      if (state->not_song) {
+        if (!g_hash_table_lookup(state->gjay->songs->not_hash, path)) {
+          state->new = TRUE;
+          /* Only keep track of files which still exist */
+          if (!access(path, R_OK)) {
+            path = g_strdup(path);
+            state->gjay->songs->not_songs = g_list_append(state->gjay->songs->not_songs, path);
+            g_hash_table_insert ( state->gjay->songs->not_hash,
                                           path, 
                                           (gpointer) TRUE);
                 } 
             }
             return;
         }
-        state->s = g_hash_table_lookup(gjay->song_name_hash, path);
+        state->s = g_hash_table_lookup(state->gjay->songs->name_hash, path);
         if (!state->s) {
             state->new = TRUE;
             state->s = create_song();
@@ -686,7 +712,7 @@ void data_start_element  (GMarkupParseContext *context,
         }
         if (repeat_path && (strlen(repeat_path) > 0)) {
             state->is_repeat = TRUE;
-            original = g_hash_table_lookup(gjay->song_name_hash, repeat_path);
+            original = g_hash_table_lookup(state->gjay->songs->name_hash, repeat_path);
             assert(original);
             song_set_repeats(state->s, original);
         }
@@ -738,17 +764,17 @@ void data_end_element (GMarkupParseContext *context,
             latin1_path = strdup_to_latin1(state->s->path);
             state->s->access_ok = !access(latin1_path, R_OK);
             if (!state->s->access_ok) {
-                gjay->songs_dirty = TRUE;
+                state->gjay->songs->dirty = TRUE;
             }
             g_free(latin1_path);
 
             /* Add song to song list and hash table */
-            gjay->songs = g_list_append(gjay->songs, state->s);
-            g_hash_table_insert (gjay->song_name_hash,
+            state->gjay->songs->songs = g_list_append(state->gjay->songs->songs, state->s);
+            g_hash_table_insert (state->gjay->songs->name_hash,
                                  state->s->path, 
                                  state->s);           
             hash_inode_dev(state->s, state->has_dev);
-            g_hash_table_insert (gjay->song_inode_dev_hash,
+            g_hash_table_insert (state->gjay->songs->inode_dev_hash,
                                  &state->s->inode_dev_hash,
                                  state->s);
         }
@@ -919,17 +945,18 @@ static int get_element ( gchar * element_name ) {
 
 
 int write_dirty_song_timeout ( gpointer data ) {
-    if (gjay->songs_dirty) 
-        write_data_file();
+  GjayApp *gjay = (GjayApp*)data;
+    if (gjay->songs->dirty) 
+        write_data_file(gjay);
     return TRUE;
 }
 
 
-gdouble song_force ( song * a, song  * b ) {
+gdouble song_force ( const GjayPrefs *prefs, GjaySong * a, GjaySong  * b, const gint tree_depth ) {
     gdouble ma, mb, attr, sign = 1;
-    ma = song_mass(a);
-    mb = song_mass(b);
-    attr = song_attraction(a, b) * 10;
+    ma = song_mass(prefs, a);
+    mb = song_mass(prefs, b);
+    attr = song_attraction(prefs, a, b, tree_depth) * 10;
     if (attr < 0)
         sign = -1;
     return (ma * mb * attr * attr * sign);
@@ -938,11 +965,11 @@ gdouble song_force ( song * a, song  * b ) {
 
 /* Attraction is a value -1...1 for the affinity between A and B,
    with criteria weighed by prefs */
-gdouble song_attraction (song * a, song  * b ) {
+static gdouble song_attraction (const GjayPrefs *prefs, GjaySong * a, GjaySong  * b,
+   const int tree_depth	) {
     gdouble a_hue, a_saturation, a_brightness, a_freq, a_bpm;
     gdouble d, ba, bb, v_diff, a_max, attraction = 0;
     gint i;
-    GjayPrefs *prefs = gjay->prefs;
 
     a_max = 
         (prefs->hue + 
@@ -1016,11 +1043,11 @@ gdouble song_attraction (song * a, song  * b ) {
 
 #ifdef WITH_GUI
 	/* FIXME - This is not really a GUI thing but a function using Gtk */
-    if (gjay->tree_depth && a->path && b->path) {
+    if (tree_depth && a->path && b->path) {
         gdouble a_path = prefs->path_weight / a_max;
         d = explore_files_depth_distance(a->path, b->path);
         if (d >= 0) {
-            d = 1.0 - 2.0 * (d / gjay->tree_depth);
+            d = 1.0 - 2.0 * (d / tree_depth);
             /* d = -1 ... 1, where 1 is more similiar */
             attraction += d * a_path;
         }
@@ -1033,8 +1060,7 @@ gdouble song_attraction (song * a, song  * b ) {
 
 /* Every song has a mass 0...1.0 */
 static gdouble
-song_mass (song * s ) {
-  GjayPrefs *prefs = gjay->prefs;
+song_mass (const GjayPrefs *prefs, GjaySong * s ) {
   gdouble max_mass = 0, song_mass = 0;
     max_mass = 
         prefs->hue + 
@@ -1062,7 +1088,7 @@ song_mass (song * s ) {
 }
 
 
-void hash_inode_dev( song * s, gboolean has_dev) {
+void hash_inode_dev( GjaySong * s, gboolean has_dev) {
     if ((has_dev == FALSE) && (skip_verify == 0)) {
         struct stat buf;
         if (stat(s->path, &buf)) {

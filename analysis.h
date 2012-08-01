@@ -77,8 +77,8 @@ extern int             analyze_percent;
 
 
 /* Run the analysis of one song */
-void run_as_daemon(void);
-void     run_as_analyze_detached  ( const char * analyze_detached_fname );
+void run_as_daemon(GjayApp *gjay, gjay_mode mode);
+void     run_as_analyze_detached  ( GjayApp *gjay, const char * analyze_detached_fname );
 
 /* Endian stuff */
 void     wav_header_swab(waveheaderstruct * header); 

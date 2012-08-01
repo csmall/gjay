@@ -32,9 +32,9 @@
 #include "playlist.h"
 #include "i18n.h"
 
-static song * current;
-static song * first;
-static void remove_repeats   ( song * s, GList * list);
+static GjaySong * current;
+static GjaySong * first;
+static void remove_repeats   ( GjaySong * s, GList * list);
 
 /* How much does brightness factor into matching two songs? */
 #define BRIGHTNESS_FACTOR .8
@@ -45,26 +45,26 @@ static void remove_repeats   ( song * s, GList * list);
  * Generate a playlist (list of song *) no longer than the specified
  * time, in minutes 
  */
-GList * generate_playlist ( guint minutes ) {
+GList * generate_playlist (GjayApp *gjay, const guint minutes ) {
     GList * working, * final, * rand_list, * list;
     gint i, list_time, l, r, max_force_index, len;
     gdouble max_force, s_force;
-    song * s;
+    GjaySong * s;
     time_t t=0;
 
     list_time = 0;
 
-    if (verbosity) 
+    if (gjay->verbosity) 
         t = time(NULL);
     
-    if (!g_list_length(gjay->songs))
+    if (!g_list_length(gjay->songs->songs))
         return NULL;
 
     /* Create a working set, a copy of the songs list */
     if (gjay->prefs->use_selected_songs) 
         working = g_list_copy(gjay->selected_songs); 
     else
-        working = g_list_copy(gjay->songs); 
+        working = g_list_copy(gjay->songs->songs); 
 
     final = NULL;
     for (list = g_list_first(working); list; ) {
@@ -98,6 +98,8 @@ GList * generate_playlist ( guint minutes ) {
         g_warning(_("No songs to create playlist from"));
         return NULL;
     }
+    if (gjay->verbosity > 2)
+	  printf(_("Working set is %d songs long.\n"), g_list_length(working));
     
     /* Pick the first song */
     first = NULL;
@@ -118,17 +120,17 @@ GList * generate_playlist ( guint minutes ) {
             g_free(latin1);
         }
     } 
-    if (gjay->prefs->start_color) {
-        song temp_song;
-        bzero(&temp_song, sizeof(song));
+    if (gjay->prefs->use_color) {
+        GjaySong temp_song;
+        bzero(&temp_song, sizeof(GjaySong));
         temp_song.no_data = TRUE;
         temp_song.no_rating = TRUE;
-        temp_song.color = gjay->prefs->color;
+        temp_song.color = gjay->prefs->start_color;
         for (max_force = -1000, list = g_list_first(working); 
              list; 
              list = g_list_next(list)) {
             s = SONG(list);
-            s_force = song_force(&temp_song, s);
+            s_force = song_force(gjay->prefs, &temp_song, s, gjay->tree_depth);
             if (s_force > max_force) {
                 max_force = s_force;
                 first = s;
@@ -176,9 +178,9 @@ GList * generate_playlist ( guint minutes ) {
             len--;
             /* Find the closest song */
             if (gjay->prefs->wander) 
-                s_force = song_force(s, current);
+                s_force = song_force(gjay->prefs, s, current, gjay->tree_depth);
             else
-                s_force = song_force(s, first);
+                s_force = song_force(gjay->prefs, s, first, gjay->tree_depth);
 
             if (s_force > max_force) {
                 max_force = s_force;
@@ -202,7 +204,7 @@ GList * generate_playlist ( guint minutes ) {
     
     g_list_free(working);
 
-    if (verbosity) 
+    if (gjay->verbosity) 
         printf(_("It took %d seconds to generate playlist\n"),  
                (int) (time(NULL) - t));
     
@@ -223,7 +225,7 @@ void save_playlist ( GList * list, gchar * fname ) {
 
 
 void write_playlist ( GList * list, FILE * f, gboolean m3u_format) {
-    song * s;
+    GjaySong * s;
     gchar * l1_artist, * l1_title, * l1_path, * l1_fname;
     
     if (m3u_format)
@@ -256,8 +258,8 @@ void write_playlist ( GList * list, FILE * f, gboolean m3u_format) {
 }
 
 
-static void remove_repeats ( song * s, GList * list) {
-    song * repeat;
+static void remove_repeats ( GjaySong * s, GList * list) {
+    GjaySong * repeat;
     for (repeat = s->repeat_prev; repeat; 
          repeat = repeat->repeat_prev) {
         list = g_list_remove(list, repeat);

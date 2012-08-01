@@ -39,12 +39,12 @@ static void exaile_connect(void);
 /* public functions */
 
 void
-exaile_init(void)
+exaile_init(GjayPlayer *player)
 {
-  gjay->player_get_current_song = &exaile_get_current_song;
-  gjay->player_is_running = &exaile_is_running;
-  gjay->player_play_files = &exaile_play_files;
-  gjay->player_start = &exaile_start;
+  player->get_current_song = &exaile_get_current_song;
+  player->is_running = &exaile_is_running;
+  player->play_files = &exaile_play_files;
+  player->start = &exaile_start;
 }
 
 gboolean

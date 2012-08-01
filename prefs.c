@@ -50,6 +50,7 @@
 #include <string.h>
 #include "gjay.h"
 
+
 typedef enum {
     PE_GJAY_PREFS,
     PE_ROOTDIR,
@@ -118,6 +119,11 @@ char * pref_element_strs[PE_LAST] = {
     "player"
 };
 
+struct parser_data {
+  GjayPrefs *prefs;
+  pref_element_type element;
+};
+
 
 const char *music_player_names[] =
 {
@@ -160,16 +166,15 @@ load_prefs ( void ) {
     char buffer[BUFFER_SIZE];
     FILE * f;
     gssize text_len;
-    pref_element_type element;
     GjayPrefs *prefs;
+	struct parser_data *parser_data;
 
     /* Set default values */
     prefs = g_malloc0(sizeof(GjayPrefs));
-    gjay->prefs = prefs;
 
     prefs->rating = DEFAULT_RATING;
     prefs->use_ratings = FALSE;
-    prefs->time = DEFAULT_PLAYLIST_TIME;
+    prefs->playlist_time = DEFAULT_PLAYLIST_TIME;
     prefs->max_working_set = DEFAULT_MAX_WORKING_SET;
     prefs->variance =
         prefs->hue = 
@@ -179,24 +184,26 @@ load_prefs ( void ) {
         prefs->path_weight = DEFAULT_CRITERIA;
     prefs->saturation = 1;
     prefs->extension_filter = TRUE;
-    prefs->color.H = 0;
-    prefs->color.S = 0.5;
-    prefs->color.V = 1.0;
+    prefs->start_color.H = 0;
+    prefs->start_color.S = 0.5;
+    prefs->start_color.V = 1.0;
     prefs->use_hsv = FALSE;
     prefs->daemon_action = PREF_DAEMON_QUIT;
     prefs->hide_tips = FALSE;
     snprintf(buffer, BUFFER_SIZE, "%s/%s/%s", getenv("HOME"), 
              GJAY_DIR, GJAY_PREFS);
     prefs->music_player = 0;
-    prefs->music_player_name = g_strdup(music_player_names[0]);
 
     f = fopen(buffer, "r");
     if (f) {
+	    parser_data = g_malloc0(sizeof(struct parser_data));
+		parser_data->prefs = prefs;
+
         parser.start_element = data_start_element;
         parser.text = data_text;
         parser.end_element = NULL; 
 
-        parse_context = g_markup_parse_context_new(&parser, 0, &element, NULL);
+        parse_context = g_markup_parse_context_new(&parser, 0, parser_data, NULL);
         while (result && !feof(f)) {
             text_len = fread(buffer, 1, BUFFER_SIZE, f);
             result = g_markup_parse_context_parse ( parse_context,
@@ -213,11 +220,10 @@ load_prefs ( void ) {
 
 
 
-void save_prefs ( void ) {
+void save_prefs ( GjayPrefs *prefs) {
     char buffer[BUFFER_SIZE], buffer_temp[BUFFER_SIZE];
     char * utf8;
     FILE * f;
-    GjayPrefs *prefs=gjay->prefs;
     
     snprintf(buffer, BUFFER_SIZE, "%s/%s/%s", getenv("HOME"), 
              GJAY_DIR, GJAY_PREFS);
@@ -248,7 +254,7 @@ void save_prefs ( void ) {
         fprintf(f, "<%s>", pref_element_strs[PE_START]);
         if (prefs->start_selected)
             fprintf(f, "%s", pref_element_strs[PE_SELECTED]);
-        else if (prefs->start_color)
+        else if (prefs->use_color)
             fprintf(f, "%s", pref_element_strs[PE_COLOR]);
         else
             fprintf(f, "%s", pref_element_strs[PE_RANDOM]);
@@ -263,7 +269,7 @@ void save_prefs ( void ) {
         
         fprintf(f, "<%s>%d</%s>\n",
                 pref_element_strs[PE_TIME],
-                prefs->time,
+                prefs->playlist_time,
                 pref_element_strs[PE_TIME]);
 
 	fprintf(f, "<%s>%d</%s>\n",
@@ -274,9 +280,9 @@ void save_prefs ( void ) {
         fprintf(f, "<%s %s=\"hsv\">%f %f %f</%s>\n",
                 pref_element_strs[PE_COLOR],
                 pref_element_strs[PE_TYPE],
-                prefs->color.H,
-                prefs->color.S, 
-                prefs->color.V, 
+                prefs->start_color.H,
+                prefs->start_color.S, 
+                prefs->start_color.V, 
                 pref_element_strs[PE_COLOR]);
                 
         if (prefs->rating_cutoff) {
@@ -315,37 +321,39 @@ void data_start_element  (GMarkupParseContext *context,
                           gpointer             user_data,
                           GError             **error) {
     gint k;
-    pref_element_type * element = (pref_element_type *) user_data;
     pref_element_type attr;
-    *element = get_element((char *) element_name);
+	struct parser_data *parser_data = (struct parser_data*)user_data;
+	GjayPrefs *prefs = parser_data->prefs;
+
+    parser_data->element = get_element((char *) element_name);
     
     for (k = 0; attribute_names[k]; k++) {
         attr = get_element((char *) attribute_names[k]);
         switch(attr) {
         case PE_TYPE:
             if (strcasecmp(attribute_values[k], "hsv") == 0) {
-                gjay->prefs->use_hsv = TRUE;
+                prefs->use_hsv = TRUE;
             }
             break;
         case PE_EXTENSION_FILTER:
-            if (*element == PE_ROOTDIR)
-                gjay->prefs->extension_filter = TRUE;
+            if (parser_data->element == PE_ROOTDIR)
+                prefs->extension_filter = TRUE;
             break;
         case PE_HIDE_TIP:
-            if (*element == PE_FLAGS)
-                gjay->prefs->hide_tips = TRUE;
+            if (parser_data->element == PE_FLAGS)
+                prefs->hide_tips = TRUE;
             break;
         case PE_WANDER:
-            if (*element == PE_FLAGS)
-                gjay->prefs->wander = TRUE;
+            if (parser_data->element == PE_FLAGS)
+                prefs->wander = TRUE;
             break;
         case PE_USE_RATINGS:
-            if (*element == PE_FLAGS)
-                gjay->prefs->use_ratings = TRUE;
+            if (parser_data->element == PE_FLAGS)
+                prefs->use_ratings = TRUE;
             break;
         case PE_CUTOFF:
-            if (*element == PE_RATING)
-                gjay->prefs->rating_cutoff = TRUE;
+            if (parser_data->element == PE_RATING)
+                prefs->rating_cutoff = TRUE;
             break;
         default:
             break;
@@ -360,45 +368,38 @@ void data_text ( GMarkupParseContext *context,
                  GError             **error) {
     gchar buffer[BUFFER_SIZE];
     gchar * buffer_str;
-    pref_element_type * element = (pref_element_type *) user_data;    
     pref_element_type val;
-    int i;
+	struct parser_data *parser_data = (struct parser_data*)user_data;
+	GjayPrefs *prefs = parser_data->prefs;
 
     memcpy(buffer, text, text_len);
     buffer[text_len] = '\0';
 
-    switch(*element) {
+    switch(parser_data->element) {
     case PE_ROOTDIR:
-        gjay->prefs->song_root_dir = strdup_to_latin1(buffer); 
+        prefs->song_root_dir = strdup_to_latin1(buffer); 
         break;
     case PE_DAEMON_ACTION:
-        gjay->prefs->daemon_action = atoi(buffer);
+        prefs->daemon_action = atoi(buffer);
         break;
     case PE_MUSIC_PLAYER:
-        gjay->prefs->music_player = atoi(buffer);
-        g_free(gjay->prefs->music_player_name);
-        for(i=0; music_player_names[i] != NULL; i++)
-          if (gjay->prefs->music_player == i)
-          {
-            gjay->prefs->music_player_name = g_strdup(music_player_names[i]);
-            break;
-          }
+        prefs->music_player = atoi(buffer);
         break;
     case PE_START:
     case PE_SELECTION_LIMIT:
         val = get_element((char *) buffer);
         switch(val) {
         case PE_SELECTED:
-            gjay->prefs->start_selected = TRUE;
+            prefs->start_selected = TRUE;
             break;
         case PE_COLOR:
-            gjay->prefs->start_color = TRUE;
+            prefs->use_color = TRUE;
             break;
         case PE_SONGS:
-            gjay->prefs->use_selected_songs = TRUE;
+            prefs->use_selected_songs = TRUE;
             break;  
         case PE_DIR:
-            gjay->prefs->use_selected_dir = TRUE;
+            prefs->use_selected_dir = TRUE;
             break;
         case PE_RANDOM:
             /* Don't do anything */
@@ -407,51 +408,51 @@ void data_text ( GMarkupParseContext *context,
         }
         break;
     case PE_RATING:
-        gjay->prefs->rating = strtof_gjay(buffer, NULL);
+        prefs->rating = strtof_gjay(buffer, NULL);
         break;
     case PE_HUE:
-        gjay->prefs->hue = strtof_gjay(buffer, NULL);
+        prefs->hue = strtof_gjay(buffer, NULL);
         break;
     case PE_BRIGHTNESS:
-        gjay->prefs->brightness = strtof_gjay(buffer, NULL);
+        prefs->brightness = strtof_gjay(buffer, NULL);
         break;
     case PE_SATURATION:
-        gjay->prefs->saturation = strtof_gjay(buffer, NULL);
+        prefs->saturation = strtof_gjay(buffer, NULL);
         break;
     case PE_BPM:
-        gjay->prefs->bpm = strtof_gjay(buffer, NULL);
+        prefs->bpm = strtof_gjay(buffer, NULL);
         break;
     case PE_FREQ:
-        gjay->prefs->freq = strtof_gjay(buffer, NULL);
+        prefs->freq = strtof_gjay(buffer, NULL);
         break;
     case PE_VARIANCE:
-        gjay->prefs->variance = strtof_gjay(buffer, NULL);
+        prefs->variance = strtof_gjay(buffer, NULL);
         break;
     case PE_PATH_WEIGHT:
-        gjay->prefs->path_weight = strtof_gjay(buffer, NULL);  
+        prefs->path_weight = strtof_gjay(buffer, NULL);  
         break;
     case PE_COLOR:
-        if (gjay->prefs->use_hsv) {
-            gjay->prefs->color.H = strtof_gjay(buffer, &buffer_str);
-            gjay->prefs->color.S = strtof_gjay(buffer_str, &buffer_str);
-            gjay->prefs->color.V = strtof_gjay(buffer_str, NULL);
+        if (prefs->use_hsv) {
+            prefs->start_color.H = strtof_gjay(buffer, &buffer_str);
+            prefs->start_color.S = strtof_gjay(buffer_str, &buffer_str);
+            prefs->start_color.V = strtof_gjay(buffer_str, NULL);
         } else {
             HB hb;
             hb.H = strtof_gjay(buffer, &buffer_str);
             hb.B = strtof_gjay(buffer_str, NULL);
-            gjay->prefs->color = hb_to_hsv(hb);
+            prefs->start_color = hb_to_hsv(hb);
         }
         break;
     case PE_TIME:
-        gjay->prefs->time = atoi(buffer);
+        prefs->playlist_time = atoi(buffer);
         break;
     default:
         break;
     case PE_MAX_WORKING_SET:
-        gjay->prefs->max_working_set = atoi(buffer);
+        prefs->max_working_set = atoi(buffer);
         break;
     }
-    *element = PE_LAST;
+    parser_data->element = PE_LAST;
 }
 
 static int get_element ( gchar * element_name ) {

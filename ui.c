@@ -1,7 +1,7 @@
 /*
  * Gjay - Gtk+ DJ music playlist creator
  * Copyright (C) 2002 Chuck Groom
- * Copyright (C) 2010-2011 Craig Small 
+ * Copyright (C) 2010-2012 Craig Small 
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -28,6 +28,7 @@
 #include <stdlib.h>
 #include "gjay.h"
 #include "ui.h"
+#include "ui_private.h"
 #include "ipc.h"
 #include "i18n.h"
 
@@ -36,15 +37,10 @@ static char * tabs[TAB_LAST] = {
     "Make Playlist"
 };
 
-GtkWidget        * explore_view, * selection_view, * playlist_view,
-                 * no_root_view;
-static tab_val     current_tab;
 static GtkWidget * analysis_label, * analysis_progress;
 static GtkWidget * add_files_label, * add_files_progress;
-static GtkWidget * explore_hbox, * playlist_hbox;
-static GtkWidget * paned;
+static GdkPixbuf * load_gjay_pixbuf(const char *filename);
 static GtkWidget * plugin_pane[1];
-static gboolean    destroy_window_flag = FALSE;
 
 static char * pixbuf_files[] = {
     "file_pending.png",
@@ -71,16 +67,34 @@ static char * pixbuf_files[] = {
 };
 
 
-static void     load_pixbufs          ( void );
+static void     load_pixbufs          ( GdkPixbuf **pixbufs );
 static void     respond_quit_analysis ( GtkDialog *dialog,
                                         gint arg1,
                                         gpointer user_data );
-static void     destroy_app           ( void);    
+static void     destroy_app           ( GjayGUI *ui);    
+static GtkWidget * make_message_window( void);
+void gjay_message_log(const gchar *log_domain, 
+    GLogLevelFlags log_level,
+    const gchar *message,
+    gpointer user_data);
 
-void make_app_ui ( void ) {
+gboolean create_gjay_gui ( GjayApp *gjay) {
+    GjayGUI *ui;
+
     GtkWidget * vbox1, * hbox1, * hbox2;
     GtkWidget * alignment, * menubar;
     
+
+	if ((ui = g_malloc0(sizeof(GjayGUI))) == NULL) {
+	  g_warning( _("Unable to allocate memory for GUI.\n"));
+	  return FALSE;
+	}
+	gjay->gui = ui;
+    ui->destroy_window_flag = FALSE;
+	ui->show_root_dir = FALSE;
+	if (gjay->prefs && gjay->prefs->song_root_dir)
+	  ui->show_root_dir = TRUE;
+
     /* FIXME
     if (prefs.hide_tips) 
         gtk_tooltips_disable(tips);
@@ -89,27 +103,24 @@ void make_app_ui ( void ) {
         */
 
     gdk_rgb_init();
-    current_tab = TAB_EXPLORE;
     
-    gjay->main_window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
-    gtk_window_set_title (GTK_WINDOW (gjay->main_window), "GJay");
-    gtk_widget_set_size_request (gjay->main_window, APP_WIDTH, APP_HEIGHT);
-    gtk_widget_realize(gjay->main_window);
-    gtk_signal_connect (GTK_OBJECT (gjay->main_window), "delete_event",
-			GTK_SIGNAL_FUNC (quit_app), NULL);
-    gtk_container_set_border_width (GTK_CONTAINER (gjay->main_window), 2);
-    gtk_widget_realize(gjay->main_window);
+    ui->main_window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
+    gtk_window_set_title (GTK_WINDOW (ui->main_window), "GJay");
+    gtk_widget_set_size_request (ui->main_window, APP_WIDTH, APP_HEIGHT);
+    gtk_widget_realize(ui->main_window);
+    gtk_container_set_border_width (GTK_CONTAINER (ui->main_window), 2);
+    gtk_widget_realize(ui->main_window);
 
-    load_pixbufs();
+    load_pixbufs(ui->pixbufs);
 
     vbox1 = gtk_vbox_new(FALSE, 2);
-    gtk_container_add (GTK_CONTAINER (gjay->main_window), vbox1);
+    gtk_container_add (GTK_CONTAINER (ui->main_window), vbox1);
 
-    menubar = make_menubar();
+    menubar = make_menubar(gjay);
     gtk_box_pack_start(GTK_BOX(vbox1), menubar, FALSE, FALSE, 1);
 
-    gjay->notebook = gtk_notebook_new(); 
-    gtk_box_pack_start(GTK_BOX(vbox1), gjay->notebook, TRUE, TRUE, 3);
+    ui->notebook = gtk_notebook_new(); 
+    gtk_box_pack_start(GTK_BOX(vbox1), ui->notebook, TRUE, TRUE, 3);
        
     hbox1 = gtk_hbox_new(FALSE, 2);
     gtk_box_pack_end(GTK_BOX(vbox1), hbox1, FALSE, FALSE, 2);
@@ -134,37 +145,45 @@ void make_app_ui ( void ) {
                              0.0);
     gtk_box_pack_start(GTK_BOX(hbox2), add_files_progress, FALSE, FALSE, 0);
 
-    explore_hbox = gtk_hbox_new(FALSE, 2);
-    gtk_notebook_append_page(GTK_NOTEBOOK(gjay->notebook), 
-                             explore_hbox,
+    ui->explore_hbox = gtk_hbox_new(FALSE, 2);
+    gtk_notebook_append_page(GTK_NOTEBOOK(ui->notebook), 
+                             ui->explore_hbox,
                              gtk_label_new(tabs[TAB_EXPLORE]));
 
-    playlist_hbox = gtk_hbox_new(FALSE, 2);
-    gtk_notebook_append_page(GTK_NOTEBOOK(gjay->notebook), 
-                             playlist_hbox,
+    ui->playlist_hbox = gtk_hbox_new(FALSE, 2);
+    gtk_notebook_append_page(GTK_NOTEBOOK(ui->notebook), 
+                             ui->playlist_hbox,
                              gtk_label_new(tabs[TAB_PLAYLIST]));
 
-    explore_view = make_explore_view();
-    playlist_view = make_playlist_view();
-    selection_view = make_selection_view();
-    no_root_view = make_no_root_view();
+    ui->message_window = make_message_window();
+    ui->explore_view = make_explore_view(gjay);
+    ui->playlist_view = make_playlist_view(gjay);
+    ui->selection_view = make_selection_view(gjay);
+    ui->no_root_view = make_no_root_view(gjay);
 
-    paned = gtk_hpaned_new();
+    ui->paned = gtk_hpaned_new();
     
-    gtk_widget_show_all(explore_view);
-    gtk_widget_show_all(playlist_view);
-    gtk_widget_show_all(selection_view);
-    gtk_widget_show_all(no_root_view);
+    gtk_widget_show_all(ui->explore_view);
+    gtk_widget_show_all(ui->playlist_view);
+    gtk_widget_show_all(ui->selection_view);
+    gtk_widget_show_all(ui->no_root_view);
     
-    gtk_signal_connect (GTK_OBJECT (gjay->notebook),
+    gtk_signal_connect (GTK_OBJECT (ui->notebook),
                         "switch-page",
                         (GtkSignalFunc) switch_page,
-                        NULL);
+                        gjay);
   
-    gtk_notebook_set_page(GTK_NOTEBOOK(gjay->notebook), TAB_EXPLORE);
+  gtk_notebook_set_page(GTK_NOTEBOOK(ui->notebook), TAB_EXPLORE);
     
 
-    gjay->prefs_window = make_prefs_window();
+  ui->prefs_window = make_prefs_window(gjay);
+
+  g_log_set_handler(NULL,
+        G_LOG_LEVEL_WARNING | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION,
+        &gjay_message_log, ui->message_window);
+
+  gtk_widget_show_all(ui->main_window);
+  return TRUE;
 }
 
 
@@ -180,12 +199,14 @@ gboolean daemon_pipe_input (GIOChannel *source,
     ipc_type ipc, send_ipc;
     GList * ll;
     gboolean update;
-    song * s;
+    GjaySong * s;
 
-    read(daemon_pipe_fd, &len, sizeof(int));
+	GjayApp *gjay = (GjayApp*)user_data;
+
+    read(gjay->ipc->daemon_fifo, &len, sizeof(int));
     assert(len < BUFFER_SIZE);
     for (k = 0, l = len; l; l -= k) {
-        k = read(daemon_pipe_fd, buffer + k, l);
+        k = read(gjay->ipc->daemon_fifo, buffer + k, l);
     }
 
     memcpy((void *) &ipc, buffer, sizeof(ipc_type));
@@ -193,41 +214,42 @@ gboolean daemon_pipe_input (GIOChannel *source,
     case REQ_ACK:
         send_ipc = ACK;
         k = sizeof(ipc_type);
-        write(ui_pipe_fd, &k, sizeof(int));
-        write(ui_pipe_fd, &send_ipc, sizeof(ipc_type));
+        write(gjay->ipc->ui_fifo, &k, sizeof(int));
+        write(gjay->ipc->ui_fifo, &send_ipc, sizeof(ipc_type));
         break;
     case ACK:
         // No need for action
         break;
     case STATUS_PERCENT:
         memcpy(&p, buffer + sizeof(ipc_type), sizeof(int));
-        if (analysis_progress && !destroy_window_flag) 
+        if (analysis_progress && !gjay->gui->destroy_window_flag) 
             gtk_progress_bar_update (GTK_PROGRESS_BAR(analysis_progress),
                                      p/100.0);
         break;
     case STATUS_TEXT:
         buffer[len] = '\0';
-        if (analysis_label && !destroy_window_flag) {
+        if (analysis_label && !gjay->gui->destroy_window_flag) {
             str = buffer + sizeof(ipc_type);
             gtk_label_set_text(GTK_LABEL(analysis_label), str);
         }
         break;
     case ADDED_FILE:
         /* Unmark all songs */
-        for (ll = g_list_first(gjay->songs); ll; ll = g_list_next(ll)) 
+        for (ll = g_list_first(gjay->songs->songs); ll; ll = g_list_next(ll)) 
             SONG(ll)->marked = FALSE;
         memcpy(&seek, buffer + sizeof(ipc_type), sizeof(int));
-        add_from_daemon_file_at_seek(seek);
+        if (add_from_daemon_file_at_seek(gjay, seek) == TRUE)
+		  gjay->songs->dirty = TRUE;
         update = FALSE;
         /* Update visible marked songs */
-        for (ll = g_list_first(gjay->songs); ll; ll = g_list_next(ll)) { 
+        for (ll = g_list_first(gjay->songs->songs); ll; ll = g_list_next(ll)) { 
             s = SONG(ll);
             if (s->marked && !s->no_data) {
                 /* Change the tree view icon and selection view, if 
                  * necessary. Note that song paths are latin-1 */
-                explore_update_path_pm(s->path, PM_FILE_SONG);
+                explore_update_path_pm(gjay->gui->pixbufs, s->path, PM_FILE_SONG);
                 if (!update && g_list_find(gjay->selected_songs, s)) {
-                    update_selection_area();
+                    update_selection_area(gjay->selected_songs);
                     update = TRUE;
                 }
             }
@@ -237,8 +259,8 @@ gboolean daemon_pipe_input (GIOChannel *source,
     case ANIMATE_START:
         /* Animate the filename with the given path (latin-1) */
         buffer[len] = '\0';
-        if (!destroy_window_flag)
-            explore_animate_pending(buffer + sizeof(ipc_type));
+        if (!gjay->gui->destroy_window_flag)
+            explore_animate_pending(gjay->gui, buffer + sizeof(ipc_type));
         break;
     case ANIMATE_STOP:
         explore_animate_stop();
@@ -250,7 +272,7 @@ gboolean daemon_pipe_input (GIOChannel *source,
     return TRUE;
 }
 
-GtkWidget * make_message_window( void)
+static GtkWidget * make_message_window( void)
 {
   GtkWidget *window , *vbox, *swin, *msg_text_view, *button;
 
@@ -297,56 +319,59 @@ void switch_page (GtkNotebook *notebook,
                   GtkNotebookPage *page,
                   gint page_num,
                   gpointer user_data) {
-    if (destroy_window_flag)
+
+  GjayApp *gjay = (GjayApp*)user_data;
+  GjayGUI *ui = gjay->gui;
+    if (ui->destroy_window_flag)
         return;
     
-    if (explore_view->parent) {
-        g_object_ref(G_OBJECT(explore_view));
-        gtk_container_remove(GTK_CONTAINER(explore_view->parent), 
-                             explore_view);
+    if (ui->explore_view->parent) {
+        g_object_ref(G_OBJECT(ui->explore_view));
+        gtk_container_remove(GTK_CONTAINER(ui->explore_view->parent), 
+                             ui->explore_view);
     }
-    if (selection_view->parent) {
-        gtk_object_ref(GTK_OBJECT(selection_view));
-        gtk_container_remove(GTK_CONTAINER(selection_view->parent),
-                             selection_view);
+    if (ui->selection_view->parent) {
+        gtk_object_ref(GTK_OBJECT(ui->selection_view));
+        gtk_container_remove(GTK_CONTAINER(ui->selection_view->parent),
+                             ui->selection_view);
     }
-    if (playlist_view->parent) {
-        gtk_object_ref(GTK_OBJECT(playlist_view));
-        gtk_container_remove(GTK_CONTAINER(playlist_view->parent),
-                             playlist_view);
+    if (ui->playlist_view->parent) {
+        gtk_object_ref(GTK_OBJECT(ui->playlist_view));
+        gtk_container_remove(GTK_CONTAINER(ui->playlist_view->parent),
+                             ui->playlist_view);
     }
-    if (no_root_view->parent) {
-        gtk_object_ref(GTK_OBJECT(no_root_view));
-        gtk_container_remove(GTK_CONTAINER(no_root_view->parent),
-                             no_root_view);
+    if (ui->no_root_view->parent) {
+        gtk_object_ref(GTK_OBJECT(ui->no_root_view));
+        gtk_container_remove(GTK_CONTAINER(ui->no_root_view->parent),
+                             ui->no_root_view);
     }
-    if (paned->parent) {
-        gtk_object_ref(GTK_OBJECT(paned));
-        gtk_container_remove(GTK_CONTAINER(paned->parent),
-                             paned);
+    if (ui->paned->parent) {
+        gtk_object_ref(GTK_OBJECT(ui->paned));
+        gtk_container_remove(GTK_CONTAINER(ui->paned->parent),
+                             ui->paned);
     }
     switch (page_num) {
     case TAB_EXPLORE:
-        if (gjay->prefs->song_root_dir) {
-            gtk_box_pack_start(GTK_BOX(explore_hbox), paned,
+        if (ui->show_root_dir) {
+            gtk_box_pack_start(GTK_BOX(ui->explore_hbox), ui->paned,
                                TRUE, TRUE, 5);
-            gtk_paned_add1(GTK_PANED(paned), explore_view); 
-            gtk_paned_add2(GTK_PANED(paned), selection_view); 
-            set_selected_in_playlist_view(FALSE);
-            gtk_widget_show(paned);
+            gtk_paned_add1(GTK_PANED(ui->paned), ui->explore_view); 
+            gtk_paned_add2(GTK_PANED(ui->paned), ui->selection_view); 
+            set_selected_in_playlist_view(gjay, FALSE);
+            gtk_widget_show(ui->paned);
         } else {
-             gtk_box_pack_start(GTK_BOX(explore_hbox), no_root_view,
+             gtk_box_pack_start(GTK_BOX(ui->explore_hbox), ui->no_root_view,
                                TRUE, TRUE, 5);
         }
-        gtk_widget_show(explore_hbox);
+        gtk_widget_show(ui->explore_hbox);
         break;
     case TAB_PLAYLIST:
-        gtk_box_pack_start(GTK_BOX(playlist_hbox), paned, TRUE, TRUE, 5);
-        gtk_paned_add1(GTK_PANED(paned), playlist_view);
-        gtk_paned_add2(GTK_PANED(paned), selection_view);
-        set_selected_in_playlist_view(TRUE);
-        gtk_widget_show(paned);
-        gtk_widget_show(playlist_hbox);
+        gtk_box_pack_start(GTK_BOX(ui->playlist_hbox), ui->paned, TRUE, TRUE, 5);
+        gtk_paned_add1(GTK_PANED(ui->paned), ui->playlist_view);
+        gtk_paned_add2(GTK_PANED(ui->paned), ui->selection_view);
+        set_selected_in_playlist_view(gjay, TRUE);
+        gtk_widget_show(ui->paned);
+        gtk_widget_show(ui->playlist_hbox);
         break;
     default:
         /* Plug-ins */
@@ -355,7 +380,7 @@ void switch_page (GtkNotebook *notebook,
     }
 }
 
-GdkPixbuf *
+static GdkPixbuf *
 load_gjay_pixbuf(const char *filename)
 {
   GdkPixbuf *pb = NULL;
@@ -402,7 +427,7 @@ load_gjay_pixbuf(const char *filename)
  *    /usr/share/gjay/icons
  *    /usr/local/share/gjay/icons
  */
-void load_pixbufs(void) {
+void load_pixbufs(GdkPixbuf **pixbufs) {
     char buffer[BUFFER_SIZE];
     char * file;
     GdkPixbuf * pb;
@@ -431,14 +456,15 @@ void load_pixbufs(void) {
                      file);
             pb =  gdk_pixbuf_new_from_file(buffer, &error);
         }
-        gjay->pixbufs[type] = pb;
+        pixbufs[type] = pb;
     }
 } 
 
 
 
 GtkWidget * new_button_label_pixbuf ( char * label_text, 
-                                      int type) {
+                                      int type,
+									  GdkPixbuf **pixbufs) {
     GtkWidget * button, * hbox, * label, * image;
 
     button = gtk_button_new();
@@ -446,7 +472,7 @@ GtkWidget * new_button_label_pixbuf ( char * label_text,
     hbox = gtk_hbox_new (FALSE, 2);
     gtk_container_add(GTK_CONTAINER(button), hbox);
     
-    image = gtk_image_new_from_pixbuf(gjay->pixbufs[type]);
+    image = gtk_image_new_from_pixbuf(pixbufs[type]);
     label = gtk_label_new (label_text);
     gtk_box_pack_start(GTK_BOX(hbox), image, TRUE, TRUE, 2);
     gtk_box_pack_start(GTK_BOX(hbox), label, TRUE, TRUE, 2);    
@@ -460,6 +486,8 @@ gboolean quit_app (GtkWidget *widget,
                    gpointer user_data) {
     GtkWidget * dialog;
     
+	GjayApp *gjay = (GjayApp*)user_data;
+
     if (gjay->prefs->daemon_action == PREF_DAEMON_ASK) {
         dialog = gtk_message_dialog_new(GTK_WINDOW(widget),
                                         GTK_DIALOG_DESTROY_WITH_PARENT,
@@ -469,12 +497,12 @@ gboolean quit_app (GtkWidget *widget,
         g_signal_connect (GTK_OBJECT (dialog), 
                           "response",
                           G_CALLBACK (respond_quit_analysis),
-                          NULL);
+                          gjay);
         gtk_widget_show(dialog);
         gjay->prefs->detach = FALSE;
         return TRUE;
     } else {
-        destroy_app();
+        destroy_app(gjay->gui);
     }
     return FALSE;
 }
@@ -484,24 +512,26 @@ static void respond_quit_analysis (GtkDialog *dialog,
                                    gint arg1,
                                    gpointer user_data) {
 
+    GjayApp *gjay = (GjayApp*)user_data;
+
     if (arg1 == GTK_RESPONSE_YES) {
         gjay->prefs->detach = TRUE;
     } else {
         gjay->prefs->detach = FALSE;
     }
-    destroy_app();
+    destroy_app(gjay->gui);
 }
 
 
 
-static void destroy_app ( void ) {    
-    destroy_window_flag = TRUE;
-    gtk_widget_destroy(explore_view);
-    gtk_widget_destroy(playlist_view);
-    gtk_widget_destroy(selection_view);
-    gtk_widget_destroy(gjay->prefs_window);
-    gtk_widget_destroy(no_root_view);
-    gtk_widget_destroy(paned);
+static void destroy_app ( GjayGUI *ui ) {    
+    ui->destroy_window_flag = TRUE;
+    gtk_widget_destroy(ui->explore_view);
+    gtk_widget_destroy(ui->playlist_view);
+    gtk_widget_destroy(ui->selection_view);
+    gtk_widget_destroy(ui->prefs_window);
+    gtk_widget_destroy(ui->no_root_view);
+    gtk_widget_destroy(ui->paned);
     gtk_main_quit();
 }
 
@@ -577,22 +607,43 @@ void show_about_window( void ) {
       NULL);
 }
 
-void show_prefs_window( void ) {
-    gtk_window_present(GTK_WINDOW(gjay->prefs_window));
+void show_prefs_window( gpointer user_data ) {
+  GjayApp *gjay = (GjayApp*)user_data;
+  gtk_window_present(GTK_WINDOW(gjay->gui->prefs_window));
 }
 
-void hide_prefs_window( void ) {
-    gtk_widget_hide(gjay->prefs_window);
+void hide_prefs_window( gpointer user_data ) {
+  GjayApp *gjay = (GjayApp*)user_data;
+  gtk_widget_hide(gjay->gui->prefs_window);
 }
 
-void gjay_error_dialog(char *msg) {
+void gjay_error_dialog(GtkWidget *parent, const gchar *msg) {
   GtkWidget *dialog;
 
-  dialog = gtk_message_dialog_new(GTK_WINDOW(gjay->main_window),
+  dialog = gtk_message_dialog_new(GTK_WINDOW(parent),
       GTK_DIALOG_DESTROY_WITH_PARENT,
       GTK_MESSAGE_ERROR,
       GTK_BUTTONS_CLOSE,
       "%s", msg);
   gtk_dialog_run(GTK_DIALOG(dialog));
   gtk_widget_destroy(dialog);
+}
+
+void gjay_message_log(const gchar *log_domain, 
+    GLogLevelFlags log_level,
+    const gchar *message,
+    gpointer user_data)
+{
+  GtkWidget *msg_window = GTK_WIDGET(user_data);
+  GtkWidget *msg_text_view;
+  GtkTextBuffer *buffer;
+
+  msg_text_view = GTK_WIDGET(g_object_get_data(G_OBJECT(msg_window), "text_view"));
+
+  buffer = gtk_text_view_get_buffer (GTK_TEXT_VIEW (msg_text_view));
+  gtk_text_buffer_insert_at_cursor(buffer, 
+      message, 
+      strlen(message));
+  gtk_text_buffer_insert_at_cursor(buffer, "\n", 1);
+  gtk_widget_show_all (GTK_WIDGET(msg_window));
 }

@@ -56,36 +56,25 @@
 #include "vorbis.h"
 #include "flac.h"
 #include "ui.h"
-
-#include "i18n.h"
 #include "play_common.h"
+#include "i18n.h"
 
-GjayApp *gjay;
 
-gjay_mode mode; /* UI, DAEMON, PLAYLIST */
 
-int daemon_pipe_fd;
-int ui_pipe_fd;
-int verbosity;
 gboolean skip_verify;
 
 //static gboolean app_exists  ( gchar * app );
 //static void     kill_signal ( int sig );
-static int      open_pipe   ( const char* filepath );
+static gboolean create_gjay_app(GjayApp **app);
 static gint     ping_daemon ( gpointer data );
-static gboolean create_ui_daemon_pipe(void);
-static gboolean mode_attached ( gjay_mode m );
-static void     fork_or_connect_to_daemon(void);
+static gboolean mode_attached ( const gjay_mode m );
+static void     fork_or_connect_to_daemon(gjay_mode *mode);
 #ifdef WITH_GUI
-static void     run_as_ui      (int argc, char * argv[]);
+static void     run_as_ui      (int argc, char * argv[], GjayApp *gjay);
 #endif /* WITH_GUI */
-static void     run_as_playlist  ( guint playlist_minutes,
+static void     run_as_playlist  (GjayApp *gjay, guint playlist_minutes,
     gboolean m3u_format, 
     gboolean player_autostart );
-void gjay_message_log(const gchar *log_domain, 
-    GLogLevelFlags log_level,
-    const gchar *message,
-    gpointer user_data);
 
 
 static gboolean
@@ -105,7 +94,7 @@ print_version(const gchar *option_name, const gchar *value, gpointer data, GErro
 }
 
 static void
-parse_commandline(int *argc_p, char ***argv_p, guint *playlist_minutes, gboolean *m3u_format, gboolean *run_player, gchar **analyze_detached_fname)
+parse_commandline(int *argc_p, char ***argv_p, GjayApp *gjay, guint *playlist_minutes, gboolean *m3u_format, gboolean *run_player, gchar **analyze_detached_fname, gjay_mode *mode)
 {
   gboolean opt_daemon=FALSE, opt_playlist=FALSE;
   gchar *opt_standalone=NULL, *opt_color=NULL, *opt_file=NULL;
@@ -122,7 +111,7 @@ parse_commandline(int *argc_p, char ***argv_p, guint *playlist_minutes, gboolean
     { "playlist", 'p', 0, G_OPTION_ARG_NONE, &opt_playlist, _("Generate a playlist"), NULL },
     { "skip-verification", 's', 0, G_OPTION_ARG_NONE, &skip_verify, _("Skip file verification"), NULL },
     { "m3u-playlist", 'u', 0, G_OPTION_ARG_NONE, m3u_format, _("Use M3U playlist format"), NULL },
-    { "verbose", 'v', 0, G_OPTION_ARG_INT, &verbosity, "Set verbosity/debug level", _("LEVEL") },
+    { "verbose", 'v', 0, G_OPTION_ARG_INT, &(gjay->verbosity), "Set verbosity/debug level", _("LEVEL") },
     { "player-start", 'P', 0, G_OPTION_ARG_NONE, run_player, _("Start player using generated playlist"), NULL },
     { "version", 'V', G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK , &print_version, _("Show version"), NULL },
     { NULL }
@@ -143,7 +132,7 @@ parse_commandline(int *argc_p, char ***argv_p, guint *playlist_minutes, gboolean
   if (opt_standalone != NULL)
   {
     *analyze_detached_fname = opt_standalone;
-    mode = ANALYZE_DETACHED;
+    *mode = ANALYZE_DETACHED;
   }
   if (opt_color != NULL)
   {
@@ -154,17 +143,17 @@ parse_commandline(int *argc_p, char ***argv_p, guint *playlist_minutes, gboolean
       rgb.R = ((hex & 0xFF0000) >> 16) / 255.0;
       rgb.G = ((hex & 0x00FF00) >> 8) / 255.0;
       rgb.B = (hex & 0x0000FF) / 255.0;
-      gjay->prefs->start_color = TRUE;
-      gjay->prefs->color = rgb_to_hsv(rgb);
+      gjay->prefs->use_color = TRUE;
+      gjay->prefs->start_color = rgb_to_hsv(rgb);
     } else if (get_named_color(opt_color, &rgb))
     {
-      gjay->prefs->start_color = TRUE;
-      gjay->prefs->color = rgb_to_hsv(rgb);
+      gjay->prefs->use_color = TRUE;
+      gjay->prefs->start_color = rgb_to_hsv(rgb);
     }
   }
   if (opt_daemon)
   {
-    mode = DAEMON_DETACHED;
+    *mode = DAEMON_DETACHED;
     printf(_("Running as daemon. Ctrl+c to stop.\n"));
   }
 
@@ -177,44 +166,34 @@ parse_commandline(int *argc_p, char ***argv_p, guint *playlist_minutes, gboolean
   }
   if (opt_playlist) /* -p */
   {
-    gjay->prefs->start_color = FALSE;
-    mode = PLAYLIST;
+    gjay->prefs->use_color = FALSE;
+    *mode = PLAYLIST;
   }
 }
 
 
 int main( int argc, char *argv[] ) {
+  GjayApp *gjay;
   gchar * analyze_detached_fname=NULL;
   gboolean m3u_format, player_autostart;
   guint playlist_minutes;
   gchar *gjay_home;
+  gjay_mode mode; /* UI, DAEMON, PLAYLIST */
 
   srand(time(NULL));
-    
-  if ((gjay = g_malloc0(sizeof(GjayApp))) == NULL) {
-    g_warning( _("Unable to allocate memory for app.\n"));
-    exit(1);
+
+  if (create_gjay_app(&gjay) == FALSE) {
+	return 1;
   }
+    
 
   mode = UI;
-  verbosity = 0;    
   skip_verify = 0;
   playlist_minutes = 0;
   m3u_format = FALSE;
   player_autostart = FALSE;
-  gjay->prefs = load_prefs();
    
-  parse_commandline(&argc, &argv, &playlist_minutes, &m3u_format, &player_autostart, &analyze_detached_fname);
-
-    /* Intialize vars */
-    daemon_pipe_fd = -1;
-    ui_pipe_fd = -1;
-    gjay->songs = NULL;
-    gjay->not_songs = NULL;
-    gjay->songs_dirty = FALSE;
-    gjay->song_name_hash    = g_hash_table_new(g_str_hash, g_str_equal);
-    gjay->song_inode_dev_hash = g_hash_table_new(g_int_hash, g_int_equal);
-    gjay->not_song_hash     = g_hash_table_new(g_str_hash, g_str_equal);
+  parse_commandline(&argc, &argv, gjay, &playlist_minutes, &m3u_format, &player_autostart, &analyze_detached_fname, &mode);
 
   /* Make sure there is a "~/.gjay" directory */
  gjay_home = g_strdup_printf("%s/%s", g_get_home_dir(), GJAY_DIR);
@@ -231,50 +210,44 @@ int main( int argc, char *argv[] ) {
   }
   g_free(gjay_home);
 
-    if (mode_attached(mode)) {
-        if (create_ui_daemon_pipe() == FALSE) {
-            return -1;
-        }
-    }
-
 #ifdef HAVE_VORBIS_VORBISFILE_H
     /* Try to load libvorbis; this is a soft dependancy */
     if ( (gjay->ogg_supported = gjay_vorbis_dlopen()) == FALSE) 
 #endif /* HAVE_VORBIS_VORBISFILE_H */
-      if (verbosity)
+      if (gjay->verbosity)
         printf(_("Ogg not supported.\n"));
 
 #ifdef HAVE_FLAC_METADATA_H
     if ( (gjay->flac_supported = gjay_flac_dlopen()) == FALSE)
 #endif /* HAVE_FLAC_METADATA_H */
-      if (verbosity)
+      if (gjay->verbosity)
         printf(_("FLAC not supported.\n"));
 
 #ifdef WITH_GUI
     if (mode == UI) {
         /* UI needs a daemon */
-        fork_or_connect_to_daemon();
+        fork_or_connect_to_daemon(&mode);
     }
 #endif /* WITH_GUI */
 
     switch(mode) {
 #ifdef WITH_GUI
     case UI:
-        read_data_file();
+        read_data_file(gjay);
         sleep(1);
-        run_as_ui(argc, argv);
+        run_as_ui(argc, argv, gjay);
         break;
 #endif /* WITH_GUI */
     case PLAYLIST:
-        read_data_file();
-        run_as_playlist(playlist_minutes, m3u_format, player_autostart);
+        read_data_file(gjay);
+        run_as_playlist(gjay, playlist_minutes, m3u_format, player_autostart);
         break;
     case DAEMON_INIT:
     case DAEMON_DETACHED: 
-        run_as_daemon();
+        run_as_daemon(gjay, mode);
         break;
     case ANALYZE_DETACHED:
-        run_as_analyze_detached(analyze_detached_fname);
+        run_as_analyze_detached(gjay, analyze_detached_fname);
         break;
     default:
         g_warning( _("Error: app mode %d not supported\n"), mode);
@@ -283,29 +256,6 @@ int main( int argc, char *argv[] ) {
     }
 
     return(0);
-}
-
-
-static int open_pipe(const char* filepath) {
-    int fd = -1;
-
-    if ((fd = open(filepath, O_RDWR)) < 0) {
-        if (errno != ENOENT) {
-            g_warning(_("Error opening the pipe '%s'.\n"), filepath);
-            return -1;
-        }
-
-        if (mknod(filepath, S_IFIFO | 0777, 0)) {
-            g_warning( _("Couldn't create the pipe '%s'.\n"), filepath);
-            return -1;
-        }
-
-        if ((fd = open(filepath, O_RDWR)) < 0) {
-            g_warning(_("Couldn't open the pipe '%s'.\n"), filepath);
-            return -1;
-        }
-    }
-    return fd;
 }
 
 
@@ -329,29 +279,6 @@ void read_line ( FILE * f, char * buffer, int buffer_len) {
 }
 
 
-/**
- * Get the parent directory of path. The returned value should be freed.
- * If the parent is above root, return NULL.
- */
-gchar * parent_dir (const char * path ) {
-    int len, rootlen;
-    
-    len = strlen(path);
-    rootlen = strlen(gjay->prefs->song_root_dir);
-    if (len <= rootlen)
-        return NULL;
-    if (!len)
-        return NULL;
-    for (; len > rootlen; len--) {
-        if (path[len] == '/') {
-            return g_strndup(path, len);
-        }
-    }
-    if (path[len - 1] == '/')
-        len--;
-    return g_strndup(path, len);
-}
-
 
 /**
  * We make sure to ping the daemon periodically such that it knows the
@@ -359,46 +286,14 @@ gchar * parent_dir (const char * path ) {
  * about 20 seconds and quit.
  */
 static gint ping_daemon ( gpointer data ) {
-    send_ipc(ui_pipe_fd, ACK);
-    return TRUE;
-}
-
-
-/**
- * Create the named pipes for the daemon and ui processes to 
- * communicate through. Return true on success. */
-static gboolean create_ui_daemon_pipe(void)
-{
-  /* Create a per-username directory for the daemon and UI pipes */
-  const gchar *username;
-
-  if ( (username = g_get_user_name()) == NULL)
-    return FALSE;
-
-  gjay_pipe_dir =  g_strdup_printf("%s/gjay-%s",
-      g_get_tmp_dir(), username);
-  /* Create directory if one doesn't already exist */
-  struct stat buf;
-  if (stat(gjay_pipe_dir, &buf) != 0) {
-    if (mkdir(gjay_pipe_dir, 0700)) {
-        g_warning( _("Couldn't create pipe directory '%s'.\n"), gjay_pipe_dir);
-        return FALSE;
-    }
-  }
-    
-  /* Setup pipe names */
-  ui_pipe = g_strdup_printf("%s/%s", gjay_pipe_dir, UI_PIPE_FILE);
-  daemon_pipe = g_strdup_printf("%s/%s", gjay_pipe_dir, DAEMON_PIPE_FILE);
-    
-  /* Both daemon and UI app open an end of a pipe */
-  ui_pipe_fd = open_pipe(ui_pipe);
-  daemon_pipe_fd = open_pipe(daemon_pipe);
-
+  int *fdp = (int*)data;
+  send_ipc(*fdp, ACK);
   return TRUE;
 }
 
+
 /* Return true if the current mode attaches the daemon to the UI */
-static gboolean mode_attached ( gjay_mode m )
+static gboolean mode_attached ( const gjay_mode m )
 {
     switch(m) {
     case PLAYLIST:
@@ -443,7 +338,7 @@ daemon_is_alive(void)
 
 /* Fork a new daemon if one isn't running */
 static void
-fork_or_connect_to_daemon(void)
+fork_or_connect_to_daemon(gjay_mode *mode)
 {
   pid_t pid;
   /* Make sure a daemon is running. If not, fork. */
@@ -455,14 +350,14 @@ fork_or_connect_to_daemon(void)
       g_warning(_("Unable to fork daemon.\n"));
     } else if (pid == 0) {
       /* Daemon child */
-      mode = DAEMON_INIT;
+      *mode = DAEMON_INIT;
     }
   }
 }
 
 #ifdef WITH_GUI
 
-static void run_as_ui(int argc, char *argv[] ) 
+static void run_as_ui(int argc, char *argv[], GjayApp *gjay ) 
 {    
 
   if (gtk_init_check(&argc, &argv) == FALSE)
@@ -470,25 +365,32 @@ static void run_as_ui(int argc, char *argv[] )
     g_warning(_("Cannot initialise Gtk.\n"));
     exit(1);
   }
-  g_io_add_watch (g_io_channel_unix_new (daemon_pipe_fd),
+  	if (create_gjay_ipc(&(gjay->ipc)) == FALSE)
+  	{
+		g_error(_("Cannot create IPC pipes.\n"));
+		exit(1);
+  	}
+  	g_io_add_watch (g_io_channel_unix_new (gjay->ipc->daemon_fifo),
                   G_IO_IN,
                   daemon_pipe_input,
-                  NULL);
-  /* Ping the daemon ocassionally to let it know that the UI 
-   * process is still around */
-  gtk_timeout_add( UI_PING, ping_daemon, NULL);
-  player_init();
-    make_app_ui();
-    gtk_widget_show_all(gjay->main_window);
+                  gjay);
+  	/* Ping the daemon ocassionally to let it know that the UI 
+   	* process is still around */
+  	gtk_timeout_add( UI_PING, ping_daemon, &(gjay->ipc->daemon_fifo));
 
-#ifdef WITH_DBUSGLIB
-    gjay->connection = gjay_dbus_connection();
-#endif /* WITH_DBUSGLIB */
+  create_player(&(gjay->player), gjay->prefs->music_player);
 
-    gjay->message_window = make_message_window();
-    g_log_set_handler(NULL,
-        G_LOG_LEVEL_WARNING | G_LOG_FLAG_FATAL | G_LOG_FLAG_RECURSION,
-        &gjay_message_log, gjay->message_window);
+  if (create_gjay_gui(gjay) == FALSE) {
+	g_error(_("Cannot create GUI.\n"));
+	exit(1);
+  }
+  gjay->player->main_window = gjay->gui->main_window;
+  gjay->player->song_root_dir = gjay->prefs->song_root_dir;
+
+  gtk_signal_connect (GTK_OBJECT (gjay->gui->main_window), "delete_event",
+	  GTK_SIGNAL_FUNC (quit_app), gjay);
+
+
 
     set_selected_rating_visible(gjay->prefs->use_ratings);
     set_playlist_rating_visible(gjay->prefs->use_ratings);
@@ -496,55 +398,58 @@ static void run_as_ui(int argc, char *argv[] )
     
     /* Periodically write song data to disk, if it has changed */
     gtk_timeout_add( SONG_DIRTY_WRITE_TIMEOUT, 
-                     write_dirty_song_timeout, NULL);
+                     write_dirty_song_timeout, gjay);
     
-    send_ipc(ui_pipe_fd, ATTACH);
+    send_ipc(gjay->ipc->ui_fifo, ATTACH);
     if (skip_verify) {
         GList * llist;
-        for (llist = g_list_first(gjay->songs); llist; llist = g_list_next(llist)) {
+        for (llist = g_list_first(gjay->songs->songs); llist; llist = g_list_next(llist)) {
             SONG(llist)->in_tree = TRUE;
             SONG(llist)->access_ok = TRUE;
         }        
     } else {
-        explore_view_set_root(gjay->prefs->song_root_dir);
+        explore_view_set_root(gjay);
     }        
     
-    set_selected_file(NULL, NULL, FALSE);
+    set_selected_file(gjay, NULL, NULL, FALSE);
     /*gjay->player_is_running();*/
     gtk_main();
     
-    save_prefs();
-    if (gjay->songs_dirty)
-        write_data_file();
+    save_prefs(gjay->prefs);
+    if (gjay->songs->dirty)
+        write_data_file(gjay);
     
     if (gjay->prefs->detach || (gjay->prefs->daemon_action == PREF_DAEMON_DETACH)) {
-        send_ipc(ui_pipe_fd, DETACH);
-        send_ipc(ui_pipe_fd, UNLINK_DAEMON_FILE);
+        send_ipc(gjay->ipc->ui_fifo, DETACH);
+        send_ipc(gjay->ipc->ui_fifo, UNLINK_DAEMON_FILE);
     } else {
-        send_ipc(ui_pipe_fd, UNLINK_DAEMON_FILE);
-        send_ipc(ui_pipe_fd, QUIT_IF_ATTACHED);
+        send_ipc(gjay->ipc->ui_fifo, UNLINK_DAEMON_FILE);
+        send_ipc(gjay->ipc->ui_fifo, QUIT_IF_ATTACHED);
     }
     
-    close(daemon_pipe_fd);
-    close(ui_pipe_fd);
+	destroy_gjay_ipc(gjay->ipc);
 }
 #endif /* WITH_GUI */
 
 
 /* Playlist mode */
-static void run_as_playlist(guint playlist_minutes, gboolean m3u_format, gboolean player_autostart)
+static void run_as_playlist(GjayApp *gjay, guint playlist_minutes, gboolean m3u_format, gboolean player_autostart)
 {
     GList * list;
     gjay->prefs->use_selected_songs = FALSE;
     gjay->prefs->rating_cutoff = FALSE;
-    for (list = g_list_first(gjay->songs); list;  list = g_list_next(list)) {
+    for (list = g_list_first(gjay->songs->songs); list;  list = g_list_next(list)) {
         SONG(list)->in_tree = TRUE;
     }
     if (playlist_minutes == 0)
-      playlist_minutes = gjay->prefs->time;
-    list = generate_playlist(playlist_minutes);
+      playlist_minutes = gjay->prefs->playlist_time;
+    list = generate_playlist(gjay, playlist_minutes);
     if (player_autostart) {
-        play_songs(list);
+#ifdef WITH_GUI
+        play_songs(gjay->player, gjay->gui->main_window, list);
+#else
+        play_songs(gjay->player, NULL, list);
+#endif /* WITH_GUI */
     } else {
         write_playlist(list, stdout, m3u_format);
     }
@@ -552,30 +457,18 @@ static void run_as_playlist(guint playlist_minutes, gboolean m3u_format, gboolea
 }
 
 
-void gjay_message_log(const gchar *log_domain, 
-    GLogLevelFlags log_level,
-    const gchar *message,
-    gpointer user_data)
-{
-#ifdef WITH_GUI
-  GtkWidget *msg_window = GTK_WIDGET(user_data);
-  GtkWidget *msg_text_view;
-  GtkTextBuffer *buffer;
 
-  if (mode != UI) {
-#endif /* WITH_GUI */
-    printf("%s\n", message);
-    return;
-#ifdef WITH_GUI
+static gboolean
+create_gjay_app(GjayApp **app) {
+
+  if ((*app = g_malloc0(sizeof(GjayApp))) == NULL) {
+    g_warning( _("Unable to allocate memory for app.\n"));
+	return FALSE;
   }
-  msg_text_view = GTK_WIDGET(g_object_get_data(G_OBJECT(msg_window), "text_view"));
-
-  buffer = gtk_text_view_get_buffer (GTK_TEXT_VIEW (msg_text_view));
-  gtk_text_buffer_insert_at_cursor(buffer, 
-      message, 
-      strlen(message));
-  gtk_text_buffer_insert_at_cursor(buffer, "\n", 1);
-  gtk_widget_show_all (GTK_WIDGET(msg_window));
-#endif /* WITH_GUI */
+  (*app)->gui = NULL;
+  (*app)->ipc = NULL;
+  (*app)->verbosity = 0;
+  (*app)->prefs = load_prefs();
+  (*app)->player = NULL;
+  return TRUE;
 }
-

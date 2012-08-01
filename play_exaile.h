@@ -1,6 +1,6 @@
 /*
  * Gjay - Gtk+ DJ music playlist creator
- * Copyright (C) 2010 Craig Small 
+ * Copyright 2010-2012 Craig Small 
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -25,8 +25,8 @@
 #define EXAILE_DBUS_PATH "/DBusInterfaceObject"
 #define EXAILE_DBUS_INTERFACE "org.exaile.DBusInterface"
 
-void      exaile_init(void);
-song*     exaile_get_current_song(void);
+void      exaile_init(GjayPlayer *player);
+GjaySong*     exaile_get_current_song(void);
 gboolean  exaile_is_running(void);
 void      exaile_play_files(GList *list);
 gboolean  exaile_start(void);

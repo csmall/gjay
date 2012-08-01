@@ -27,60 +27,85 @@
 #endif /* WITH_MPDCLIENT */
 /*#include "play_exaile.h"*/
 #include "i18n.h"
+#ifdef WITH_DBUSGLIB
+#include "dbus.h"
+#endif /* WITH_DBUSGLIB */
 
-static void noplayer_init(void);
+extern char *music_player_names[];
+static void noplayer_init(GjayPlayer *player);
 
 void
-player_init(void)
+set_player_name(GjayPlayer *player, const gushort selected_player)
 {
+  if (player->name)
+	g_free(player->name);
+  if (selected_player < PLAYER_LAST)
+  	player->name = g_strdup(music_player_names[selected_player]);
+  else
+  	player->name = g_strdup(music_player_names[PLAYER_NONE]);
+}
+
+gboolean
+create_player(GjayPlayer **player, const gushort music_player) {
   gboolean player_configured = FALSE;
 
-  switch (gjay->prefs->music_player)
+  *player = g_malloc0(sizeof(GjayPlayer));
+  set_player_name((*player), music_player);
+
+#ifdef WITH_DBUSGLIB
+  (*player)->connection = gjay_dbus_connection();
+#endif /* WITH_DBUSGLIB */
+
+  switch (music_player)
   {
     case PLAYER_NONE:
       /* break out, configured later */
       break;
 #ifdef WITH_AUDCLIENT
     case PLAYER_AUDACIOUS:
-      player_configured = audacious_init();
+      player_configured = audacious_init(*player);
       break;
 #endif /* WITH_AUDCLIENT */
 #ifdef WITH_EXAILE
     case PLAYER_EXAILE:
-      exaile_init();
+      exaile_init(*player);
       break;
 #endif /* WITH_EXAILE */
 #ifdef WITH_MPDCLIENT
     case PLAYER_MPDCLIENT:
-      player_configured = mpdclient_init();
+      player_configured = mpdclient_init(*player);
       break;
 #endif /* WITH_MPDCLIENT */
     default:
       g_error("Unknown music player.\n");
   }
   if (player_configured == FALSE)
-    noplayer_init();
+    noplayer_init(*player);
 }
 
 void
-play_song(song *s)
+play_song(GjayPlayer *player, GjaySong *s)
 {
   GList *list;
 
-  if (gjay->player_play_files==NULL)
+  if (player->play_files==NULL)
     return;
 
   list = g_list_append(NULL, strdup_to_latin1(s->path));
-  gjay->player_play_files(list);
+  player->play_files(player, list);
   g_free((gchar*)list->data);
   g_list_free(list);
 }
 
-void play_songs (GList *slist) {
+#ifdef WITH_GUI
+void play_songs (GjayPlayer *player, GtkWidget *main_window, GList *slist) {
+#else
+void play_songs (GjayPlayer *player, gpointer dummy, GList *slist) {
+#endif /*WITH_GUI*/
   GList *list = NULL;
 
-  if (gjay->player_is_running==NULL || gjay->player_play_files == NULL
-      || gjay->player_start == NULL )
+  if (player->is_running==NULL || player->play_files == NULL
+      || player->start == NULL )
     return;
   
   for (; slist; slist = g_list_next(slist)) 
@@ -89,7 +114,7 @@ void play_songs (GList *slist) {
     return;
   
 
-  if (!gjay->player_is_running())
+  if (!player->is_running(player))
   {
 #ifdef WITH_GUI
     GtkWidget *dialog;
@@ -97,9 +122,9 @@ void play_songs (GList *slist) {
     gchar *msg;
 
     msg = g_strdup_printf(_("%s is not running, start %s?"),
-        gjay->prefs->music_player_name,
-        gjay->prefs->music_player_name);
-    dialog = gtk_message_dialog_new(GTK_WINDOW(gjay->main_window),
+        player->name,
+        player->name);
+    dialog = gtk_message_dialog_new(GTK_WINDOW(main_window),
         GTK_DIALOG_DESTROY_WITH_PARENT,
         GTK_MESSAGE_QUESTION,
         GTK_BUTTONS_YES_NO,
@@ -109,11 +134,11 @@ void play_songs (GList *slist) {
     g_free(msg);
     if (result == GTK_RESPONSE_YES)
     {
-      if (gjay->player_start() == FALSE)
+      if (player->start(player) == FALSE)
       {
         msg = g_strdup_printf(_("Unable to start %s"), 
-            gjay->prefs->music_player_name);
-        dialog = gtk_message_dialog_new(GTK_WINDOW(gjay->main_window),
+            player->name);
+        dialog = gtk_message_dialog_new(GTK_WINDOW(main_window),
             GTK_DIALOG_DESTROY_WITH_PARENT,
             GTK_MESSAGE_ERROR,
             GTK_BUTTONS_CLOSE,
@@ -127,21 +152,21 @@ void play_songs (GList *slist) {
       return;
 #else
 	/* with no GUI assume you want it started */
-	if (gjay->player_start() == FALSE)
+	if (player->start(player) == FALSE)
     {
-	  g_warning(_("Unable to start %s"), gjay->prefs->music_player_name);
+	  g_warning(_("Unable to start %s"), player->name);
 	  return;
 	}
 #endif /* WITH_GUI */
   }
-  gjay->player_play_files(list);
+  player->play_files(player, list);
 }
 
 static void 
-noplayer_init(void)
+noplayer_init(GjayPlayer *player)
 {
-  gjay->player_get_current_song = NULL;
-  gjay->player_is_running = NULL;
-  gjay->player_play_files = NULL;
-  gjay->player_start = NULL;
+  player->get_current_song = NULL;
+  player->is_running = NULL;
+  player->play_files = NULL;
+  player->start = NULL;
 }

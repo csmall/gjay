@@ -28,6 +28,7 @@
 #include <time.h>
 #include "gjay.h"
 #include "ui.h"
+#include "ui_private.h"
 #include "ipc.h"
 
 
@@ -43,6 +44,15 @@ typedef struct {
     gboolean   is_file;  /* If FALSE, a directory */
 } file_to_add;
 
+typedef struct {
+  char *dir;
+  int (*fn)( const char *file, 
+	  const struct stat *sb, int flag, gboolean a, gboolean b, gboolean c);
+  gboolean extension_filter;
+  gboolean flac_supported;
+  gboolean ogg_supported;
+  int depth;
+} ftw_data;
 
 GtkTreeStore * store = NULL;
 GtkWidget    * tree_view = NULL;
@@ -63,15 +73,14 @@ static gint         animate_frame = 0;
 static gchar      * animate_file = NULL;
 static gint         total_files_to_add, file_to_add_count;
 
-static int    gjay_ftw( const char *dir, 
-                       int (*fn)( const char *file, 
-                                 const struct stat *sb, 
-                                 int flag), 
-                       int depth);
+static int    gjay_ftw(ftw_data *data);
 
 static int    tree_walk       ( const char *file, 
                                 const struct stat *sb, 
-                                int flag );
+                                int flag,
+   						const gboolean extension_filter,
+						const gboolean flac_supported,
+						const gboolean ogg_supported	);
 static int    tree_add_idle   ( gpointer data );
 static void   select_row      ( GtkTreeSelection *selection, 
                                 gpointer data);
@@ -82,7 +91,7 @@ static int    get_iter_path   ( GtkTreeModel *tree_model,
 static int    file_iter_depth ( char * file );
 static int    file_depth      ( char * file );
 static gint   explore_animate ( gpointer data );
-static void   explore_mark_new_dirs ( char * dir );
+static void   explore_mark_new_dirs ( GjayApp *gjay, char * dir );
 static gint   iter_sort_strcmp ( GtkTreeModel *model,
                                  GtkTreeIter *a,
                                  GtkTreeIter *b,
@@ -91,7 +100,7 @@ static gint   compare_str     ( gconstpointer a,
                                 gconstpointer b );
 
 
-GtkWidget * make_explore_view ( void ) {
+GtkWidget * make_explore_view ( GjayApp *gjay ) {
     GtkWidget * swin;
     GtkCellRenderer *renderer;
     GtkTreeViewColumn *column;
@@ -113,7 +122,7 @@ GtkWidget * make_explore_view ( void ) {
     g_signal_connect (G_OBJECT (select), 
                       "changed",
                       G_CALLBACK (select_row),
-                      NULL);
+                      gjay);
     
     renderer= gtk_cell_renderer_pixbuf_new();
     column = gtk_tree_view_column_new_with_attributes ("Image", renderer,
@@ -146,18 +155,19 @@ NULL);
  * 
  * Note that root_dir is UTF8 encoded
  */
-void explore_view_set_root (const gchar* root_dir ) {
+void explore_view_set_root (GjayApp *gjay) {
     GList * llist=NULL;
     char buffer[BUFFER_SIZE];
+	ftw_data fdata;
 
-    if (!root_dir)
+    if (!gjay->prefs->song_root_dir)
         return;
 
     gtk_tree_store_clear(store);
     gjay->tree_depth = 0;
     
     /* Unmark current songs */
-    for (llist = g_list_first(gjay->songs); llist!=NULL; llist = g_list_next(llist)) {
+    for (llist = g_list_first(gjay->songs->songs); llist!=NULL; llist = g_list_next(llist)) {
         SONG(llist)->in_tree = FALSE;
     }
     
@@ -193,8 +203,8 @@ void explore_view_set_root (const gchar* root_dir ) {
     file_name_in_tree = NULL;
 
     /* Check to see if the directory exists */
-    if (access(root_dir, R_OK | X_OK)) {
-        snprintf(buffer, BUFFER_SIZE, "Cannot acces the base directory '%s'! Maybe it moved? You can pick another directory in the prefs", root_dir);
+    if (access(gjay->prefs->song_root_dir, R_OK | X_OK)) {
+        snprintf(buffer, BUFFER_SIZE, "Cannot acces the base directory '%s'! Maybe it moved? You can pick another directory in the prefs", gjay->prefs->song_root_dir);
         g_warning("%s", buffer);
         return;
     }    
@@ -213,9 +223,15 @@ void explore_view_set_root (const gchar* root_dir ) {
     /* Recurse through the directory tree, adding file names to 
      * a stack. In spare cycles, we'll process these files properly for
      * list display and requesting daemon processing */
-    gjay_ftw(root_dir, tree_walk, 10);
+	fdata.dir = gjay->prefs->song_root_dir;
+	fdata.fn = tree_walk;
+	fdata.extension_filter = gjay->prefs->extension_filter;
+	fdata.flac_supported = gjay->flac_supported;
+    fdata.ogg_supported = gjay->ogg_supported;
+	fdata.depth = 10;
 
-    gtk_idle_add(tree_add_idle, NULL);
+    gjay_ftw(&fdata);
+    gtk_idle_add(tree_add_idle, gjay);
 
     total_files_to_add = g_list_length(files_to_add_queue->head);
     file_to_add_count = 0;
@@ -230,16 +246,17 @@ void explore_view_set_root (const gchar* root_dir ) {
 
 
 gint explore_view_set_root_idle ( gpointer data ) {
+  GjayApp *gjay = (GjayApp*)data;
 
-  explore_view_set_root(gjay->prefs->song_root_dir);
-    if (gtk_notebook_get_current_page(GTK_NOTEBOOK(gjay->notebook)) !=
+  explore_view_set_root(gjay);
+    if (gtk_notebook_get_current_page(GTK_NOTEBOOK(gjay->gui->notebook)) !=
         TAB_EXPLORE) {
-        gtk_notebook_set_current_page(GTK_NOTEBOOK(gjay->notebook), TAB_EXPLORE);
+        gtk_notebook_set_current_page(GTK_NOTEBOOK(gjay->gui->notebook), TAB_EXPLORE);
     } else {
-        switch_page(GTK_NOTEBOOK(gjay->notebook),
+        switch_page(GTK_NOTEBOOK(gjay->gui->notebook),
                     NULL,
                     TAB_EXPLORE,
-                    NULL);
+                    gjay->gui);
     }
     return FALSE;
 }
@@ -248,19 +265,22 @@ gint explore_view_set_root_idle ( gpointer data ) {
 
 static int tree_walk ( const char *file, 
                       const struct stat *sb, 
-                      int flag ) {
+                      int flag,
+   						const gboolean extension_filter,
+						const gboolean flac_supported,
+						const gboolean ogg_supported	) {
     file_to_add * fta;
     int len;
 
     if ((flag != FTW_F) && (flag != FTW_D))
         return 0;
     
-    if ((flag == FTW_F) && (gjay->prefs->extension_filter)) {
+    if ((flag == FTW_F) && (extension_filter)) {
         len = strlen(file);
         if (!((strncasecmp(".mp3", file + len - 4, 4) == 0) ||
-              (strncasecmp(".ogg", file + len - 4, 4) == 0) ||
               (strncasecmp(".wav", file + len - 4, 4) == 0) ||
-              (gjay->flac_supported && strncasecmp(".flac", file + len - 5, 5) ==0)
+              (ogg_supported && strncasecmp(".ogg", file + len - 4, 4) == 0) ||
+              (flac_supported && strncasecmp(".flac", file + len - 5, 5) ==0)
               )) {
             return 0;
         }
@@ -281,9 +301,10 @@ static int tree_add_idle (gpointer data) {
     GtkTreeIter * parent, * current;
     int pm_type;
     gchar * display_name,  * str;
-    song * s, * original;
+    GjaySong * s, * original;
     gboolean is_song;
     song_file_type type;
+	GjayApp *gjay=(GjayApp*)data;
     
     if (g_queue_is_empty(files_to_add_queue)) {
         /* We are done with analysis! */
@@ -313,13 +334,13 @@ static int tree_add_idle (gpointer data) {
         /* Send any new names to the daemon. */
         if (f) {
             fclose(f);
-            send_ipc_text(ui_pipe_fd, QUEUE_FILE, buffer);
+            send_ipc_text(gjay->ipc->ui_fifo, QUEUE_FILE, buffer);
         } 
 
         /* If an entire directory contains any songs which have not 
          * been ranked/colored, set its icon to show that its contents
          * are new */
-        explore_mark_new_dirs(gjay->prefs->song_root_dir);
+        explore_mark_new_dirs(gjay, gjay->prefs->song_root_dir);
 
         set_add_files_progress_visible(FALSE);
         set_analysis_progress_visible(TRUE);
@@ -344,7 +365,7 @@ static int tree_add_idle (gpointer data) {
         }
         parent = iter_stack->tail->data;   
 
-        s = (song *) g_hash_table_lookup(gjay->song_name_hash, fta->fname);
+        s = (GjaySong *) g_hash_table_lookup(gjay->songs->name_hash, fta->fname);
         
         if (s) {
             set_add_files_progress(NULL, (file_to_add_count * 100) / 
@@ -356,22 +377,24 @@ static int tree_add_idle (gpointer data) {
                 pm_type = PM_FILE_PENDING;
                 /* Analyze this file if it's the first song of a string of
                  * duplicates */
-                if (s == g_hash_table_lookup(gjay->song_inode_dev_hash, 
+                if (s == g_hash_table_lookup(gjay->songs->inode_dev_hash, 
                                              &s->inode_dev_hash)) {
                     files_to_analyze = g_list_append(
                         files_to_analyze, strdup_to_latin1(s->path));
                 }
             }
-        } else if (g_hash_table_lookup(gjay->not_song_hash, fta->fname)) {
+        } else if (g_hash_table_lookup(gjay->songs->not_hash, fta->fname)) {
             pm_type = PM_FILE_NOSONG;
         }  else {
             set_add_files_progress(fta->fname, 
                                    (file_to_add_count * 100) / 
                                    total_files_to_add);
-            gjay->songs_dirty = TRUE;
+            gjay->songs->dirty = TRUE;
 
             s = create_song();
-            file_info(fta->fname,
+            file_info(gjay->verbosity,
+				      gjay->ogg_supported, gjay->flac_supported,
+				      fta->fname,
                       &is_song,
                       &s->inode,                      
                       &s->dev,
@@ -384,27 +407,27 @@ static int tree_add_idle (gpointer data) {
             if (is_song) {
                 song_set_path(s, fta->fname);
                 /* Check for symlinkery */
-                original = g_hash_table_lookup(gjay->song_inode_dev_hash, 
+                original = g_hash_table_lookup(gjay->songs->inode_dev_hash, 
                                                &s->inode_dev_hash);
                 if (original) { 
                     song_set_repeats(s, original);
                     pm_type = PM_FILE_SONG;
                 } else { 
-                    g_hash_table_insert(gjay->song_inode_dev_hash, 
+                    g_hash_table_insert(gjay->songs->inode_dev_hash, 
                                         &s->inode_dev_hash, s);
                     /* Add to analysis queue */
                     files_to_analyze = g_list_append(files_to_analyze,
                                                      strdup_to_latin1(fta->fname));
                     pm_type = PM_FILE_PENDING;
                 }
-                gjay->songs = g_list_append(gjay->songs, s);
-                g_hash_table_insert(gjay->song_name_hash, s->path, s);
+                gjay->songs->songs = g_list_append(gjay->songs->songs, s);
+                g_hash_table_insert(gjay->songs->name_hash, s->path, s);
                 s->in_tree = TRUE;
             } else {
                 delete_song(s);
                 str = g_strdup(fta->fname);
-                gjay->not_songs = g_list_append(gjay->not_songs, str);
-                g_hash_table_insert(gjay->not_song_hash, str, (gpointer) TRUE);
+                gjay->songs->not_songs = g_list_append(gjay->songs->not_songs, str);
+                g_hash_table_insert(gjay->songs->not_hash, str, (gpointer) TRUE);
                 pm_type = PM_FILE_NOSONG;
             }
         }
@@ -413,7 +436,7 @@ static int tree_add_idle (gpointer data) {
         gtk_tree_store_append (store, current, parent);
         gtk_tree_store_set (store, current,
                             NAME_COLUMN, display_name,
-                            IMAGE_COLUMN, gjay->pixbufs[pm_type],
+                            IMAGE_COLUMN, gjay->gui->pixbufs[pm_type],
                             -1);
         
         str = strdup(fta->fname);
@@ -439,7 +462,7 @@ static int tree_add_idle (gpointer data) {
         gtk_tree_store_append (store, current, parent);
         gtk_tree_store_set (store, current,
                             NAME_COLUMN, display_name,
-                            IMAGE_COLUMN, gjay->pixbufs[PM_DIR_CLOSED],
+                            IMAGE_COLUMN, gjay->gui->pixbufs[PM_DIR_CLOSED],
                             -1);
         str = strdup(fta->fname);
         file_name_in_tree = g_list_append(file_name_in_tree, str);
@@ -492,6 +515,7 @@ static void select_row (GtkTreeSelection *selection, gpointer data) {
     GtkTreeModel *model;
     gchar * name;
     gboolean has_child;
+	GjayApp *gjay=(GjayApp*)data;
     
     if (gtk_tree_selection_get_selected (selection, &model, &iter)) {
         /* Very special and quite annoying case. If we have changed root
@@ -507,10 +531,10 @@ static void select_row (GtkTreeSelection *selection, gpointer data) {
         gtk_tree_model_get (model, &iter, NAME_COLUMN, &name, -1);
         has_child = gtk_tree_model_iter_has_child(model, &iter);
         if (has_child) {
-            set_selected_file(buffer, name, TRUE);
+            set_selected_file(gjay, buffer, name, TRUE);
         } else {
 //if (!has_child && g_hash_table_lookup(song_name_hash, buffer)) {
-            set_selected_file(buffer, name, FALSE);
+            set_selected_file(gjay, buffer, name, FALSE);
         }
         g_free(name);
     }
@@ -522,7 +546,7 @@ static void select_row (GtkTreeSelection *selection, gpointer data) {
  * Redraw the icon next to the corresponding file in the tree. Return TRUE
  * if file was found in tree, FALSE if not.
  */
-gboolean explore_update_path_pm ( char * path, int type ) {
+gboolean explore_update_path_pm ( GdkPixbuf **pixbufs, char * path, int type ) {
     GtkTreeIter  * iter;
 
     if (!name_iter_hash)
@@ -533,7 +557,7 @@ gboolean explore_update_path_pm ( char * path, int type ) {
         gtk_tree_store_set (store, 
                             iter,
                             IMAGE_COLUMN,
-                            gjay->pixbufs[type], 
+                            pixbufs[type], 
                             -1);
         return TRUE;
     } 
@@ -545,7 +569,7 @@ gboolean explore_update_path_pm ( char * path, int type ) {
 /**
  * Get a glist of files in a directory
  */
-GList * explore_files_in_dir ( char * dir, gboolean recursive) {
+GList * explore_files_in_dir ( const gchar * dir, const gboolean recursive) {
     GtkTreeIter *iter, child;
     char buffer[BUFFER_SIZE];
     gboolean has_child;
@@ -582,7 +606,7 @@ GList * explore_files_in_dir ( char * dir, gboolean recursive) {
 /**
  * Get a glist of directories in a directory
  */
-GList * explore_dirs_in_dir ( char * dir) {
+GList * explore_dirs_in_dir ( const gchar * dir) {
     GtkTreeIter *iter, child;
     char buffer[BUFFER_SIZE];
     GList * list = NULL;
@@ -645,12 +669,12 @@ static int file_depth ( char * file ) {
 
 
 
-void explore_animate_pending ( char * file ) {
+void explore_animate_pending (GjayGUI *gui, char * file) {
     explore_animate_stop();
     animate_file = g_strdup(file);
     animate_timeout = gtk_timeout_add( 250,
                                        explore_animate,
-                                       NULL);
+                                       gui);
 }
 
 void explore_animate_stop ( void ) {
@@ -664,7 +688,9 @@ void explore_animate_stop ( void ) {
 
 
 static gint explore_animate ( gpointer data ) {
-    explore_update_path_pm( animate_file,
+  GjayGUI *gui=(GjayGUI*)data;
+    explore_update_path_pm( gui->pixbufs,
+							animate_file,
                             PM_FILE_PENDING + animate_frame);
     animate_frame = (animate_frame + 1) % 4;
     return TRUE;
@@ -690,15 +716,15 @@ gint iter_sort_strcmp  (GtkTreeModel *model,
  * Return TRUE if the directory contains at least one song which
  * has not been rated or color-categorized
  */
-gboolean explore_dir_has_new_songs ( char * dir ) {
+gboolean explore_dir_has_new_songs ( GHashTable *name_hash, const gchar * dir, const guint verbosity ) {
     gboolean result = FALSE;
     GList * list;
-    song * s;
+    GjaySong * s;
     
     list = explore_files_in_dir(dir, TRUE);
     for (; list; list = g_list_next(list)) {
         if (result == FALSE) {
-            s = g_hash_table_lookup(gjay->song_name_hash, list->data);
+            s = g_hash_table_lookup(name_hash, list->data);
             if (s) {
                 if (s->no_rating && s->no_color) {
                     result = TRUE;
@@ -719,7 +745,7 @@ gboolean explore_dir_has_new_songs ( char * dir ) {
  * Mark all directories containing at least one file which requires
  * rating/color classification
  */ 
-static void explore_mark_new_dirs ( char * dir ) {
+static void explore_mark_new_dirs ( GjayApp *gjay, char * dir ) {
     GList * list;
     gchar * str;
     char buffer[BUFFER_SIZE];
@@ -731,23 +757,24 @@ static void explore_mark_new_dirs ( char * dir ) {
         buffer[len - 1] = '\0';
     
     if (strcmp(dir, gjay->prefs->song_root_dir) != 0) {
-        if (explore_dir_has_new_songs(dir)) {
+        if (explore_dir_has_new_songs(gjay->songs->name_hash, dir,
+			  gjay->verbosity)) {
             str = g_strdup(dir); 
             gjay->new_song_dirs = g_list_append(gjay->new_song_dirs, str);
             g_hash_table_insert(gjay->new_song_dirs_hash, str, str);
-            explore_update_path_pm(dir, PM_DIR_CLOSED_NEW);
+            explore_update_path_pm(gjay->gui->pixbufs, dir, PM_DIR_CLOSED_NEW);
         }
     }
     
     for (list = explore_dirs_in_dir(buffer); list; list = g_list_next(list)) {
-        explore_mark_new_dirs(list->data);
+        explore_mark_new_dirs(gjay, list->data);
         g_free(list->data);
     }
     g_list_free(list);
 }
 
 
-void explore_select_song ( song * s) {
+void explore_select_song ( GjaySong * s) {
     GtkTreeIter  * iter;
     GtkTreePath * path;
     if (s == NULL) 
@@ -772,11 +799,7 @@ static gint compare_str ( gconstpointer a, gconstpointer b) {
 }
 
 
-static int gjay_ftw(const char *dir, 
-                    int (*fn)(const char *file, 
-                              const struct stat *sb, 
-                              int flag), 
-                    int depth) {
+static int gjay_ftw(ftw_data *fdata) {
     DIR * d;
     int retval = 0, flag, len, d_name_len;
     struct dirent * ent;
@@ -784,21 +807,22 @@ static int gjay_ftw(const char *dir,
     char buffer[BUFFER_SIZE];
 
     /* Sanity check */
-    if (depth == 0)
+    if (fdata->depth == 0)
         return 0;
     
     /* Call fn on this directory */
-    len = strlen(dir);
-    strncpy(buffer, dir, BUFFER_SIZE);
+    len = strlen(fdata->dir);
+    strncpy(buffer, fdata->dir, BUFFER_SIZE);
     if (len && (buffer[len - 1] == '/'))
         buffer[len - 1] = '\0';
     if (stat(buffer, &buf) == 0) {
-        fn(buffer, &buf, FTW_D);
+        fdata->fn(buffer, &buf, FTW_D, fdata->extension_filter,
+			fdata->flac_supported, fdata->ogg_supported	);
     } else {
         return -1;
     }
     
-    if (! (d = opendir(dir))) {
+    if (! (d = opendir(fdata->dir))) {
         return -1;
     }
 
@@ -810,8 +834,8 @@ static int gjay_ftw(const char *dir,
         if ((d_name_len == 2) && (strncmp(ent->d_name, "..", 2) == 0))
             continue;
         snprintf(buffer, BUFFER_SIZE, "%s%s%s", 
-                 dir, 
-                 (len && (dir[len - 1] == '/')) ? "" : "/",
+                 fdata->dir, 
+                 (len && (fdata->dir[len - 1] == '/')) ? "" : "/",
                  ent->d_name);
         if (stat(buffer, &buf) == 0) {
             if (S_ISDIR(buf.st_mode))
@@ -821,9 +845,13 @@ static int gjay_ftw(const char *dir,
             else
                 flag = FTW_NS;
             if (flag & FTW_D) {
-                retval = gjay_ftw(buffer, fn, depth - 1);
+			  (fdata->depth)++;
+			  fdata->dir = buffer;
+                retval = gjay_ftw(fdata);
             } else {
-                retval = fn(buffer, &buf, flag);
+                retval = fdata->fn(buffer, &buf, flag,
+					fdata->extension_filter,
+					fdata->flac_supported, fdata->ogg_supported);
             }
         }
     }

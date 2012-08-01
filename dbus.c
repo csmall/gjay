@@ -45,13 +45,13 @@ gjay_dbus_connection(void)
 }
 
 gboolean
-gjay_dbus_is_running(const char *appname)
+gjay_dbus_is_running(const char *appname, DBusGConnection *connection)
 {
   GError *error=0;
   DBusGProxy *dbus;
   gboolean running = FALSE;
 
-  dbus = dbus_g_proxy_new_for_name(gjay->connection,
+  dbus = dbus_g_proxy_new_for_name(connection,
       DBUS_SERVICE_DBUS, DBUS_PATH_DBUS, DBUS_INTERFACE_DBUS);
   if (!dbus)
     return FALSE;
@@ -62,9 +62,6 @@ gjay_dbus_is_running(const char *appname)
         G_TYPE_INVALID)) {
     return FALSE;
   }
-  if (verbosity > 2)
-    printf(_("dbus check found '%s' running: %s\n"),
-       appname,(running ? "yes" : "no"));
   return running;
 }
 

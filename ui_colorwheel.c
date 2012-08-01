@@ -1,7 +1,7 @@
 /*
  * Gjay - Gtk+ DJ music playlist creator
- * Copyright (C) 2002,2003 Chuck Groom
- * Copyright (C) 2010 Craig Small 
+ * Copyright 2002,2003 Chuck Groom
+ * Copyright 2010-2012 Craig Small 
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -25,6 +25,13 @@
 #include <strings.h>
 #include "gjay.h"
 #include "ui.h"
+#include "ui_private.h"
+
+#define COLORWHEEL_SELECT   3
+#define COLORWHEEL_SPACING  5
+#define COLORWHEEL_V_SWATCH_WIDTH 0.2
+#define COLORWHEEL_V_HEIGHT       0.7
+#define COLORWHEEL_SWATCH_HEIGHT  0.2
 
 static GdkPixbuf * create_colorwheel_hs_pixbuf ( gint diameter );
 static GdkPixbuf * create_colorwheel_v_pixbuf  ( gint width,
@@ -49,7 +56,8 @@ static void     click_in_colorwheel (GtkWidget * widget,
                                      gdouble x, 
                                      gdouble y);
 static void     draw_selected_color ( GtkWidget * widget, 
-                                       HSV hsv );
+                                       HSV hsv,
+   										GdkPixbuf **pixbufs	);
 static void     draw_swatch_color ( GtkWidget * widget, 
                                     HSV hsv );
 
@@ -61,7 +69,8 @@ static void     draw_swatch_color ( GtkWidget * widget,
 #define DATA_USER_DATA  "cw_user_data"
 
 
-GtkWidget * create_colorwheel (gint diameter, 
+GtkWidget * create_colorwheel (GjayApp *gjay,
+								const gint diameter, 
                                GList ** list, 
                                GFunc change_func,
                                gpointer user_data) {
@@ -97,7 +106,7 @@ GtkWidget * create_colorwheel (gint diameter,
     g_object_set_data(G_OBJECT (widget), DATA_USER_DATA, user_data);
 
     g_signal_connect (G_OBJECT (widget), "expose_event",  
-                      G_CALLBACK (drawing_expose_event_callback), NULL);
+                      G_CALLBACK (drawing_expose_event_callback), gjay);
     g_signal_connect (G_OBJECT (widget), "button-press-event",  
                       G_CALLBACK (drawing_button_event_callback), NULL);
     g_signal_connect (G_OBJECT (widget), "motion-notify-event",  
@@ -249,10 +258,11 @@ static gboolean drawing_expose_event_callback (GtkWidget *widget,
                                                gpointer data) {
     GList * ll, ** list;
     HSV * hsv, prev_hsv;
-    song * s;
+    GjaySong * s;
     gint xcenter, ycenter, width, height, num_colors;
     GdkPixbuf * colorwheel, * brightness;
     gboolean set;
+	GjayApp *gjay=(GjayApp*)data;
 
     set = FALSE;
     num_colors = 0;
@@ -308,14 +318,14 @@ static gboolean drawing_expose_event_callback (GtkWidget *widget,
 
     if (list) {
         for (ll = g_list_first(gjay->selected_songs); ll; ll = g_list_next(ll)) {
-            s = (song *) ll->data;
+            s = (GjaySong *) ll->data;
             if (!s->no_color) {
                 set = TRUE;
                 *hsv = s->color;
                 if (!((hsv->H == prev_hsv.H) &&
                       (hsv->S == prev_hsv.S) &&
                       (hsv->V == prev_hsv.V))) {
-                    draw_selected_color(widget, s->color);
+                    draw_selected_color(widget, s->color, gjay->gui->pixbufs);
                     num_colors++;   
                     prev_hsv = *hsv;
              }
@@ -326,10 +336,10 @@ static gboolean drawing_expose_event_callback (GtkWidget *widget,
                 draw_swatch_color(widget, *hsv);
             }
         } else {
-            width = gdk_pixbuf_get_width(gjay->pixbufs[PM_NOT_SET]);
-            height = gdk_pixbuf_get_height(gjay->pixbufs[PM_NOT_SET]);
+            width = gdk_pixbuf_get_width(gjay->gui->pixbufs[PM_NOT_SET]);
+            height = gdk_pixbuf_get_height(gjay->gui->pixbufs[PM_NOT_SET]);
             gdk_pixbuf_render_to_drawable_alpha(
-                gjay->pixbufs[PM_NOT_SET],
+                gjay->gui->pixbufs[PM_NOT_SET],
                 widget->window,
                 0, 0,
                 xcenter - width/2, ycenter - height/2,
@@ -343,7 +353,7 @@ static gboolean drawing_expose_event_callback (GtkWidget *widget,
             hsv->V = 1;
         }
     } else {
-        draw_selected_color(widget, *hsv);
+        draw_selected_color(widget, *hsv, gjay->gui->pixbufs);
         draw_swatch_color(widget, *hsv);
     }
     return TRUE;
@@ -351,7 +361,7 @@ static gboolean drawing_expose_event_callback (GtkWidget *widget,
 
 
 void draw_selected_color (GtkWidget * widget, 
-                          HSV hsv) {
+                          HSV hsv, GdkPixbuf **pixbufs) {
     GdkGC * gc;
     float angle, radius;
     GdkPixbuf * colorwheel, * brightness;
@@ -380,12 +390,12 @@ void draw_selected_color (GtkWidget * widget,
     x = radius * cos (angle);
     y = radius * sin (angle);
 
-    width = gdk_pixbuf_get_width(gjay->pixbufs[PM_COLOR_SEL]);
-    height = gdk_pixbuf_get_height(gjay->pixbufs[PM_COLOR_SEL]);
+    width = gdk_pixbuf_get_width(pixbufs[PM_COLOR_SEL]);
+    height = gdk_pixbuf_get_height(pixbufs[PM_COLOR_SEL]);
     xcenter = widget->allocation.height / 2.0; // Use height on purpose
     ycenter = widget->allocation.height / 2.0;    
     gdk_pixbuf_render_to_drawable_alpha(
-        gjay->pixbufs[PM_COLOR_SEL],
+        pixbufs[PM_COLOR_SEL],
         widget->window,
         0, 0,
         (xcenter + x) - width/2, (ycenter + y) - height/2, 
@@ -466,14 +476,12 @@ static void click_in_colorwheel (GtkWidget * widget,
     gdouble radius, angle;
     gint xcenter, ycenter, diameter;
     GdkPixbuf * colorwheel, * brightness;
-    GList ** list;
     HSV * hsv;
     GFunc change_func;
     gpointer user_data;
 
     colorwheel = g_object_get_data(G_OBJECT (widget), DATA_HS_PIXBUF);
     brightness = g_object_get_data(G_OBJECT (widget), DATA_V_PIXBUF);
-    list = g_object_get_data(G_OBJECT (widget), DATA_LIST);
     hsv = g_object_get_data(G_OBJECT (widget), DATA_COLOR);
     assert (hsv);
 

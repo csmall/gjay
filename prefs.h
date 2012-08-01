@@ -53,13 +53,12 @@ typedef struct {
     gboolean use_selected_songs;
     gboolean use_selected_dir;
     gboolean start_selected;
-    gboolean start_color;
+    gboolean use_color;
     gboolean wander;
     gboolean rating_cutoff;
     int max_working_set;
     
-    /* Playlist len, in minutes */
-    guint time;
+    guint playlist_time; /* Playlist len, in minutes */
     
     float variance; 
     float hue;
@@ -70,20 +69,19 @@ typedef struct {
     float rating; 
     float path_weight;
 
-    HSV color;
+    HSV start_color;
 
     /* Store how a color was loaded */
     gboolean use_hsv;
 
     /* which player will we use */
     gushort music_player;
-    gchar *music_player_name;
 } GjayPrefs;
 
 
 
 
 GjayPrefs *load_prefs ( void );
-void save_prefs ( void );
+void save_prefs ( GjayPrefs *prefs );
 
 #endif /* __PREFS_H__ */

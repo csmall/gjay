@@ -1,7 +1,7 @@
 /*
  * Gjay - Gtk+ DJ music playlist creator
- * Copyright (C) 2002,2003 Chuck Groom
- * Copyright (C) 2010 Craig Small 
+ * Copyright 2002,2003 Chuck Groom
+ * Copyright 2010-2012 Craig Small 
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -27,7 +27,9 @@
 #include <string.h>
 #include "gjay.h"
 #include "ui.h"
+#include "ui_private.h"
 #include "rgbhsv.h"
+#include "play_common.h"
 
 enum {
    ARTIST_COLUMN,
@@ -42,7 +44,7 @@ static GtkWidget    * icon, * play, * select_all_recursive;
 static GtkWidget    * label_name, * label_type;
 static GtkWidget    * tree, * vbox_lower, * cwheel;
 static GtkWidget    * rating, * label_rating, * rating_vbox;
-static void     set_selected_files (GList * files);
+static void     set_selected_files (GjayApp *gjay, GList * files);
 static gboolean play_selected (GtkWidget *widget,
                                GdkEventButton *event,
                                gpointer user_data);
@@ -51,15 +53,19 @@ static gboolean select_all_selected (GtkWidget *widget,
                                      gpointer user_data);
 static void     rating_changed ( GtkRange *range,
                                  gpointer user_data );
-static void     populate_selected_list       ( void );
-static void     redraw_rating                ( void );
-static void     update_song_has_rating_color ( song * s );
-static void     update_dir_has_rating_color  ( gchar * dir );
+static void     populate_selected_list       ( GList *selected_songs );
+static void     redraw_rating                ( GList *selected_songs );
+static void     update_song_has_rating_color ( GjayApp *gjay,
+											GjaySong * s );
+static void     update_dir_has_rating_color  ( GjayApp *gjay,
+											const gchar * dir );
 static void     update_selected_songs_color  ( gpointer data, 
                                                gpointer user_data );
-static void     get_selected_color           ( HSV * color, 
+static void     get_selected_color           ( GList *selected_songs,
+											   HSV * color, 
                                                gboolean * no_color,
                                                gboolean * multiple_colors );
+static gchar * parent_dir (const gchar *root_dir, const gchar * path );
 
 /* How many chars should we truncate displayed file names to? */
 #define TRUNC_NAME 18
@@ -70,17 +76,18 @@ static void     get_selected_color           ( HSV * color,
 
 
 GtkWidget *
-make_selection_view ( void ) {
+make_selection_view ( GjayApp *gjay ) {
     GtkWidget * vbox1, * vbox2, * hbox1, * hbox2;
     GtkWidget * alignment, * event_box, * swin;
     GtkCellRenderer * text_renderer, * pixbuf_renderer;
     GtkTreeViewColumn *column;
+	struct play_songs_data *psd;
  
     vbox1 = gtk_vbox_new (FALSE, 2);  
     
     hbox1 = gtk_hbox_new (FALSE, 2);
     gtk_box_pack_start(GTK_BOX(vbox1), hbox1, FALSE, FALSE, 2);
-    icon = gtk_image_new_from_pixbuf (gjay->pixbufs[PM_ICON_CLOSED]);
+    icon = gtk_image_new_from_pixbuf (gjay->gui->pixbufs[PM_ICON_CLOSED]);
     gtk_box_pack_start(GTK_BOX(hbox1), icon, FALSE, FALSE, 2);
 
     vbox2 = gtk_vbox_new(FALSE, 2);
@@ -105,22 +112,27 @@ make_selection_view ( void ) {
     event_box = gtk_event_box_new ();
     gtk_box_pack_start(GTK_BOX(hbox2), event_box, FALSE, FALSE, 2);
 
-    play = gtk_image_new_from_pixbuf(gjay->pixbufs[PM_BUTTON_PLAY]);
+    play = gtk_image_new_from_pixbuf(gjay->gui->pixbufs[PM_BUTTON_PLAY]);
     gtk_widget_set_tooltip_text(event_box,
         "Play the selected songs in the music player");
     gtk_container_add (GTK_CONTAINER(event_box), play);
     gtk_widget_set_events (event_box, GDK_BUTTON_PRESS_MASK);
+
+	psd = g_malloc0(sizeof(struct play_songs_data));
+	psd->player = gjay->player;
+	psd->main_window = gjay->gui->main_window;
+	psd->playlist = gjay->selected_songs;
     gtk_signal_connect (GTK_OBJECT(event_box), 
                         "button_press_event",
 			GTK_SIGNAL_FUNC (play_selected), 
-                        NULL);
+                        psd);
 
     event_box = gtk_event_box_new ();
     gtk_box_pack_start(GTK_BOX(hbox2), event_box, FALSE, FALSE, 2);
     
     event_box = gtk_event_box_new ();
     gtk_box_pack_start(GTK_BOX(hbox2), event_box, FALSE, FALSE, 2);
-    select_all_recursive = gtk_image_new_from_pixbuf(gjay->pixbufs[PM_BUTTON_ALL]);
+    select_all_recursive = gtk_image_new_from_pixbuf(gjay->gui->pixbufs[PM_BUTTON_ALL]);
     gtk_widget_set_tooltip_text (event_box,
         "Select all songs in this directory");
     gtk_container_add (GTK_CONTAINER(event_box), select_all_recursive);
@@ -128,7 +140,7 @@ make_selection_view ( void ) {
     gtk_signal_connect (GTK_OBJECT(event_box), 
                         "button_press_event",
 			GTK_SIGNAL_FUNC (select_all_selected), 
-                        NULL);
+                        gjay);
     
     vbox_lower = gtk_vbox_new (FALSE, 2);  
     gtk_box_pack_start(GTK_BOX(vbox1), vbox_lower, TRUE, TRUE, 2);
@@ -171,10 +183,10 @@ make_selection_view ( void ) {
     hbox2 = gtk_hbox_new (FALSE, 2);
     gtk_box_pack_start(GTK_BOX(vbox_lower), hbox2, FALSE, FALSE, 2);
 
-    cwheel = create_colorwheel(COLORWHEEL_DIAMETER,
+    cwheel = create_colorwheel(gjay, COLORWHEEL_DIAMETER,
                                &(gjay->selected_songs),
                                update_selected_songs_color,
-                               NULL);
+                               gjay);
 
     gtk_box_pack_start(GTK_BOX(hbox2), cwheel, FALSE, FALSE, 2);
 
@@ -192,7 +204,7 @@ make_selection_view ( void ) {
     gtk_signal_connect (GTK_OBJECT(rating),
                         "value-changed",
                         GTK_SIGNAL_FUNC (rating_changed),
-                        NULL);
+                        gjay);
    
     gtk_range_set_inverted(GTK_RANGE(rating), TRUE);
     alignment = gtk_alignment_new (0.5, 0, 
@@ -208,7 +220,7 @@ make_selection_view ( void ) {
  * If a directory is selected when we enter playlist view, hide
  * directory selection buttons and show them again when we leave that
  * mode */
-void set_selected_in_playlist_view ( gboolean in_view ) {
+void set_selected_in_playlist_view ( GjayApp *gjay, const gboolean in_view ) {
     gchar * fname;
     
     if (gjay->selected_files == NULL)
@@ -216,8 +228,8 @@ void set_selected_in_playlist_view ( gboolean in_view ) {
     if (g_list_length(gjay->selected_files) > 1)
         return;
     fname = (gchar *) gjay->selected_files->data;
-    if ( g_hash_table_lookup(gjay->song_name_hash, fname) ||
-         g_hash_table_lookup(gjay->not_song_hash, fname))
+    if ( g_hash_table_lookup(gjay->songs->name_hash, fname) ||
+         g_hash_table_lookup(gjay->songs->not_hash, fname))
         return;
     if (in_view) {
         gtk_widget_hide(select_all_recursive);
@@ -228,14 +240,15 @@ void set_selected_in_playlist_view ( gboolean in_view ) {
 
 
 void
-set_selected_file ( char * file, 
+set_selected_file ( GjayApp *gjay,
+					const gchar * file, 
                     char * short_name, 
-                    gboolean is_dir )
+                    const gboolean is_dir )
 {
     char short_name_trunc[BUFFER_SIZE];
     GList * llist;
     int pm_type;
-    song * s;
+    GjaySong * s;
 
     for (llist = g_list_first(gjay->selected_files); 
          llist;
@@ -266,12 +279,12 @@ set_selected_file ( char * file,
         gtk_label_set_text(GTK_LABEL(label_name), short_name_trunc);
         if (g_hash_table_lookup(gjay->new_song_dirs_hash, file)) {
             gtk_image_set_from_pixbuf (GTK_IMAGE(icon), 
-                                       gjay->pixbufs[PM_ICON_CLOSED_NEW]);
+                                       gjay->gui->pixbufs[PM_ICON_CLOSED_NEW]);
             gtk_label_set_text(GTK_LABEL(label_type), 
                                "Has uncategorized songs");
         } else {
             gtk_image_set_from_pixbuf (GTK_IMAGE(icon), 
-                                       gjay->pixbufs[PM_ICON_CLOSED]);
+                                       gjay->gui->pixbufs[PM_ICON_CLOSED]);
             gtk_label_set_text(GTK_LABEL(label_type), "");
         }
         gtk_widget_hide(play);
@@ -282,7 +295,7 @@ set_selected_file ( char * file,
     } else {
         gtk_widget_hide(select_all_recursive);
     
-        s = g_hash_table_lookup(gjay->song_name_hash, file);
+        s = g_hash_table_lookup(gjay->songs->name_hash, file);
         
         if (s) {
             gtk_label_set_text(GTK_LABEL(label_name), "");
@@ -302,7 +315,7 @@ set_selected_file ( char * file,
             gtk_widget_hide(play);
             gtk_widget_hide(vbox_lower);
 
-            if (g_hash_table_lookup(gjay->not_song_hash, file)) {
+            if (g_hash_table_lookup(gjay->songs->not_hash, file)) {
                 pm_type = PM_ICON_NOSONG;
                 gtk_label_set_text(GTK_LABEL(label_type), "Not a song");
             } else {
@@ -312,19 +325,19 @@ set_selected_file ( char * file,
         }
         
         gtk_image_set_from_pixbuf (GTK_IMAGE(icon), 
-                                   gjay->pixbufs[pm_type]);
+                                   gjay->gui->pixbufs[pm_type]);
         gjay->selected_files = g_list_append(gjay->selected_files, g_strdup(file));
     }
-    update_selection_area();
+    update_selection_area(gjay->selected_songs);
 }
 
 
 /**
  * Files is a list of UTF8-encoded paths
  */
-static void set_selected_files (GList * files) {
+static void set_selected_files (GjayApp *gjay, GList * files) {
     GList * llist;
-    song * s;
+    GjaySong * s;
 
     if (!files)
         return; 
@@ -340,10 +353,10 @@ static void set_selected_files (GList * files) {
     gjay->selected_files = NULL;
 
     for (llist = g_list_first(files); llist; llist = g_list_next(llist)) {
-        if (g_hash_table_lookup(gjay->not_song_hash, llist->data)) {
+        if (g_hash_table_lookup(gjay->songs->not_hash, llist->data)) {
             g_free(llist->data);
         } else {
-            s = g_hash_table_lookup(gjay->song_name_hash, llist->data);
+            s = g_hash_table_lookup(gjay->songs->name_hash, llist->data);
             if (!s) {
                 /* This may happen a directory contains an empty directory, 
                    so the file list includes a directory path and not
@@ -351,7 +364,7 @@ static void set_selected_files (GList * files) {
                 g_free(llist->data);
             } else {
                 if (s->freq_pixbuf) {
-                    gdk_pixbuf_unref(s->freq_pixbuf);
+                    g_object_unref(s->freq_pixbuf);
                     s->freq_pixbuf = NULL;
                 }
                 gjay->selected_songs = g_list_append(gjay->selected_songs, s);
@@ -365,8 +378,8 @@ static void set_selected_files (GList * files) {
     gtk_widget_show(icon);
     gtk_widget_show(vbox_lower);
     gtk_label_set_text(GTK_LABEL(label_type), "Contains...");
-    gtk_image_set_from_pixbuf (GTK_IMAGE(icon), gjay->pixbufs[PM_ICON_OPEN]);
-    update_selection_area();
+    gtk_image_set_from_pixbuf (GTK_IMAGE(icon), gjay->gui->pixbufs[PM_ICON_OPEN]);
+    update_selection_area(gjay->selected_songs);
 }
 
 
@@ -375,7 +388,8 @@ play_selected (GtkWidget *widget,
                GdkEventButton *event,
                gpointer user_data)
 {
-  play_songs(gjay->selected_songs);
+  struct play_songs_data *psd = (struct play_songs_data*)user_data;
+  play_songs(psd->player, psd->main_window, psd->playlist);
   return TRUE;
 }
 
@@ -386,41 +400,42 @@ select_all_selected (GtkWidget *widget,
                      gpointer user_data)
 {
   GList * list;
+  GjayApp *gjay=(GjayApp*)user_data;
 
   if (gjay->selected_files) {
       list = explore_files_in_dir(g_list_first(gjay->selected_files)->data, TRUE);
-      set_selected_files(list);
+      set_selected_files(gjay, list);
   }
   return TRUE;
 }
 
 
 
-void update_selection_area (void) {
+void update_selection_area (GList *selected_songs) {
     HSV color;
     gboolean no_color;
     gboolean multiple_colors;
 
-    populate_selected_list();
-    get_selected_color(&color, &no_color, &multiple_colors);
+    populate_selected_list(selected_songs);
+    get_selected_color(selected_songs, &color, &no_color, &multiple_colors);
 
-    redraw_rating();
+    redraw_rating(selected_songs);
     gtk_widget_queue_draw(cwheel);
 }
 
 
-void populate_selected_list (void) {
+void populate_selected_list (GList *selected_songs) {
     GList * llist;
-    song * s;
+    GjaySong * s;
     gchar * artist, * title;
     gchar bpm[20];
     GtkTreeIter iter;
 
     gtk_list_store_clear (GTK_LIST_STORE(list_store)); 
-    for (llist = g_list_first(gjay->selected_songs); 
+    for (llist = g_list_first(selected_songs); 
          llist; 
          llist = g_list_next(llist)) {
-        s = (song *) llist->data;
+        s = (GjaySong *) llist->data;
         assert(s);
         if (s->artist)
             artist = s->artist;
@@ -452,10 +467,10 @@ void populate_selected_list (void) {
 void update_selected_songs_color (gpointer data,
                                   gpointer user_data) {
     GList * llist;
-    song * s;
+    GjaySong * s;
     gboolean had_color_rating;
-    gchar * dir = NULL;
     HSV hsv;
+	GjayApp *gjay=(GjayApp*)user_data;
 
     if (!gjay->selected_songs)
         return;
@@ -463,11 +478,10 @@ void update_selected_songs_color (gpointer data,
     hsv = get_colorwheel_color(GTK_WIDGET(data));
 
     s = SONG(gjay->selected_songs);
-    dir = parent_dir(s->path);
 
     for (llist = g_list_first(gjay->selected_songs); llist; 
          llist = g_list_next(llist)) {
-        s = (song *) llist->data;
+        s = (GjaySong *) llist->data;
 
         if (s->no_color | s->no_rating) {
             had_color_rating = FALSE;
@@ -484,26 +498,26 @@ void update_selected_songs_color (gpointer data,
         /* If this song was not previously assigned a color or rating,
            update how it is displayed */
         if (!had_color_rating) 
-            update_song_has_rating_color(s);
+            update_song_has_rating_color(gjay, s);
     }
 
-    gjay->songs_dirty = TRUE;
+    gjay->songs->dirty = TRUE;
 }
 
 
-void redraw_rating (void) {
+void redraw_rating (GList *selected_songs) {
     GList * llist;
-    song * s;
+    GjaySong * s;
     gdouble lower, upper, total;
     gint n, k;
     
     lower = MAX_RATING + 1;
     upper = -1;
     total = 0;
-    for (n = 0, k = 0, llist = g_list_first(gjay->selected_songs);
+    for (n = 0, k = 0, llist = g_list_first(selected_songs);
          llist; 
          llist = g_list_next(llist)) {
-        s = (song *) llist->data;
+        s = (GjaySong *) llist->data;
         if (!s->no_rating) {
             total += s->rating;
             lower = MIN(lower, s->rating);
@@ -528,15 +542,16 @@ void redraw_rating (void) {
 static void rating_changed ( GtkRange *range,
                              gpointer user_data ) {
     GList * llist;
-    song * s;
+    GjaySong * s;
     gboolean had_color_rating;
     gdouble val;
+	GjayApp *gjay=(GjayApp*)user_data;
 
     val = gtk_range_get_value(range);
 
     for (llist = g_list_first(gjay->selected_songs); llist; 
          llist = g_list_next(llist)) {
-        s = (song *) llist->data;
+        s = (GjaySong *) llist->data;
 
         if (s->no_color | s->no_rating) {
             had_color_rating = FALSE;
@@ -552,30 +567,30 @@ static void rating_changed ( GtkRange *range,
         /* If this song was not previously assigned a color or rating,
            update how it is displayed */
         if (!had_color_rating) {
-            update_song_has_rating_color(s);
+            update_song_has_rating_color(gjay,s);
         }
     }
     gtk_label_set_text (GTK_LABEL(label_rating), "Rating");
 
-    gjay->songs_dirty = TRUE;
+    gjay->songs->dirty = TRUE;
 }
 
 
 
-static void update_song_has_rating_color ( song * s ) {
+static void update_song_has_rating_color ( GjayApp *gjay, GjaySong * s ) {
     gchar * dir;
     
     for (; s->repeat_prev; s = s->repeat_prev)
         ;
     for (; s; s = s->repeat_next) {
-        dir = parent_dir(s->path);
-        update_dir_has_rating_color(dir);
+        dir = parent_dir(gjay->prefs->song_root_dir, s->path);
+        update_dir_has_rating_color(gjay, dir);
         g_free(dir);
     }
 }
 
 
-static void update_dir_has_rating_color ( gchar * dir ) {
+static void update_dir_has_rating_color (GjayApp *gjay, const gchar * dir ) {
     gchar * parent;
     gchar * str;
     
@@ -583,20 +598,21 @@ static void update_dir_has_rating_color ( gchar * dir ) {
     if (!str) 
         return;
 
-    if (explore_dir_has_new_songs(dir))
+    if (explore_dir_has_new_songs(gjay->songs->name_hash, dir,
+		  gjay->verbosity))
         return;
 
     /* This directory used to be marked, but no longer is. Change its
        icon, remove info */
-    explore_update_path_pm(dir, PM_DIR_CLOSED);
+    explore_update_path_pm(gjay->gui->pixbufs, dir, PM_DIR_CLOSED);
     
     g_hash_table_remove(gjay->new_song_dirs_hash, str);
     gjay->new_song_dirs = g_list_remove(gjay->new_song_dirs, str);
     g_free(str);
     
     /* Check the parent directory */
-    parent = parent_dir (dir);
-    update_dir_has_rating_color(parent);
+    parent = parent_dir (gjay->prefs->song_root_dir, gjay->prefs->song_root_dir);
+    update_dir_has_rating_color(gjay, parent);
     g_free(parent);
 } 
 
@@ -610,21 +626,22 @@ void set_selected_rating_visible ( gboolean is_visible ) {
 }
 
 
-void get_selected_color (HSV * color, 
+void get_selected_color (GList *selected_songs,
+						 HSV * color, 
                          gboolean * no_color,
                          gboolean * multiple_colors) {
     RGB rgb, rgb_sum;
     int num = 0;
     GList * llist;
-    song * s;
+    GjaySong * s;
 
     assert(color && no_color && multiple_colors);
     *no_color = TRUE;
     bzero(&rgb_sum, sizeof(RGB));
-    for (llist = g_list_first(gjay->selected_songs);
+    for (llist = g_list_first(selected_songs);
          llist;
          llist = g_list_next(llist)) {
-        s = (song *) llist->data;
+        s = (GjaySong *) llist->data;
         assert(s);
         if (!s->no_color) {
             num++;
@@ -645,3 +662,31 @@ void get_selected_color (HSV * color,
     }
     *color = rgb_to_hsv(rgb_sum);
 }
+
+/**
+ * Get the parent directory of path. The returned value should be freed.
+ * If the parent is above root, return NULL.
+ */
+static gchar * parent_dir (const gchar *root_dir, const gchar * path ) {
+  int path_len, root_len;
+    
+  if (g_str_has_prefix(path, root_dir) == FALSE)
+	return NULL;
+
+  path_len = strlen(path);
+  root_len = strlen(root_dir);
+
+  if (path_len <= root_len)
+    return NULL;
+  if (path_len == 0)
+    return NULL;
+
+  for (; path_len > root_len; path_len--)
+	if (path[path_len] == '/') 
+	  return g_strndup(path, path_len);
+
+  if (path[path_len - 1] == '/')
+    path_len--;
+  return g_strndup(path, path_len);
+}
+

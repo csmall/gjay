@@ -20,7 +20,7 @@
 #ifndef __PLAYLIST__H__
 #define __PLAYLIST__H__
 
-GList *     generate_playlist ( guint len );
+GList *     generate_playlist ( GjayApp *gjay, const guint len );
 void        save_playlist     ( GList * list, 
                                 gchar * fname );
 void        write_playlist    ( GList * list, 

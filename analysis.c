@@ -69,6 +69,23 @@ typedef struct {
     char buffer[SHARED_BUF_SIZE];
 } wav_file;
 
+/* Sturcture to ferry data around */
+struct daemon_data {
+  guint			verbosity;
+  gboolean		ogg_supported;
+  gboolean		flac_supported;
+  gjay_mode		mode;
+
+  GjayIPC		*ipc;
+  GMainLoop   * loop;
+  time_t        last_ping;
+  gboolean		in_analysis;
+  GjaySong      *analyze_song;
+
+  gchar * mp3_decoder;
+  gchar * ogg_decoder;
+  gchar * flac_decoder;
+};
 
 
 #define AUDIO_RATE 2756UL      /* Author states that 11025 is perfect
@@ -89,20 +106,15 @@ static char       * read_buffer;
 static int          read_buffer_size;
 static long         read_buffer_start;
 static long         read_buffer_end; /* same as file position */
-static gboolean     in_analysis = FALSE;  /* Are we currently analyizing a
-                                         song? */
-static song       * analyze_song = NULL;
 static GList      * queue = NULL; 
 static GHashTable * queue_hash = NULL;
-static time_t       last_ping;
-static gchar * mp3_decoder;
-static gchar * ogg_decoder;
-static gchar * flac_decoder;
 
-static FILE *     inflate_to_wav (const gchar * path, 
+static FILE *     inflate_to_wav (struct daemon_data *ddata,
+							  const gchar * path, 
                               const song_file_type type);
 
-static int           run_analysis     ( wav_file * wsfile,
+static int           run_analysis     ( struct daemon_data *ddata,
+								 wav_file * wsfile,
                                  gdouble * freq_results,
                                  gdouble * volume_diff,
                                  gdouble * bpm_result );
@@ -113,29 +125,40 @@ static int           freq_read_frames ( wav_file * wsfile,
                                  int start, 
                                  int length, 
                                  void *data );
-static void          send_ui_percent        ( int percent );
-static void          send_analyze_song_name ( void );
+static void          send_ui_percent        ( const int fd, int percent );
+static void          send_analyze_song_name ( const int fd, GjaySong *song; );
 static void   write_queue       ( void );
 static void kill_signal (int sig);
-static void analysis_daemon(void);
+static void analysis_daemon(struct daemon_data *data);
 gboolean      daemon_idle       ( gpointer data );
-static void analyze( const char * fname, const gboolean result_to_stdout);
+static void analyze( struct daemon_data *data, const char * fname, const gboolean result_to_stdout);
+static struct daemon_data *create_daemon_data(GjayApp *gjay);
+gboolean ui_pipe_input (GIOChannel *source,
+                        GIOCondition condition,
+                        gpointer data);
 
 void
-run_as_analyze_detached  ( const char * analyze_detached_fname)
+run_as_analyze_detached  (GjayApp *gjay,  const char * analyze_detached_fname)
 {
+  struct daemon_data *data;
+
   if (access(analyze_detached_fname, R_OK) != 0)
   {
     fprintf(stderr, _("Song file %s not found\n"), analyze_detached_fname);
     exit(1);
   }
-  analyze(analyze_detached_fname, TRUE);
+  if ( (data = create_daemon_data(gjay))==NULL)
+	exit(1);
+  data->mode = ANALYZE_DETACHED;
+  analyze(data, analyze_detached_fname, TRUE);
+  destroy_gjay_ipc(data->ipc);
 }
 
-void run_as_daemon(void)
+void run_as_daemon(GjayApp *gjay, gjay_mode mode)
 {
   gchar *path;
   FILE *fp;
+  struct daemon_data *data;
 
   /* Write pid to ~/.gjay/gjay.pid */
   path = g_strdup_printf("%s/%s/%s", g_get_home_dir(),
@@ -152,15 +175,11 @@ void run_as_daemon(void)
   signal(SIGKILL, kill_signal);
   signal(SIGINT,  kill_signal);
     
-  analysis_daemon();
-    
-    /* Daemon cleans up pipes on quit */
-  close(daemon_pipe_fd);
-  close(ui_pipe_fd);
-  unlink(daemon_pipe);
-  unlink(ui_pipe);
-  rmdir(gjay_pipe_dir);
-  g_free(gjay_pipe_dir);
+  if ( (data = create_daemon_data(gjay))==NULL)
+	exit(1);
+  data->mode = mode;
+  analysis_daemon(data);
+  destroy_gjay_ipc(data->ipc);
 }
 
 /**
@@ -177,7 +196,7 @@ static void kill_signal (int sig) {
   exit(0);
 }
 
-static void add_file_to_queue ( char * fname) {
+static void add_file_to_queue ( char * fname, const int verbosity) {
     char queue_fname[BUFFER_SIZE], buffer[BUFFER_SIZE], * str;
     FILE * f_queue, * f_add;
         
@@ -235,41 +254,42 @@ static void write_queue (void) {
 
 gboolean ui_pipe_input (GIOChannel *source,
                         GIOCondition condition,
-                        gpointer data) {
+                        gpointer user_data) {
     GList * list;
     char buffer[BUFFER_SIZE], * file;
     int len, k, l;
     ipc_type ipc;
+	struct daemon_data *ddata = (struct daemon_data*)user_data;
 
-    read(ui_pipe_fd, &len, sizeof(int));
+    read(ddata->ipc->ui_fifo, &len, sizeof(int));
     assert(len < BUFFER_SIZE);
     for (k = 0, l = len; l; l -= k) {
-        k = read(ui_pipe_fd, buffer + k, l);
+        k = read(ddata->ipc->ui_fifo, buffer + k, l);
     }
     
-    last_ping = time(NULL);
+    ddata->last_ping = time(NULL);
     
     memcpy((void *) &ipc, buffer, sizeof(ipc_type));
     switch(ipc) {
     case REQ_ACK:
-        send_ipc(daemon_pipe_fd, ACK);
+        send_ipc(ddata->ipc->daemon_fifo, ACK);
         break;
     case ACK:
-        if (verbosity > 1)
+        if (ddata->verbosity > 1)
             printf(_("Daemon received ack\n"));
         // No need for action
         break;
     case UNLINK_DAEMON_FILE:
         snprintf(buffer, BUFFER_SIZE, "%s/%s/%s", 
                  getenv("HOME"), GJAY_DIR, GJAY_DAEMON_DATA);
-        if (verbosity > 1)
+        if (ddata->verbosity > 1)
             printf(_("Deleting daemon pid file '%s'\n"), buffer);
         unlink(buffer);
         break;
     case CLEAR_ANALYSIS_QUEUE:
         snprintf(buffer, BUFFER_SIZE, "%s/%s/%s", getenv("HOME"), 
                  GJAY_DIR, GJAY_QUEUE);
-        if (verbosity > 1)
+        if (ddata->verbosity > 1)
             printf(_("Daemon is clearing out analysis queue, deleting file '%s'\n"), buffer);
         unlink(buffer);
         for (list = g_list_first(queue); list; list = g_list_next(list)) 
@@ -284,35 +304,35 @@ gboolean ui_pipe_input (GIOChannel *source,
          * also append the file name to the analysis log */
         buffer[len] = '\0';
         file = buffer + sizeof(ipc_type);
-        if (verbosity > 1) 
+        if (ddata->verbosity > 1) 
             printf(_("Daemon queuing song file '%s'\n"), file);
-        add_file_to_queue(file);
-        g_idle_add (daemon_idle, data);
+        add_file_to_queue(file, ddata->verbosity);
+        g_idle_add (daemon_idle, ddata);
         unlink(file);
         break;
     case DETACH: 
-        if (mode == DAEMON) {
-            if (verbosity)
+        if (ddata->mode == DAEMON) {
+            if (ddata->verbosity)
                 printf(_("Detaching daemon\n"));
-            mode = DAEMON_DETACHED;
-            g_idle_add (daemon_idle, (GMainLoop * ) data);
+            ddata->mode = DAEMON_DETACHED;
+            g_idle_add (daemon_idle, ddata);
         }
         break;
     case ATTACH:
-        if (mode != DAEMON) {
-            if (verbosity)
+        if (ddata->mode != DAEMON) {
+            if (ddata->verbosity)
                 printf(_("Attaching to daemon\n"));
-            mode = DAEMON;
-            if(in_analysis && analyze_song)
-                send_analyze_song_name();
+            ddata->mode = DAEMON;
+            if(ddata->in_analysis && ddata->analyze_song)
+                send_analyze_song_name(ddata->ipc->daemon_fifo, ddata->analyze_song);
         }
         
         break;
     case QUIT_IF_ATTACHED:
-        if (mode == DAEMON) {
-            if (verbosity)
+        if (ddata->mode == DAEMON) {
+            if (ddata->verbosity)
                 printf(_("Daemon Quitting\n"));
-            g_main_quit ((GMainLoop * ) data);
+            g_main_quit ((GMainLoop * ) ddata->loop);
         }
         break;
     default:
@@ -325,7 +345,8 @@ gboolean ui_pipe_input (GIOChannel *source,
 
 
 static void
-analyze(const char * fname,            /* File to analyze */
+analyze(struct daemon_data *ddata,
+	    const char * fname,            /* File to analyze */
         const gboolean result_to_stdout) /* Write result to stdout? */
 {
     FILE * f;
@@ -338,57 +359,59 @@ analyze(const char * fname,            /* File to analyze */
     song_file_type type;
     time_t t=0;
 
-    analyze_song = NULL;
-    in_analysis = TRUE;
+    ddata->analyze_song = NULL;
+    ddata->in_analysis = TRUE;
     
-    send_ui_percent(0);
+    send_ui_percent(ddata->ipc->daemon_fifo, 0);
     if (fname == NULL || fname[0] == '\0') {
-      in_analysis = FALSE;
+      ddata->in_analysis = FALSE;
       return;
     }
     
     if (access(fname, R_OK) != 0) {
         /* File ain't there! The UI thread will check for non-existant
            files periodically. */
-        if (verbosity)
+        if (ddata->verbosity)
             g_warning(_("analyze(): File '%s' cannot be read\n"),fname);
-        in_analysis = FALSE;
+        ddata->in_analysis = FALSE;
         return;
     }
 
-    analyze_song = create_song();
+    ddata->analyze_song = create_song();
 
     utf8 = strdup_to_utf8(fname);
-    song_set_path(analyze_song, utf8);
+    song_set_path(ddata->analyze_song, utf8);
     g_free(utf8);
 
-    file_info(analyze_song->path, 
+    file_info(ddata->verbosity,
+			  ddata->ogg_supported, ddata->flac_supported,
+			  ddata->analyze_song->path, 
               &is_song, 
-              &analyze_song->inode,
-              &analyze_song->dev,
-              &analyze_song->length,
-              &analyze_song->title,
-              &analyze_song->artist,
-              &analyze_song->album, 
+              &ddata->analyze_song->inode,
+              &ddata->analyze_song->dev,
+              &ddata->analyze_song->length,
+              &ddata->analyze_song->title,
+              &ddata->analyze_song->artist,
+              &ddata->analyze_song->album, 
               &type);
 
     if (!is_song) {
-        if (verbosity)
+        if (ddata->verbosity)
           g_warning(_("File '%s' is not a recognised song.\n"),fname);
-        in_analysis = FALSE;
-		delete_song(analyze_song);
+        ddata->in_analysis = FALSE;
+		delete_song(ddata->analyze_song);
         return;
     }
     
-    send_analyze_song_name();
-    send_ipc_text(daemon_pipe_fd, ANIMATE_START, analyze_song->path);
+    send_analyze_song_name(ddata->ipc->daemon_fifo, ddata->analyze_song);
+    send_ipc_text(ddata->ipc->daemon_fifo, ANIMATE_START, ddata->analyze_song->path);
 
-    if ( (f = inflate_to_wav(fname, type)) == NULL)
+    if ( (f = inflate_to_wav(ddata, fname, type)) == NULL)
     {
-      if (verbosity)
+      if (ddata->verbosity)
         g_warning(_("Unable to inflate song '%s'.\n"), fname);
-      in_analysis = FALSE;
-	  delete_song(analyze_song);
+      ddata->in_analysis = FALSE;
+	  delete_song(ddata->analyze_song);
       return;
     }
     memset(&wsfile, 0x00, sizeof(wav_file));
@@ -396,38 +419,38 @@ analyze(const char * fname,            /* File to analyze */
     fread(&wsfile.header, sizeof(waveheaderstruct), 1, f);
 	/* Check to see if the decoder really decoded */
 	if (wsfile.header.main_chunk[0] == '\0') {
-	  if (verbosity)
+	  if (ddata->verbosity)
 		g_warning(_("Decoding of song '%s' failed, bad wav header.\n"), fname);
-	  in_analysis = FALSE;
-	  delete_song(analyze_song);
+	  ddata->in_analysis = FALSE;
+	  delete_song(ddata->analyze_song);
 	  return;
 	}
     wav_header_swab(&wsfile.header);
-    wsfile.header.data_length = (MAX(1, analyze_song->length - 1)) * wsfile.header.byte_p_sec;
+    wsfile.header.data_length = (MAX(1, ddata->analyze_song->length - 1)) * wsfile.header.byte_p_sec;
 
-    if (verbosity) {
+    if (ddata->verbosity) {
         printf(_("Analyzing song file '%s'\n"), fname);
         t = time(NULL);
     }
 
-    result = run_analysis(&wsfile, freq, &volume_diff, &analyze_bpm); 
+    result = run_analysis(ddata, &wsfile, freq, &volume_diff, &analyze_bpm); 
 
-    if (verbosity) 
+    if (ddata->verbosity) 
         printf(_("Analysis took %ld seconds\n"), time(NULL) - t);
     
-    send_ui_percent(0);
+    send_ui_percent(ddata->ipc->daemon_fifo, 0);
 
-    if (result && analyze_song) {
+    if (result && ddata->analyze_song) {
         for (i = 0; i < NUM_FREQ_SAMPLES; i++) 
-            analyze_song->freq[i] = freq[i];
-        analyze_song->bpm = analyze_bpm;
-        if (isinf(analyze_song->bpm) || (analyze_song->bpm < MIN_BPM)) {
-            analyze_song->bpm_undef = TRUE;
+            ddata->analyze_song->freq[i] = freq[i];
+        ddata->analyze_song->bpm = analyze_bpm;
+        if (isinf(ddata->analyze_song->bpm) || (ddata->analyze_song->bpm < MIN_BPM)) {
+            ddata->analyze_song->bpm_undef = TRUE;
         } else {
-            analyze_song->bpm_undef = FALSE;
+            ddata->analyze_song->bpm_undef = FALSE;
         }
-        analyze_song->volume_diff = volume_diff;
-        analyze_song->no_data = FALSE;
+        ddata->analyze_song->volume_diff = volume_diff;
+        ddata->analyze_song->no_data = FALSE;
     } 
 
     /* Finish reading rest of output */
@@ -435,78 +458,77 @@ analyze(const char * fname,            /* File to analyze */
         ;
     fclose(f);
 
-    send_ipc(daemon_pipe_fd, ANIMATE_STOP);
-    send_ipc_text(daemon_pipe_fd, STATUS_TEXT, "Idle");
+    send_ipc(ddata->ipc->daemon_fifo, ANIMATE_STOP);
+    send_ipc_text(ddata->ipc->daemon_fifo, STATUS_TEXT, "Idle");
 
     if (result_to_stdout) {
-        write_song_data(stdout, analyze_song);
+        write_song_data(stdout, ddata->analyze_song);
     } else {
-        result = append_daemon_file(analyze_song);
+        result = append_daemon_file(ddata->analyze_song);
     }
     if (result >= 0) 
-        send_ipc_int(daemon_pipe_fd, ADDED_FILE, result);
-    delete_song(analyze_song);
-    in_analysis = FALSE;
-    analyze_song = NULL;
+        send_ipc_int(ddata->ipc->daemon_fifo, ADDED_FILE, result);
+    delete_song(ddata->analyze_song);
+    ddata->in_analysis = FALSE;
+    ddata->analyze_song = NULL;
     return;
 }
 
 static void
-check_decoders(void)
+check_decoders(struct daemon_data *ddata)
 {
-  if (ogg_decoder == NULL)
-    ogg_decoder = g_find_program_in_path(OGG_DECODER_APP);
+  if (ddata->ogg_decoder == NULL)
+    ddata->ogg_decoder = g_find_program_in_path(OGG_DECODER_APP);
 
-  if (mp3_decoder == NULL)
-    mp3_decoder = g_find_program_in_path(MP3_DECODER_APP1);
-  if (mp3_decoder == NULL)
-    mp3_decoder = g_find_program_in_path(MP3_DECODER_APP2);
+  if (ddata->mp3_decoder == NULL)
+    ddata->mp3_decoder = g_find_program_in_path(MP3_DECODER_APP1);
+  if (ddata->mp3_decoder == NULL)
+    ddata->mp3_decoder = g_find_program_in_path(MP3_DECODER_APP2);
 
-  if (flac_decoder == NULL)
-    flac_decoder = g_find_program_in_path(FLAC_DECODER_APP);
-
+  if (ddata->flac_decoder == NULL)
+    ddata->flac_decoder = g_find_program_in_path(FLAC_DECODER_APP);
 }
 
 static FILE *
-inflate_to_wav (const gchar * path, const song_file_type type)
+inflate_to_wav (struct daemon_data *ddata, const gchar * path, const song_file_type type)
 {
   gchar *cmdline;
   gchar *quoted_path;
   FILE *fp;
 
   quoted_path = g_shell_quote(path);
-  if (mp3_decoder == NULL)
-    check_decoders();
+  if (ddata->mp3_decoder == NULL)
+    check_decoders(ddata);
 
   switch (type) {
     case OGG:
-      if (ogg_decoder == NULL) {
-        if (verbosity)
+      if (ddata->ogg_decoder == NULL) {
+        if (ddata->verbosity)
           g_warning(_("Unable to decode '%s' as no ogg decoder found"), path);
         return NULL;
       }
       cmdline = g_strdup_printf("%s %s -d wav -f - 2> /dev/null",
-          ogg_decoder,
+          ddata->ogg_decoder,
           quoted_path);
       break;
     case MP3:
-      if (mp3_decoder == NULL) {
-        if (verbosity)
+      if (ddata->mp3_decoder == NULL) {
+        if (ddata->verbosity)
           g_warning(_("Unable to decode '%s' as no mp3 decoder found"), path);
         return NULL;
       }
       cmdline = g_strdup_printf("%s -w - -b 10000 %s 2> /dev/null",
-          mp3_decoder,
+          ddata->mp3_decoder,
           quoted_path);
       break;
     case FLAC:
-      if (flac_decoder == NULL) {
-        if (verbosity)
+      if (ddata->flac_decoder == NULL) {
+        if (ddata->verbosity)
           g_warning(_("Unable to decode '%s' as no flac decoder found"), path);
         return NULL;
       }
       cmdline = g_strdup_printf("%s -d -c %s 2> /dev/null",
-          flac_decoder,
+          ddata->flac_decoder,
           quoted_path);
       break;
     case WAV:
@@ -554,7 +576,8 @@ wav_header_swab(waveheaderstruct * header)
  * Any ugliness is the fault of my munging. 
  */
 static int
-run_analysis  (wav_file * wsfile,
+run_analysis  (struct daemon_data *ddata,
+				   wav_file * wsfile,
                    gdouble * freq_results,
                    gdouble * volume_diff,
                    gdouble * bpm_result )
@@ -571,14 +594,14 @@ run_analysis  (wav_file * wsfile,
     unsigned long audiosize;
 
     if (wsfile->header.modus != 1 && wsfile->header.modus != 2) {
-      if (verbosity > 2)
+      if (ddata->verbosity > 2)
         g_warning(_("File is not a (converted) wav file. Modus is supposed to be 1 or 2 but is %d\n"), wsfile->header.modus);
         // Not a wav file
         return FALSE;
     }
     
     if (wsfile->header.byte_p_spl / wsfile->header.modus != 2) {
-      if (verbosity > 2)
+      if (ddata->verbosity > 2)
         g_warning(_("File is not a 16-bit stream\n"));
         // Not 16-bit
         return FALSE;
@@ -631,7 +654,7 @@ run_analysis  (wav_file * wsfile,
             wsfile->seek += count;
             
             /* Update status bar. This chunk takes ~70% of the time  */
-            send_ui_percent(wsfile->seek/(wsfile->header.data_length / 70));
+            send_ui_percent(ddata->ipc->daemon_fifo, wsfile->seek/(wsfile->header.data_length / 70));
             
             /* BPM loop */
             for (h=0;h<count/2;h+=2*(44100/AUDIO_RATE))
@@ -723,7 +746,7 @@ run_analysis  (wav_file * wsfile,
         freq_results[bin] += total_mags[k];
     }
 
-    if (verbosity > 1) {
+    if (ddata->verbosity > 1) {
         printf(_("Frequencies: \n"));
         for (k = 0; k < NUM_FREQ_SAMPLES; k++) 
             printf("%f ", freq_results[k]);
@@ -750,7 +773,7 @@ run_analysis  (wav_file * wsfile,
             }
             if (fout>maximumfout) maximumfout=fout;
             
-            send_ui_percent (70 + ((15*(h - startshift)) / (stopshift - startshift)));
+            send_ui_percent (ddata->ipc->daemon_fifo, 70 + ((15*(h - startshift)) / (stopshift - startshift)));
         }
         left=minimumfoutat-100;
 	right=minimumfoutat+100;
@@ -769,7 +792,7 @@ run_analysis  (wav_file * wsfile,
             }
             if (fout>maximumfout) maximumfout=fout;
             
-            send_ui_percent(85 + ((15*(h - left)) / (right - left)));
+            send_ui_percent(ddata->ipc->daemon_fifo, 85 + ((15*(h - left)) / (right - left)));
         }
         
         for(h=startshift;h<stopshift;h++) {
@@ -780,7 +803,7 @@ run_analysis  (wav_file * wsfile,
             }
         }
         *bpm_result = 4.0*(double)AUDIO_RATE*60.0/(double)minimumfoutat;
-        if (verbosity > 1) 
+        if (ddata->verbosity > 1) 
             printf(_("BPM: %f\n"), *bpm_result);
     }
     g_free (audio);
@@ -869,49 +892,48 @@ bpm_phasefit(const long i, const unsigned char const *audio,
 
 
 static void
-send_ui_percent (int percent)
+send_ui_percent (const int fd, int percent)
 {
-    static int old_percent = -1;
+  static int old_percent = -1;
 
-    if (old_percent == percent)
-        return;
+  if (old_percent == percent)
+    return;
     
-    old_percent = percent;
-    assert((percent >= 0) && (percent <= 100));
+  if (percent < 0)
+	percent = 0;
+  if (percent > 100)
+	percent = 100;
+  old_percent = percent;
     
-    send_ipc_int(daemon_pipe_fd, STATUS_PERCENT, percent);
+  send_ipc_int(fd, STATUS_PERCENT, percent);
 
-    /* This is a bit of a hack, but... anytime we care enough to pause
-     * analysis so we can send the percentage,  run an iteration of the 
-     * event loop */
-    if (g_main_pending())
-        g_main_iteration(TRUE);
+  /* This is a bit of a hack, but... anytime we care enough to pause
+   * analysis so we can send the percentage,  run an iteration of the 
+   * event loop */
+  if (g_main_pending())
+    g_main_iteration(TRUE);
 }
 
 
 static void
-send_analyze_song_name ( void )
+send_analyze_song_name ( const int fd, GjaySong *song )
 {
-    char buffer[BUFFER_SIZE];
-    if (!analyze_song)
-        return;
-    if (analyze_song->title && analyze_song->artist) {
-        snprintf(buffer, BUFFER_SIZE, "%s : %s", 
-                 analyze_song->artist, 
-                 analyze_song->title);
-    } else {
-        snprintf(buffer, BUFFER_SIZE, "%s", analyze_song->path);
-    }
-    strncpy(buffer + 60, "...\0", 4);
-    send_ipc_text(daemon_pipe_fd, STATUS_TEXT, buffer);
+  char buffer[BUFFER_SIZE];
+  if (!song)
+    return;
+  if (song->title && song->artist)
+	g_snprintf(buffer, BUFFER_SIZE, "%s : %s", song->artist, song->title);
+  else
+	g_snprintf(buffer, BUFFER_SIZE, "%s", song->path);
+  strncpy(buffer + 60, "...\0", 4);
+  send_ipc_text(fd, STATUS_TEXT, buffer);
 }
 
 
 
 static void
-analysis_daemon(void) {
+analysis_daemon(struct daemon_data *ddata) {
     GIOChannel * ui_io;
-    GMainLoop * loop;
     char buffer[BUFFER_SIZE];
     gchar * file;
     FILE * f;
@@ -919,9 +941,9 @@ analysis_daemon(void) {
     /* Nice the analysis */
     setpriority(PRIO_PROCESS, getpid(), 19);
     
-    in_analysis = FALSE;
-    loop = g_main_new(FALSE);
-    last_ping = time(NULL);
+    ddata->in_analysis = FALSE;
+    ddata->loop = g_main_new(FALSE);
+    ddata->last_ping = time(NULL);
     queue_hash = g_hash_table_new(g_str_hash, g_str_equal);
 
     /* Read analysis queue, if any */
@@ -939,39 +961,40 @@ analysis_daemon(void) {
         }
         fclose(f);
     }
-    ui_io = g_io_channel_unix_new (ui_pipe_fd);
+    ui_io = g_io_channel_unix_new (ddata->ipc->ui_fifo);
     g_io_add_watch (ui_io,
                     G_IO_IN,
                     ui_pipe_input,
-                    loop);
-    g_idle_add (daemon_idle, loop);
+                    ddata);
+    g_idle_add (daemon_idle, ddata);
     // FIXME: add G_IO_HUP watcher
 
-    g_main_run(loop);
+    g_main_run(ddata->loop);
 }
 
 
 gboolean daemon_idle (gpointer data) {
     gchar * file;
+	struct daemon_data *ddata = (struct daemon_data*)data;
 
-    if ((mode != DAEMON_DETACHED) && 
-        (time(NULL) - last_ping > DAEMON_ATTACH_FREAKOUT)) {
-        if (verbosity)
+    if ((ddata->mode != DAEMON_DETACHED) && 
+        (time(NULL) - ddata->last_ping > DAEMON_ATTACH_FREAKOUT)) {
+        if (ddata->verbosity)
             printf(_("Daemon appears to have been orphaned. Quitting.\n"));
-        g_main_quit((GMainLoop *) data);
+        g_main_quit(ddata->loop);
     } 
 
-    if (mode == DAEMON_INIT) {
+    if (ddata->mode == DAEMON_INIT) {
         usleep(SLEEP_WHILE_IDLE);
         return TRUE;
     }
 
-    if (in_analysis)
+    if (ddata->in_analysis)
         return TRUE;
     
     if (queue) {
         file = g_list_first(queue)->data;
-        analyze(file, FALSE);
+        analyze(ddata, file, FALSE);
         g_hash_table_remove(queue_hash, file);
         queue = g_list_remove(queue, file);
         g_free(file);
@@ -982,11 +1005,31 @@ gboolean daemon_idle (gpointer data) {
     if (queue)
         return TRUE;
 
-    if (mode == DAEMON_DETACHED) {
-        if (verbosity)
+    if (ddata->mode == DAEMON_DETACHED) {
+        if (ddata->verbosity)
             printf(_("Analysis daemon done.\n"));
         //g_main_quit((GMainLoop *) data);
     }
     return FALSE;
 }
 
+static struct daemon_data *create_daemon_data(GjayApp *gjay){
+  struct daemon_data *ddata;
+
+  if ( (ddata = g_malloc0(sizeof(struct daemon_data))) == NULL)
+	return NULL;
+
+  /*Copy the items */
+  ddata->verbosity = gjay->verbosity;
+  ddata->ogg_supported = gjay->ogg_supported;
+  ddata->flac_supported = gjay->flac_supported;
+  create_gjay_ipc(&(ddata->ipc));
+
+  ddata->in_analysis = FALSE;
+  ddata->analyze_song = NULL;
+
+  ddata->mp3_decoder = NULL;
+  ddata->ogg_decoder = NULL;
+  ddata->flac_decoder = NULL;
+  return ddata;
+}

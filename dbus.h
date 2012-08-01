@@ -5,6 +5,6 @@
 #include <dbus/dbus-glib.h>
 
 DBusGConnection * gjay_dbus_connection(void);
-gboolean gjay_dbus_is_running(const char *appname);
+gboolean gjay_dbus_is_running(const char *appname, DBusGConnection *connection);
 
 #endif

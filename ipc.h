@@ -8,6 +8,12 @@
 #include <glib.h>
 #include <unistd.h>
 
+typedef struct _GjayIPC {
+  gchar 		*pipe_dir;
+  int			ui_fifo;
+  int			daemon_fifo;
+} GjayIPC;
+
 typedef enum {
     /* UI process sends... */
     UNLINK_DAEMON_FILE, /* no arg */
@@ -30,14 +36,6 @@ typedef enum {
 } ipc_type;
 
 
-/* Pipes are named by the sending process */
-#define DAEMON_PIPE_FILE "gjay_daemon"
-#define UI_PIPE_FILE     "gjay_ui"
-#define GJAY_PIPE_DIR_TEMPLATE  "/tmp/gjay-"
-extern char * daemon_pipe;
-extern char * ui_pipe;
-extern char * gjay_pipe_dir;
-
 /* The UI will send a message to an attached daemon at least every
  *  UI_PING ms. If an attached daemon hasn't heard from the UI in
  *  FREAKOUT sec it quits.
@@ -45,19 +43,11 @@ extern char * gjay_pipe_dir;
 #define UI_PING                5000
 #define DAEMON_ATTACH_FREAKOUT 20
 
-extern int daemon_pipe_fd;
-extern int ui_pipe_fd;
-
-gboolean ui_pipe_input (GIOChannel *source,
-                        GIOCondition condition,
-                        gpointer data);
-gboolean daemon_pipe_input (GIOChannel *source,
-                            GIOCondition condition,
-                            gpointer data);
-
-void send_ipc       (int fd, ipc_type type );
-void send_ipc_text  (int fd, ipc_type type, char * text);
-void send_ipc_int   (int fd, ipc_type type, int val);
+void send_ipc       (const int fd, const ipc_type type );
+void send_ipc_text  (const int fd, const ipc_type type, const char * text);
+void send_ipc_int   (const int fd, const ipc_type type, const int val);
+gboolean create_gjay_ipc  (GjayIPC **ipc);
+void destroy_gjay_ipc     (GjayIPC *ipc);
 
 #endif /* __IPC_H__ */
 

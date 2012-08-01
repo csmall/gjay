@@ -25,10 +25,11 @@
 
 #include "gjay.h"
 #include "ui.h"
+#include "ui_private.h"
 #include "i18n.h"
 
-static void menuitem_currentsong (void);
-static void menuitem_quit (void);
+static void menuitem_currentsong ( gpointer user_data);
+static void menuitem_quit ( gpointer user_data);
 
 static const GtkActionEntry entries[] = {
   { "FileMenu", NULL, "_File" },
@@ -57,7 +58,7 @@ static const char *ui_description =
 "  </menubar>"
 "</ui>";
 
-GtkWidget * make_menubar ( void ) {
+GtkWidget * make_menubar ( GjayApp *gjay ) {
   GtkWidget *menubar;
   GtkActionGroup *action_group;
   GtkUIManager *ui_manager;
@@ -65,10 +66,10 @@ GtkWidget * make_menubar ( void ) {
 
   action_group = gtk_action_group_new("MenuActions");
   gtk_action_group_set_translation_domain(action_group, "blah");
-  gtk_action_group_add_actions(action_group, entries, n_entries, NULL);
+  gtk_action_group_add_actions(action_group, entries, n_entries, gjay);
   ui_manager = gtk_ui_manager_new();
   gtk_ui_manager_insert_action_group(ui_manager, action_group, 0);
-  gtk_window_add_accel_group(GTK_WINDOW(gjay->main_window),
+  gtk_window_add_accel_group(GTK_WINDOW(gjay->gui->main_window),
       gtk_ui_manager_get_accel_group(ui_manager));
   
   error = NULL;
@@ -84,38 +85,38 @@ GtkWidget * make_menubar ( void ) {
 }
 
 
-void menuitem_currentsong (void) {
-  song * s;
-  GtkWidget * dialog;
+void menuitem_currentsong (gpointer user_data) {
+  GjaySong * s;
   gchar * msg; 
+  GjayApp *gjay = (GjayApp*)user_data;
 
-  if (gjay->player_get_current_song==NULL)
+  if (gjay->player->get_current_song==NULL)
   {
     if (gjay->prefs->music_player == PLAYER_NONE)
-      gjay_error_dialog(_("Cannot get current song with no player selected."));
+      gjay_error_dialog(gjay->gui->main_window, _("Cannot get current song with no player selected."));
     else {
       msg = g_strdup_printf(_("Don't know how to get current song for music player %s."),
-          gjay->prefs->music_player_name);
-      gjay_error_dialog(msg);
+          gjay->player->name);
+      gjay_error_dialog(gjay->gui->main_window, msg);
       g_free(msg);
     }
     return;
   }
-  s = gjay->player_get_current_song();
+  s = gjay->player->get_current_song(gjay->player,gjay->songs->name_hash);
   if (s) {
     explore_select_song(s);
   } else {
-    if (gjay->player_is_running()) {
-      gjay_error_dialog(_("Sorry, GJay doesn't appear to know that song"));
+    if (gjay->player->is_running(gjay->player)) {
+      gjay_error_dialog(gjay->gui->main_window, _("Sorry, GJay doesn't appear to know that song"));
     } else {
       msg = g_strdup_printf(_("Sorry, unable to connect to %s.\nIs the player running?"),
-          gjay->prefs->music_player_name);
-      gjay_error_dialog(msg);
+          gjay->player->name);
+      gjay_error_dialog(gjay->gui->main_window, msg);
       g_free(msg);
     }
   }
 }
 
-static void menuitem_quit (void) {
+static void menuitem_quit (gpointer user_data) {
     quit_app(NULL, NULL, NULL);
 }

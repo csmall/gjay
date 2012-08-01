@@ -1,7 +1,7 @@
 /*
  * Gjay - Gtk+ DJ music playlist creator
- * Copyright (C) 2002,2003 Chuck Groom
- * Copyright (C) 2010 Craig Small 
+ * Copyright 2002,2003 Chuck Groom
+ * Copyright 2010-2012 Craig Small 
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -26,7 +26,9 @@
 #include <string.h>
 #include "gjay.h"
 #include "ui.h"
+#include "ui_private.h"
 #include "playlist.h"
+#include "play_common.h"
 
 enum {
    ARTIST_COLUMN,
@@ -44,7 +46,7 @@ GtkWidget * button_sel_songs, * button_start_song, * button_sel_dir;
 GtkWidget * button_start_color, * time_entry;
 GtkWidget * rating_hbox;
 
-static void parent_set_callback (GtkWidget *widget,
+static void uiparent_set_callback (GtkWidget *widget,
                                  gpointer user_data);
 static void toggled ( GtkToggleButton *togglebutton,
                       gpointer user_data );
@@ -61,7 +63,7 @@ static GtkWidget * create_float_slider_widget (gchar * name,
                                                float * value);
 
 /* Playlist window -- what to do with the list of songs we've created */
-static void make_playlist_window ( GList * list);
+static void make_playlist_window ( GjayApp *gjay, GList * list);
 static void playlist_window_play ( GtkButton *button,
                                    gpointer user_data );
 static void playlist_window_save ( GtkButton *button,
@@ -85,7 +87,7 @@ static void set_prefs_color ( gpointer data,
 
 
 
-GtkWidget * make_playlist_view ( void ) {
+GtkWidget * make_playlist_view ( GjayApp *gjay ) {
     GtkWidget * hbox1, * vbox1, * vbox2, * vbox3;
     char buffer[BUFFER_SIZE];
     GtkWidget * button, * label, * frame, * range, * event_box;
@@ -121,7 +123,7 @@ GtkWidget * make_playlist_view ( void ) {
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(button_start_song), 
                                  gjay->prefs->start_selected);
     g_signal_connect (G_OBJECT (button_start_song), "toggled",
-                      G_CALLBACK (toggled_start_selected_song), NULL);
+                      G_CALLBACK (toggled_start_selected_song), gjay->prefs);
     gtk_box_pack_start(GTK_BOX(vbox1), button_start_song, FALSE, FALSE, 2);
 
     hbox1 = gtk_hbox_new(FALSE, 0);    
@@ -130,16 +132,16 @@ GtkWidget * make_playlist_view ( void ) {
     gtk_widget_set_tooltip_text (button_start_color,
         "Specify a target color for starting the playlist");
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(button_start_color), 
-                                 gjay->prefs->start_color);
+                                 gjay->prefs->use_color);
     g_signal_connect (G_OBJECT (button_start_color), "toggled",
-                      G_CALLBACK (toggled_start_color), NULL);
+                      G_CALLBACK (toggled_start_color), gjay->prefs);
     gtk_box_pack_start(GTK_BOX(hbox1), button_start_color, FALSE, FALSE, 2);
 
-    colorwheel = create_colorwheel(PLAYLIST_CW_DIAMETER, 
+    colorwheel = create_colorwheel(gjay, PLAYLIST_CW_DIAMETER, 
                                    NULL, 
                                    set_prefs_color, 
-                                   &(gjay->prefs->color));
-    set_colorwheel_color(colorwheel, gjay->prefs->color);
+                                   &(gjay->prefs->start_color));
+    set_colorwheel_color(colorwheel, gjay->prefs->start_color);
     gtk_box_pack_start(GTK_BOX(hbox1), colorwheel, FALSE, FALSE, 2);
 
     frame = gtk_frame_new("Criteria");
@@ -236,7 +238,7 @@ GtkWidget * make_playlist_view ( void ) {
     gtk_box_pack_start(GTK_BOX(vbox1), hbox1, FALSE, FALSE, 2);
     label = gtk_label_new("Time (minutes)");
     time_entry = gtk_entry_new_with_max_length (4);
-    snprintf(buffer, BUFFER_SIZE, "%d", gjay->prefs->time);
+    snprintf(buffer, BUFFER_SIZE, "%d", gjay->prefs->playlist_time);
     gtk_entry_set_text(GTK_ENTRY(time_entry), buffer);
     gtk_widget_set_tooltip_text (time_entry,
         "Time: a target time for how long the playlist should be. The actual playlist length may be +/- a few minutes. CDs tend to be 45-80 minutes long, for what it's worth.");
@@ -246,25 +248,26 @@ GtkWidget * make_playlist_view ( void ) {
     gtk_widget_set_tooltip_text (button,
         "Generate the playlist using your criteria");
     g_signal_connect (G_OBJECT (button), "clicked",
-                      G_CALLBACK (playlist_button_clicked), NULL);
+                      G_CALLBACK (playlist_button_clicked), gjay);
     gtk_box_pack_start(GTK_BOX(hbox1), label, FALSE, FALSE, 2);
     gtk_box_pack_start(GTK_BOX(hbox1), time_entry, FALSE, FALSE, 2);
     gtk_box_pack_start(GTK_BOX(hbox1), button, TRUE, FALSE, 2); 
 
 
     g_signal_connect (G_OBJECT (vbox1), "parent_set",
-                      G_CALLBACK (parent_set_callback), NULL);
+                      G_CALLBACK (uiparent_set_callback), gjay);
  
     return vbox1;
 }
 
 
-static void parent_set_callback (GtkWidget *widget,
+static void uiparent_set_callback (GtkWidget *widget,
                                  gpointer user_data) {
-    song * s;
+    GjaySong * s;
     GList * ll;
     gint num_songs;
     gboolean is_dir;
+	GjayApp *gjay=(GjayApp*)user_data;
 
     gtk_widget_hide(button_sel_songs);
     gtk_widget_hide(button_sel_dir);
@@ -278,7 +281,7 @@ static void parent_set_callback (GtkWidget *widget,
     } else if (gjay->selected_songs) {
         for (ll = g_list_first(gjay->selected_songs); 
              ll && (num_songs < 2); ll = g_list_next(ll)) {
-            s = (song *) ll->data;
+            s = (GjaySong *) ll->data;
             if (!s->no_data)
                 num_songs++;
         }
@@ -312,12 +315,12 @@ static void parent_set_callback (GtkWidget *widget,
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(button_start_song),
                                  gjay->prefs->start_selected);
     gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(button_start_color),
-                                 gjay->prefs->start_color);
+                                 gjay->prefs->use_color);
   
-    if (gjay->prefs->start_selected && gjay->prefs->start_color) {
-        gjay->prefs->start_color = FALSE;
+    if (gjay->prefs->start_selected && gjay->prefs->use_color) {
+        gjay->prefs->use_color = FALSE;
         gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(button_start_color),
-                                     gjay->prefs->start_color);
+                                     gjay->prefs->use_color);
     }
 }
 
@@ -330,24 +333,26 @@ static void toggled ( GtkToggleButton *togglebutton,
 
 static void toggled_start_selected_song ( GtkToggleButton *togglebutton,
                                           gpointer user_data ) {
+  GjayPrefs *prefs=(GjayPrefs*)user_data;
     if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(button_start_song))) {
         gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(button_start_color),
                                      FALSE);
-        gjay->prefs->start_selected = TRUE;
+        prefs->start_selected = TRUE;
     } else {
-        gjay->prefs->start_selected = FALSE;
+        prefs->start_selected = FALSE;
     }
 }
 
 
 static void toggled_start_color ( GtkToggleButton *togglebutton,
                                   gpointer user_data ) {
+  GjayPrefs *prefs=(GjayPrefs*)user_data;
     if(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(button_start_color))) {
         gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(button_start_song),
                                      FALSE);
-        gjay->prefs->start_color= TRUE;
+        prefs->use_color= TRUE;
     } else {
-        gjay->prefs->start_color= FALSE;
+        prefs->use_color= FALSE;
     }
 }
 
@@ -364,6 +369,7 @@ static void playlist_button_clicked (GtkButton *button,
     const gchar * text;
     char buffer[BUFFER_SIZE];
     int time;
+	GjayApp *gjay=(GjayApp*)user_data;
     
     text = gtk_entry_get_text(GTK_ENTRY(time_entry));
     if(sscanf(text, "%d", &time) == 0) {
@@ -371,15 +377,15 @@ static void playlist_button_clicked (GtkButton *button,
         snprintf(buffer, BUFFER_SIZE, "%d", time);
         gtk_entry_set_text(GTK_ENTRY(time_entry), buffer);
     }
-    gjay->prefs->time = time;
-    playlist = generate_playlist(gjay->prefs->time);
+    gjay->prefs->playlist_time = time;
+    playlist = generate_playlist(gjay, gjay->prefs->playlist_time);
     if (playlist)
-        make_playlist_window(playlist);
+        make_playlist_window(gjay, playlist);
 }
 
 
 
-static void make_playlist_window ( GList * list) {
+static void make_playlist_window ( GjayApp *gjay, GList * playlist) {
     GList * ll;
     GtkWidget * window;
     GtkWidget * vbox, * hbox, * hbox2, * label, * swin, * button;
@@ -389,6 +395,11 @@ static void make_playlist_window ( GList * list) {
     GtkListStore * list_store;
     gint time;
     gchar time_buffer[BUFFER_SIZE];
+	struct play_songs_data *ps_data;
+
+	ps_data = g_malloc0(sizeof(struct play_songs_data));
+	ps_data->player = gjay->player;
+	ps_data->main_window = gjay->gui->main_window;
 
     window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
     gtk_widget_set_size_request(window, PLAYLIST_WIDTH, PLAYLIST_HEIGHT);
@@ -397,7 +408,7 @@ static void make_playlist_window ( GList * list) {
     g_signal_connect (G_OBJECT (window),
                       "delete_event",
                       G_CALLBACK (playlist_window_delete),
-                      list);
+                      playlist);
     gtk_window_set_title (GTK_WINDOW (window), "GJay: Playlist");
     
     vbox = gtk_vbox_new (FALSE, 2);
@@ -409,7 +420,7 @@ static void make_playlist_window ( GList * list) {
                                     GDK_TYPE_PIXBUF,
                                     GDK_TYPE_PIXBUF,
                                     G_TYPE_STRING);
-    populate_playlist_list(list_store, list);
+    populate_playlist_list(list_store, playlist);
     tree = gtk_tree_view_new_with_model (GTK_TREE_MODEL (list_store));
     g_object_unref (G_OBJECT (list_store));
     text_renderer = gtk_cell_renderer_text_new ();
@@ -445,19 +456,20 @@ static void make_playlist_window ( GList * list) {
     
 
     hbox = gtk_hbox_new (FALSE, 2);
-    for (time = 0, ll = list; ll; ll = g_list_next(ll)) 
-        time += ((song *) ll->data)->length;
+    for (time = 0, ll = playlist; ll; ll = g_list_next(ll)) 
+        time += ((GjaySong *) ll->data)->length;
     snprintf(time_buffer, BUFFER_SIZE, "%d minutes", time/60);
     label = gtk_label_new(time_buffer);
     gtk_box_pack_start(GTK_BOX(hbox), label, TRUE, TRUE, 0);
 
     gtk_box_pack_start(GTK_BOX(vbox), hbox, FALSE, FALSE, 0);
 
-    button = new_button_label_pixbuf("Play", PM_BUTTON_PLAY);
+    button = new_button_label_pixbuf("Play", PM_BUTTON_PLAY, gjay->gui->pixbufs);
+	ps_data->playlist = playlist;
     g_signal_connect (G_OBJECT (button), 
                       "clicked",
                       G_CALLBACK (playlist_window_play),
-                      list);
+                      ps_data);
     gtk_box_pack_start(GTK_BOX(hbox), button, FALSE, FALSE, 0);
 
     hbox2 = gtk_hbox_new (FALSE, 2);
@@ -470,7 +482,7 @@ static void make_playlist_window ( GList * list) {
     g_signal_connect (G_OBJECT (button), 
                       "clicked",
                       G_CALLBACK (playlist_window_save),
-                      list);
+                      playlist);
     gtk_container_add (GTK_CONTAINER (button), hbox2);
 
     gtk_box_pack_start(GTK_BOX(hbox), button, FALSE, FALSE, 0);
@@ -480,7 +492,8 @@ static void make_playlist_window ( GList * list) {
 
 static void playlist_window_play ( GtkButton *button,
                                    gpointer user_data ) {
-    play_songs((GList*)user_data);
+  struct play_songs_data *psd=(struct play_songs_data*)user_data;
+  play_songs(psd->player, psd->main_window, psd->playlist);
 }
 
 
@@ -560,7 +573,7 @@ static gboolean playlist_window_delete ( GtkWidget *widget,
 static void  populate_playlist_list(GtkListStore * list_store,
                                     GList * list) {
     GList * llist;
-    song * s;
+    GjaySong * s;
     gchar * artist, * title;
     gchar bpm[20];
     GtkTreeIter iter;
@@ -568,7 +581,7 @@ static void  populate_playlist_list(GtkListStore * list_store,
     for (llist = g_list_first(list); 
          llist; 
          llist = g_list_next(llist)) {
-        s = (song *) llist->data;
+        s = (GjaySong *) llist->data;
         if (s->artist)
             artist = s->artist;
         else

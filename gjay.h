@@ -40,12 +40,12 @@
 #endif /* WITH_DBUSGLIB */
 
 typedef struct _GjayApp GjayApp;
-extern GjayApp *gjay;
 
 #include "constants.h"
 #include "rgbhsv.h"
 #include "songs.h"
 #include "prefs.h"
+#include "ui.h"
 
 /* Helper programs */
 #define OGG_DECODER_APP "ogg123"
@@ -68,36 +68,48 @@ typedef enum {
 extern gjay_mode mode;
 
 /* User options */
-extern gboolean      verbosity;
 extern gboolean      skip_verify;
 
 /* Utilities */
 void    read_line             ( FILE * f, 
                                 char * buffer, 
                                 int buffer_len);
-gchar * parent_dir            ( const char * path );
 
+typedef struct _GjayPlayer {
+  gchar *name;
+  GjaySong* (*get_current_song)(struct _GjayPlayer *player, GHashTable *song_name_hash);
+  gboolean (*is_running)(struct _GjayPlayer *player);
+  void (*play_files)(struct _GjayPlayer *player, GList *list);
+  gboolean (*start)(struct _GjayPlayer *player);
+#ifdef WITH_DBUSGLIB
+  DBusGConnection *connection;
+  DBusGProxy *proxy;
+#endif /* WITH_DBUSGLIB */
+#ifdef WITH_MPDCLIENT
+  struct mpd_connection *mpdclient_connection;
+#ifdef WITH_GUI
+  GtkWidget *main_window; /* copy from GjayApp */
+#endif /* WITH_GUI */
+  gchar   * song_root_dir;
+#endif /* WITH_MPDCLIENT */
+} GjayPlayer;
 
 struct _GjayApp {
   GjayPrefs *prefs;
+  struct _GjayIPC	*ipc;
+  GjayPlayer *player;
+  struct _GjaySongLists *songs;
+#ifdef WITH_GUI
+  GjayGUI      * gui;
+#endif /* WITH_GUI */
+
+  guint verbosity;
+
   /* Player connections/handles */
 
-#ifdef WITH_DBUSGLIB
-  DBusGConnection *connection;
-  DBusGProxy *player_proxy;
-#endif /* WITH_DBUSGLIB */
-
-#ifdef WITH_MPDCLIENT
-  struct mpd_connection *mpdclient_connection;
-#endif /* WITH_MPDCLIENT */
 
 
-#ifdef WITH_GUI
-  GdkPixbuf   * pixbufs[50]; //FIXME
-  GtkTooltips * tips;
-  GtkWidget   * explore_view, * selection_view, * playlist_view,
-     * no_root_view, * prefs_view, * about_view;
-#endif /* WITH_GUI */
+
   GList       * selected_songs, * selected_files; 
   /* We store a list of the directories which contain new songs (ie. lack
    * rating/color info */
@@ -105,34 +117,9 @@ struct _GjayApp {
   GHashTable  * new_song_dirs_hash;
   gint           tree_depth;               /* How deep does the tree go */
 
-#ifdef WITH_GUI
-  /* Various Windows */
-  GtkWidget *main_window;
-  GtkWidget *notebook;
-  GtkWidget * prefs_window;
-  GtkWidget * message_window;
-#endif /* WITH_GUI */
-
-
-  /* Songs */
-  GList      * songs;       /* List of song ptrs  */
-  GList      * not_songs;   /* List of char *, UTF8 encoded */
-  gboolean     songs_dirty;
-
-  GHashTable * song_name_hash; 
-  GHashTable * song_inode_dev_hash;
-  GHashTable * not_song_hash;
-  
   /* Supported filetypes */
   gboolean ogg_supported;
   gboolean flac_supported;
-
-
-  /* Player calls */
-  song* (*player_get_current_song)(void);
-  gboolean (*player_is_running)(void);
-  void (*player_play_files)(GList *list);
-  gboolean (*player_start)(void);
 };
 
 /* From daemon.c */

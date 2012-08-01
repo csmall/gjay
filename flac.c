@@ -110,8 +110,7 @@ read_flac_file_type( gchar    * path,
     return FALSE;
 
   if (!(*gjflac_metadata_chain_read)(chain, path)) {
-    if (verbosity > 2)
-      g_warning(_("Unable to read FLAC metadata for file %s\n"), path);
+    g_warning(_("Unable to read FLAC metadata for file %s\n"), path);
     return FALSE;
   }
   // Loop through metadata

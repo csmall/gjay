@@ -32,7 +32,7 @@ typedef enum {
 } song_file_type;
 
 
-typedef struct _song song;
+typedef struct _song GjaySong;
 
 typedef enum {
     ARTIST_TITLE = 0,
@@ -42,14 +42,15 @@ typedef enum {
     FREQ
 } sort_by;
  
-extern GList      * songs;             /*  song *   */
-extern GList      * not_songs;         /*  char *   */
-extern gboolean     songs_dirty;       /* Songs list does not match
-                                          disk copy */
-extern GHashTable * song_name_hash;
-extern GHashTable * song_inode_dev_hash;
-extern GHashTable * not_song_hash;
+typedef struct _GjaySongLists {
+  GList			* songs;
+  GList			* not_songs;
+  GHashTable	* name_hash;
+  GHashTable	* inode_dev_hash;
+  GHashTable	* not_hash;
 
+  gboolean		dirty;
+} GjaySongLists;
 
 struct _song {
     /* Characteristics (don't change). Strings are UTF8 encoded. */
@@ -90,26 +91,29 @@ struct _song {
     guint32 dev; 
     guint32 inode_dev_hash;
     
-    song * repeat_prev, * repeat_next;    
+    GjaySong * repeat_prev, * repeat_next;    
 
     /* Does the song exist? */
     gboolean access_ok;
 };
 
-#define SONG(list) ((song *) list->data)
+#define SONG(list) ((GjaySong *) list->data)
 
-song *      create_song            ( void );
-void        delete_song            ( song * s );
-song *      song_set_path          ( song * s, 
+GjaySong *      create_song            ( void );
+void        delete_song            ( GjaySong * s );
+GjaySong *      song_set_path          ( GjaySong * s, 
                                      char * path );
 #ifdef WITH_GUI
-void        song_set_freq_pixbuf   ( song * s);
-void        song_set_color_pixbuf  ( song * s);
+void        song_set_freq_pixbuf   ( GjaySong * s);
+void        song_set_color_pixbuf  ( GjaySong * s);
 #endif /* WITH_GUI */
-void        song_set_repeats       ( song * s, 
-                                     song * original );
-void        song_set_repeat_attrs  ( song * s);
-void        file_info              ( gchar          * path,
+void        song_set_repeats       ( GjaySong * s, 
+                                     GjaySong * original );
+void        song_set_repeat_attrs  ( GjaySong * s);
+void        file_info              ( const guint verbosity,
+									 const gboolean ogg_supported,
+									 const gboolean flac_supported,
+	                                 gchar          * path,
                                      gboolean       * is_song,
                                      guint32        * inode,
                                      guint32        * dev,
@@ -125,19 +129,18 @@ void        file_info              ( gchar          * path,
  * importance of each song's attributes and "d" is the attraction
  * or repulsion (note that the attraction of a -> b = b-> a)
  */
-gdouble     song_force             ( song * a, song  * b );
-gdouble     song_attraction        ( song * a, song  * b );
+gdouble song_force ( const GjayPrefs *prefs, GjaySong * a, GjaySong  * b, const gint tree_depth );
 
 
-void        write_data_file        ( void );
+void        write_data_file        ( GjayApp *gjay );
 int         write_dirty_song_timeout ( gpointer data );
-int         append_daemon_file     ( song * s );
-void        write_song_data        ( FILE * f, song * s );
+int         append_daemon_file     ( GjaySong * s );
+void        write_song_data        ( FILE * f, GjaySong * s );
 
 
-void        read_data_file         ( void );
-gboolean    add_from_daemon_file_at_seek ( int seek );
-void        hash_inode_dev         ( song * s,
+void        read_data_file         ( GjayApp *gjay );
+gboolean    add_from_daemon_file_at_seek ( GjayApp *gjay, const gint seek );
+void        hash_inode_dev         ( GjaySong * s,
                                      gboolean has_dev );
 
 

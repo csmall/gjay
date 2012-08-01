@@ -1,6 +1,6 @@
 /*
  * Gjay - Gtk+ DJ music playlist creator
- * Copyright (C) 2009-2011 Craig Small 
+ * Copyright 2009-2012 Craig Small 
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -21,10 +21,10 @@
 
 #include "gjay.h" 
 
-gboolean      mpdclient_init(void);
-song*     mpdclient_get_current_song(void);
-gboolean  mpdclient_is_running(void);
-void      mpdclient_play_files(GList *list);
-gboolean mpdclient_start(void);
+gboolean      mpdclient_init(GjayPlayer *player);
+GjaySong*     mpdclient_get_current_song(GjayPlayer *player, GHashTable *htb);
+gboolean  mpdclient_is_running(GjayPlayer *player);
+void      mpdclient_play_files(GjayPlayer *player, GList *list);
+gboolean mpdclient_start(GjayPlayer *player);
 
 #endif /* _GJAY_MPD_H_ */

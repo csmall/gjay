@@ -21,10 +21,10 @@
 
 #include "gjay.h" 
 
-gboolean      audacious_init(void);
-song*     audacious_get_current_song(void);
-gboolean  audacious_is_running(void);
-void      audacious_play_files(GList *list);
-gboolean audacious_start(void);
+gboolean      audacious_init(GjayPlayer *player);
+GjaySong*     audacious_get_current_song(GjayPlayer *player, GHashTable *song_name_hash);
+gboolean  audacious_is_running(GjayPlayer *player);
+void      audacious_play_files(GjayPlayer *player, GList *list);
+gboolean audacious_start(GjayPlayer *player);
 
 #endif /* _GJAY_AUDACIOUS_H_ */

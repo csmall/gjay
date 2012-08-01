@@ -17,7 +17,7 @@ gjay_SOURCES = gjay.h songs.h prefs.h rgbhsv.h analysis.h playlist.h \
 #play_exaile.h play_exaile.c
 
 if WITH_GUI
-  gjay_SOURCES += ui.h ui.c ui_menubar.c\
+  gjay_SOURCES += ui.h ui.c ui_menubar.c ui_private.h\
 				  ui_explore_view.c ui_prefs_view.c ui_selection_view.c \
 				  ui_playlist_view.c ui_colorwheel.c 
 else

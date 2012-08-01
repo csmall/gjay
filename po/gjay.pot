@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: gjay 0.3.2\n"
 "Report-Msgid-Bugs-To: csmall@enc.com.au\n"
-"POT-Creation-Date: 2011-04-03 16:26+1000\n"
+"POT-Creation-Date: 2012-07-29 08:20+1000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,138 +17,143 @@ msgstr ""
 "Content-Type: text/plain; charset=CHARSET\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: analysis.c:126
+#: analysis.c:129
 #, c-format
 msgid "Song file %s not found\n"
 msgstr ""
 
-#: analysis.c:141
+#: analysis.c:144
 #, c-format
 msgid "Cannot open %s for writing\n"
 msgstr ""
 
-#: analysis.c:182
+#: analysis.c:185
 #, c-format
 msgid "Adding '%s' to analysis queue\n"
 msgstr ""
 
-#: analysis.c:256
+#: analysis.c:259
 #, c-format
 msgid "Daemon received ack\n"
 msgstr ""
 
-#: analysis.c:263
+#: analysis.c:266
 #, c-format
 msgid "Deleting daemon pid file '%s'\n"
 msgstr ""
 
-#: analysis.c:270
+#: analysis.c:273
 #, c-format
 msgid "Daemon is clearing out analysis queue, deleting file '%s'\n"
 msgstr ""
 
-#: analysis.c:285
+#: analysis.c:288
 #, c-format
 msgid "Daemon queuing song file '%s'\n"
 msgstr ""
 
-#: analysis.c:293
+#: analysis.c:296
 #, c-format
 msgid "Detaching daemon\n"
 msgstr ""
 
-#: analysis.c:301
+#: analysis.c:304
 #, c-format
 msgid "Attaching to daemon\n"
 msgstr ""
 
-#: analysis.c:311
+#: analysis.c:314
 #, c-format
 msgid "Daemon Quitting\n"
 msgstr ""
 
-#: analysis.c:351
+#: analysis.c:354
 #, c-format
 msgid "analyze(): File '%s' cannot be read\n"
 msgstr ""
 
-#: analysis.c:374
+#: analysis.c:377
 #, c-format
 msgid "File '%s' is not a recognised song.\n"
 msgstr ""
 
-#: analysis.c:385
+#: analysis.c:389
 #, c-format
 msgid "Unable to inflate song '%s'.\n"
 msgstr ""
 
-#: analysis.c:396
+#: analysis.c:400
+#, c-format
+msgid "Decoding of song '%s' failed, bad wav header.\n"
+msgstr ""
+
+#: analysis.c:409
 #, c-format
 msgid "Analyzing song file '%s'\n"
 msgstr ""
 
-#: analysis.c:403
+#: analysis.c:416
 #, c-format
 msgid "Analysis took %ld seconds\n"
 msgstr ""
 
-#: analysis.c:472
+#: analysis.c:485
 #, c-format
 msgid "Unable to decode '%s' as no ogg decoder found"
 msgstr ""
 
-#: analysis.c:482
+#: analysis.c:495
 #, c-format
 msgid "Unable to decode '%s' as no mp3 decoder found"
 msgstr ""
 
-#: analysis.c:492
+#: analysis.c:505
 #, c-format
 msgid "Unable to decode '%s' as no flac decoder found"
 msgstr ""
 
-#: analysis.c:507
+#: analysis.c:520
 #, c-format
 msgid "Unable to run decoder command '%s'\n"
 msgstr ""
 
-#: analysis.c:562
+#: analysis.c:575
 #, c-format
 msgid ""
 "File is not a (converted) wav file. Modus is supposed to be 1 or 2 but is "
 "%d\n"
 msgstr ""
 
-#: analysis.c:569
+#: analysis.c:582
 msgid "File is not a 16-bit stream\n"
 msgstr ""
 
-#: analysis.c:715
+#: analysis.c:727
 #, c-format
 msgid "Frequencies: \n"
 msgstr ""
 
-#: analysis.c:772
+#: analysis.c:784
 #, c-format
 msgid "BPM: %f\n"
 msgstr ""
 
-#: analysis.c:948
+#: analysis.c:960
 #, c-format
 msgid "Daemon appears to have been orphaned. Quitting.\n"
 msgstr ""
 
-#: analysis.c:975
+#: analysis.c:987
 #, c-format
 msgid "Analysis daemon done.\n"
 msgstr ""
 
-#: dbus.c:33
+#: dbus.c:39
 #, c-format
 msgid "Failed to open connection to dbus bus: %s\n"
 msgstr ""
 
-#: dbus.c:60
+#: dbus.c:66
 #, c-format
 msgid "dbus check found '%s' running: %s\n"
 msgstr ""
@@ -167,12 +172,12 @@ msgstr ""
 msgid "Could not get block from FLAC chain for %s\n"
 msgstr ""
 
-#: gjay.c:87
+#: gjay.c:94
 #, c-format
 msgid "GJay version %s\n"
 msgstr ""
 
-#: gjay.c:92
+#: gjay.c:99
 #, c-format
 msgid ""
 "GJay comes with ABSOLUTELY NO WARRANTY.\n"
@@ -182,125 +187,125 @@ msgid ""
 "(at your option) any later version.\n"
 msgstr ""
 
-#: gjay.c:110
+#: gjay.c:117
 msgid "Analyze FILE and exit"
 msgstr ""
 
-#: gjay.c:110 gjay.c:113
+#: gjay.c:117 gjay.c:120
 msgid "FILE"
 msgstr ""
 
-#: gjay.c:111
+#: gjay.c:118
 msgid "Start playlist at color- Hex or name"
 msgstr ""
 
-#: gjay.c:111
+#: gjay.c:118
 msgid "0xrrggbb|NAME"
 msgstr ""
 
-#: gjay.c:112
+#: gjay.c:119
 msgid "Run as daemon"
 msgstr ""
 
-#: gjay.c:113
+#: gjay.c:120
 msgid "Start playlist at file"
 msgstr ""
 
-#: gjay.c:114
+#: gjay.c:121
 msgid "Playlist length"
 msgstr ""
 
-#: gjay.c:114
+#: gjay.c:121
 msgid "minutes"
 msgstr ""
 
-#: gjay.c:115
+#: gjay.c:122
 msgid "Generate a playlist"
 msgstr ""
 
-#: gjay.c:116
+#: gjay.c:123
 msgid "Skip file verification"
 msgstr ""
 
-#: gjay.c:117
+#: gjay.c:124
 msgid "Use M3U playlist format"
 msgstr ""
 
-#: gjay.c:118
+#: gjay.c:125
 msgid "LEVEL"
 msgstr ""
 
-#: gjay.c:119
+#: gjay.c:126
 msgid "Start player using generated playlist"
 msgstr ""
 
-#: gjay.c:120
+#: gjay.c:127
 msgid "Show version"
 msgstr ""
 
-#: gjay.c:124
+#: gjay.c:131
 msgid "- Automatic DJ and playlist creator"
 msgstr ""
 
-#: gjay.c:131
+#: gjay.c:138
 #, c-format
 msgid "option parsing failed: %s\n"
 msgstr ""
 
-#: gjay.c:161
+#: gjay.c:168
 #, c-format
 msgid "Running as daemon. Ctrl+c to stop.\n"
 msgstr ""
 
-#: gjay.c:188
+#: gjay.c:195
 msgid "Unable to allocate memory for app.\n"
 msgstr ""
 
-#: gjay.c:220
+#: gjay.c:227
 #, c-format
 msgid "Could not create '%s'\n"
 msgstr ""
 
-#: gjay.c:238
+#: gjay.c:245
 #, c-format
 msgid "Ogg not supported.\n"
 msgstr ""
 
-#: gjay.c:244
+#: gjay.c:251
 #, c-format
 msgid "FLAC not supported.\n"
 msgstr ""
 
-#: gjay.c:269
+#: gjay.c:280
 #, c-format
 msgid "Error: app mode %d not supported\n"
 msgstr ""
 
-#: gjay.c:283
+#: gjay.c:294
 #, c-format
 msgid "Error opening the pipe '%s'.\n"
 msgstr ""
 
-#: gjay.c:288
+#: gjay.c:299
 #, c-format
 msgid "Couldn't create the pipe '%s'.\n"
 msgstr ""
 
-#: gjay.c:293
+#: gjay.c:304
 #, c-format
 msgid "Couldn't open the pipe '%s'.\n"
 msgstr ""
 
-#: gjay.c:373
+#: gjay.c:384
 #, c-format
 msgid "Couldn't create pipe directory '%s'.\n"
 msgstr ""
 
-#: gjay.c:444
+#: gjay.c:455
 msgid "Unable to fork daemon.\n"
 msgstr ""
 
-#: gjay.c:458
+#: gjay.c:470
 msgid "Cannot initialise Gtk.\n"
 msgstr ""
 
@@ -329,65 +334,52 @@ msgstr ""
 msgid "Unable to read song data for '%s'\n"
 msgstr ""
 
-#: play_audacious.c:59
+#: play_audacious.c:62
 msgid "Unable to open audcious client library, defaulting to no play."
 msgstr ""
 
-#: play_audacious.c:95
+#: play_audacious.c:98
 #, c-format
 msgid "Cannot create audacious g_app: %s\n"
 msgstr ""
 
-#: play_audacious.c:102
+#: play_audacious.c:105
 #, c-format
 msgid "Cannot launch audacious g_app: %s"
 msgstr ""
 
-#: play_common.c:94
+#: play_common.c:99
 #, c-format
 msgid "%s is not running, start %s?"
 msgstr ""
 
-#: play_common.c:109
+#: play_common.c:114 play_common.c:132
 #, c-format
 msgid "Unable to start %s"
-msgstr ""
-
-#: play_exaile.c:61 play_exaile.c:145
-#, c-format
-msgid "Cannot create exaile g_app: %s\n"
-msgstr ""
-
-#: play_exaile.c:68 play_exaile.c:152
-#, c-format
-msgid "Cannot launch exaile g_app: %s"
-msgstr ""
-
-#: play_exaile.c:131
-msgid "exaile is not running, start exaile?"
-msgstr ""
-
-#: play_exaile.c:165
-msgid "Unable to start exaile"
 msgstr ""
 
 #: playlist.c:98
 msgid "No songs to create playlist from"
 msgstr ""
 
-#: playlist.c:115
+#: playlist.c:102
+#, c-format
+msgid "Working set is %d songs long.\n"
+msgstr ""
+
+#: playlist.c:117
 #, c-format
 msgid ""
 "File '%s' not found in data file;\n"
 "perhaps it has not been analyzed. Using random starting song.\n"
 msgstr ""
 
-#: playlist.c:206
+#: playlist.c:208
 #, c-format
 msgid "It took %d seconds to generate playlist\n"
 msgstr ""
 
-#: playlist.c:217
+#: playlist.c:219
 #, c-format
 msgid "Sorry, cannot write playlist to '%s'."
 msgstr ""
@@ -401,48 +393,48 @@ msgstr ""
 msgid "Cannot stop Music Player Daemon: %s"
 msgstr ""
 
-#: play_mpdclient.c:151
+#: play_mpdclient.c:155
 #, c-format
 msgid "Cannot clear Music Player Daemon queue: %s"
 msgstr ""
 
-#: play_mpdclient.c:165
+#: play_mpdclient.c:169
 #, c-format
 msgid "Cannot add song \"%s\" to Music Player Daemon Queue: %s"
 msgstr ""
 
-#: play_mpdclient.c:174
+#: play_mpdclient.c:178
 #, c-format
 msgid "Cannot play playlist: %s"
 msgstr ""
 
-#: play_mpdclient.c:191
+#: play_mpdclient.c:195
 msgid "Unable to connect of Music Player Daemon"
 msgstr ""
 
-#: songs.c:334
+#: songs.c:340
 #, c-format
 msgid "Scanning '%s'...\n"
 msgstr ""
 
-#: songs.c:410
+#: songs.c:416
 #, c-format
 msgid "Unable to write song data %s\n"
 msgstr ""
 
-#: songs.c:450
+#: songs.c:456
 #, c-format
 msgid ""
 "Unable to write '%s'.\n"
 "Analysis for '%s' was skipped!\n"
 msgstr ""
 
-#: songs.c:558
+#: songs.c:564
 #, c-format
 msgid "Reading from data file '%s'\n"
 msgstr ""
 
-#: songs.c:859
+#: songs.c:865
 #, c-format
 msgid "Unable to read song data '%s' : %s\n"
 msgstr ""
@@ -475,27 +467,27 @@ msgid ""
 "Is the player running?"
 msgstr ""
 
-#: ui_prefs_view.c:78
+#: ui_prefs_view.c:79
 msgid "GJay Preferences"
 msgstr ""
 
-#: ui_prefs_view.c:88
+#: ui_prefs_view.c:89
 msgid "<b>General</b>"
 msgstr ""
 
-#: ui_prefs_view.c:95
+#: ui_prefs_view.c:105
 msgid "Music Player:"
 msgstr ""
 
-#: ui_prefs_view.c:118
+#: ui_prefs_view.c:132
 msgid "Use song ratings"
 msgstr ""
 
-#: ui_prefs_view.c:136
+#: ui_prefs_view.c:153
 msgid "Max working set"
 msgstr ""
 
-#: ui_prefs_view.c:142
+#: ui_prefs_view.c:159
 msgid ""
 "On large collections, building playlists can take a long time. So gjay first "
 "picks this number of songs randomly, then continues the  selection from that "
@@ -503,59 +495,59 @@ msgid ""
 "times for increased accuracy."
 msgstr ""
 
-#: ui_prefs_view.c:169
+#: ui_prefs_view.c:189
 msgid "<b>Base Directory</b>"
 msgstr ""
 
-#: ui_prefs_view.c:178 ui_prefs_view.c:294
+#: ui_prefs_view.c:198 ui_prefs_view.c:314
 msgid "Set base music directory"
 msgstr ""
 
-#: ui_prefs_view.c:205
+#: ui_prefs_view.c:225
 msgid "<b>Song Analysis Daemon</b>"
 msgstr ""
 
-#: ui_prefs_view.c:208
+#: ui_prefs_view.c:228
 msgid "Stop daemon when you quit GJay"
 msgstr ""
 
-#: ui_prefs_view.c:211
+#: ui_prefs_view.c:231
 msgid "Continue running daemon when you quit"
 msgstr ""
 
-#: ui_prefs_view.c:214
+#: ui_prefs_view.c:234
 msgid "Ask each time"
 msgstr ""
 
-#: ui_prefs_view.c:283
+#: ui_prefs_view.c:303
 msgid "Choose base music directory"
 msgstr ""
 
-#: ui_prefs_view.c:326
+#: ui_prefs_view.c:346
 #, c-format
 msgid "Error getting status of directory '%s': %s"
 msgstr ""
 
-#: ui_prefs_view.c:337
+#: ui_prefs_view.c:357
 #, c-format
 msgid "Path '%s' is not a directory."
 msgstr ""
 
-#: ui_prefs_view.c:353
+#: ui_prefs_view.c:373
 msgid "Scanning tree..."
 msgstr ""
 
-#: ui_prefs_view.c:375
+#: ui_prefs_view.c:395
 #, c-format
 msgid "Base directory is '%s'"
 msgstr ""
 
-#: ui_prefs_view.c:378
+#: ui_prefs_view.c:398
 #, c-format
 msgid "No base directory set"
 msgstr ""
 
-#: util.c:66
+#: util.c:97
 #, c-format
 msgid "Unable to convert from %s charset; perhaps encoded differently?"
 msgstr ""
