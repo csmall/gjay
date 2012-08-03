@@ -59,7 +59,7 @@ create_gjay_ipc(GjayIPC **ipc)
 	return FALSE;
   }
 
-  if ( ((*ipc)->ui_fifo = gjay_fifo((*ipc)->pipe_dir, DAEMON_PIPE_FILE)) < 0) {
+  if ( ((*ipc)->daemon_fifo = gjay_fifo((*ipc)->pipe_dir, DAEMON_PIPE_FILE)) < 0) {
 	g_free(*ipc);
 	return FALSE;
   }

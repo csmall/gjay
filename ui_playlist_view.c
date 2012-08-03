@@ -46,7 +46,8 @@ GtkWidget * button_sel_songs, * button_start_song, * button_sel_dir;
 GtkWidget * button_start_color, * time_entry;
 GtkWidget * rating_hbox;
 
-static void uiparent_set_callback (GtkWidget *widget,
+void uiparent_set_callback (GtkWidget *widget,
+							GtkWidget *old_parent,
                                  gpointer user_data);
 static void toggled ( GtkToggleButton *togglebutton,
                       gpointer user_data );
@@ -261,7 +262,8 @@ GtkWidget * make_playlist_view ( GjayApp *gjay ) {
 }
 
 
-static void uiparent_set_callback (GtkWidget *widget,
+void uiparent_set_callback (GtkWidget *widget,
+							GtkWidget *old_parent,
                                  gpointer user_data) {
     GjaySong * s;
     GList * ll;

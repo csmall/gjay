@@ -594,6 +594,8 @@ static void update_dir_has_rating_color (GjayApp *gjay, const gchar * dir ) {
     gchar * parent;
     gchar * str;
     
+	if (dir == NULL)
+	  return;
     str = g_hash_table_lookup(gjay->new_song_dirs_hash, dir);
     if (!str) 
         return;

@@ -6,3 +6,5 @@ depcomp
 gjay-*.tar.gz
 install-sh
 missing
+po/POTFILES
+po/Makevars.template

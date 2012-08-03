@@ -1,6 +1,7 @@
 Changes in 0.3.3
 ================
 	* Check to see wav file decodes proper Debian #664516
+	* Removed a lot of globals into structures
 
 Changes in 0.3.2
 ================

@@ -101,6 +101,8 @@ struct _GjayApp {
   struct _GjaySongLists *songs;
 #ifdef WITH_GUI
   GjayGUI      * gui;
+#else
+  gpointer		*gui;
 #endif /* WITH_GUI */
 
   guint verbosity;

@@ -54,16 +54,14 @@ GtkWidget * make_no_root_view ( GjayApp *gjay );
 GtkWidget * make_selection_view ( GjayApp *gjay );
 GtkWidget * make_prefs_window ( GjayApp *gjay );
 GtkWidget * make_about_view ( void );
-void        show_about_window ( void );
+void        show_about_window ( GtkAction *action, gpointer user_data );
 void        hide_about_window ( void );
-void        show_prefs_window ( gpointer user_data );
-void        hide_prefs_window ( gpointer user_data );
 void        set_add_files_progress         ( char * str,
                                              gint percent );
 
 gint        explore_view_set_root_idle   ( gpointer data );
 gboolean    explore_update_path_pm       ( GdkPixbuf **pixbufs,
-											char * path,
+										   const char * path,
                                            int type );
 GList *     explore_files_in_dir         ( const char * dir, 
                                            const gboolean recursive );

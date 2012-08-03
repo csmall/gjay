@@ -580,7 +580,7 @@ void set_add_files_progress ( char * str,
                              percent/100.0);
 }
 
-void show_about_window( void ) {
+void show_about_window( GtkAction *action, gpointer user_data ) {
 
   static const gchar * const authors[] = {
     "Chuck Groom",
@@ -607,15 +607,6 @@ void show_about_window( void ) {
       NULL);
 }
 
-void show_prefs_window( gpointer user_data ) {
-  GjayApp *gjay = (GjayApp*)user_data;
-  gtk_window_present(GTK_WINDOW(gjay->gui->prefs_window));
-}
-
-void hide_prefs_window( gpointer user_data ) {
-  GjayApp *gjay = (GjayApp*)user_data;
-  gtk_widget_hide(gjay->gui->prefs_window);
-}
 
 void gjay_error_dialog(GtkWidget *parent, const gchar *msg) {
   GtkWidget *dialog;

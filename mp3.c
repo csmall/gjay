@@ -294,7 +294,7 @@ int get_header(FILE *file,mp3header *header)
     }
 
     if (header->freq == 0x03) {
-      g_warning(_("Invalid frequency %0x in mp3 header.\n"), header->freq);
+      //g_warning(_("Invalid frequency %0x in mp3 header.\n"), header->freq);
       return 0;
     }
     return ((fl=frame_length(header)) >= MIN_FRAME_SIZE ? fl : 0); 

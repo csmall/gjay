@@ -45,13 +45,11 @@ typedef struct {
 } file_to_add;
 
 typedef struct {
-  char *dir;
   int (*fn)( const char *file, 
 	  const struct stat *sb, int flag, gboolean a, gboolean b, gboolean c);
   gboolean extension_filter;
   gboolean flac_supported;
   gboolean ogg_supported;
-  int depth;
 } ftw_data;
 
 GtkTreeStore * store = NULL;
@@ -73,7 +71,7 @@ static gint         animate_frame = 0;
 static gchar      * animate_file = NULL;
 static gint         total_files_to_add, file_to_add_count;
 
-static int    gjay_ftw(ftw_data *data);
+static int    gjay_ftw(const gchar *dir, const guint depth, ftw_data *data);
 
 static int    tree_walk       ( const char *file, 
                                 const struct stat *sb, 
@@ -223,14 +221,12 @@ void explore_view_set_root (GjayApp *gjay) {
     /* Recurse through the directory tree, adding file names to 
      * a stack. In spare cycles, we'll process these files properly for
      * list display and requesting daemon processing */
-	fdata.dir = gjay->prefs->song_root_dir;
 	fdata.fn = tree_walk;
 	fdata.extension_filter = gjay->prefs->extension_filter;
 	fdata.flac_supported = gjay->flac_supported;
     fdata.ogg_supported = gjay->ogg_supported;
-	fdata.depth = 10;
 
-    gjay_ftw(&fdata);
+    gjay_ftw(gjay->prefs->song_root_dir, 10, &fdata);
     gtk_idle_add(tree_add_idle, gjay);
 
     total_files_to_add = g_list_length(files_to_add_queue->head);
@@ -241,7 +237,7 @@ void explore_view_set_root (GjayApp *gjay) {
     set_add_files_progress_visible(TRUE);
     
     /* Run idle loop once to force display of root dir */
-    tree_add_idle(NULL);
+    tree_add_idle(gjay);
 }
 
 
@@ -546,7 +542,7 @@ static void select_row (GtkTreeSelection *selection, gpointer data) {
  * Redraw the icon next to the corresponding file in the tree. Return TRUE
  * if file was found in tree, FALSE if not.
  */
-gboolean explore_update_path_pm ( GdkPixbuf **pixbufs, char * path, int type ) {
+gboolean explore_update_path_pm ( GdkPixbuf **pixbufs, const char * path, int type ) {
     GtkTreeIter  * iter;
 
     if (!name_iter_hash)
@@ -799,64 +795,61 @@ static gint compare_str ( gconstpointer a, gconstpointer b) {
 }
 
 
-static int gjay_ftw(ftw_data *fdata) {
-    DIR * d;
-    int retval = 0, flag, len, d_name_len;
-    struct dirent * ent;
-    struct stat buf;
-    char buffer[BUFFER_SIZE];
+static int gjay_ftw(const gchar *dir, const guint depth, ftw_data *fdata) {
+  int retval = 0, flag, dir_len;
+  struct stat st;
+  gchar *buffer;
+  const gchar *dir_ent;
+  GDir *gdir;
 
-    /* Sanity check */
-    if (fdata->depth == 0)
-        return 0;
+  /* Sanity check */
+  if (depth == 0)
+    return 0;
     
-    /* Call fn on this directory */
-    len = strlen(fdata->dir);
-    strncpy(buffer, fdata->dir, BUFFER_SIZE);
-    if (len && (buffer[len - 1] == '/'))
-        buffer[len - 1] = '\0';
-    if (stat(buffer, &buf) == 0) {
-        fdata->fn(buffer, &buf, FTW_D, fdata->extension_filter,
-			fdata->flac_supported, fdata->ogg_supported	);
-    } else {
-        return -1;
-    }
-    
-    if (! (d = opendir(fdata->dir))) {
-        return -1;
-    }
+  /* Call fn on this directory */
+  buffer = g_strdup(dir);
+  dir_len = strlen(dir);
+  if (dir_len > 0 && (buffer[dir_len - 1] == '/'))
+    buffer[dir_len - 1] = '\0';
+  if (stat(buffer, &st) == 0)
+    fdata->fn(buffer, &st, FTW_D, fdata->extension_filter,
+		fdata->flac_supported, fdata->ogg_supported);
+  else {
+	g_free(buffer);
+    return -1;
+  }
+  g_free(buffer);
 
-    while ((retval == 0) && (ent = readdir(d))) {
-        d_name_len = strlen(ent->d_name);
-        flag = 0;
-        if ((d_name_len == 1) && (strncmp(ent->d_name, ".", 1) == 0))
-            continue;
-        if ((d_name_len == 2) && (strncmp(ent->d_name, "..", 2) == 0))
-            continue;
-        snprintf(buffer, BUFFER_SIZE, "%s%s%s", 
-                 fdata->dir, 
-                 (len && (fdata->dir[len - 1] == '/')) ? "" : "/",
-                 ent->d_name);
-        if (stat(buffer, &buf) == 0) {
-            if (S_ISDIR(buf.st_mode))
-                flag = FTW_D;
-            else if (S_ISREG(buf.st_mode))
-                flag = FTW_F;
-            else
-                flag = FTW_NS;
-            if (flag & FTW_D) {
-			  (fdata->depth)++;
-			  fdata->dir = buffer;
-                retval = gjay_ftw(fdata);
-            } else {
-                retval = fdata->fn(buffer, &buf, flag,
-					fdata->extension_filter,
-					fdata->flac_supported, fdata->ogg_supported);
-            }
-        }
-    }
-    closedir(d);
-    return retval;
+  if ( (gdir = g_dir_open(dir, 0, NULL)) == NULL)
+	return -1;
+
+  while (retval==0){
+	if ( (dir_ent = g_dir_read_name(gdir)) == NULL)
+	  break;
+
+	flag=0;
+	buffer = g_strdup_printf("%s%s%s", dir,
+		(dir_len && (dir[dir_len - 1] == '/')) ? "" : "/",
+		dir_ent);
+	if (stat(buffer, &st) == 0) {
+	  if (S_ISDIR(st.st_mode))
+		flag = FTW_D;
+      else if (S_ISREG(st.st_mode))
+        flag = FTW_F;
+      else
+        flag = FTW_NS;
+	  if (flag & FTW_D) {
+		retval = gjay_ftw(buffer, depth-1, fdata);
+      } else {
+        retval = fdata->fn(buffer, &st, flag,
+			fdata->extension_filter,
+            fdata->flac_supported, fdata->ogg_supported);
+	  }
+	}
+	g_free(buffer);
+  }
+  g_dir_close(gdir);
+  return retval;
 }
 
 /* How many directory steps separate files 1 and 2? */

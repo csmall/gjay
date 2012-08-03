@@ -28,8 +28,9 @@
 #include "ui_private.h"
 #include "i18n.h"
 
-static void menuitem_currentsong ( gpointer user_data);
-static void menuitem_quit ( gpointer user_data);
+void menuitem_currentsong ( GtkAction *action, gpointer user_data);
+void menuitem_quit ( GtkAction *action, gpointer user_data);
+void menuitem_prefs ( GtkAction *action, gpointer user_data);
 
 static const GtkActionEntry entries[] = {
   { "FileMenu", NULL, "_File" },
@@ -37,7 +38,7 @@ static const GtkActionEntry entries[] = {
   { "HelpMenu", NULL, "_Help" },
   { "CurrentSong", GTK_STOCK_JUMP_TO, "_Go to current song", "<control>G", "Go to current song", G_CALLBACK(menuitem_currentsong)},
   { "Quit", GTK_STOCK_QUIT, "_Quit", "<control>Q", "Quit the program", G_CALLBACK(menuitem_quit)},
-  { "Preferences", GTK_STOCK_PREFERENCES, "_Preferences", NULL, "Edit Preferences", G_CALLBACK(show_prefs_window) },
+  { "Preferences", GTK_STOCK_PREFERENCES, "_Preferences", NULL, "Edit Preferences", G_CALLBACK(menuitem_prefs) },
   { "About", GTK_STOCK_ABOUT, "_About", NULL, "About Gjay", G_CALLBACK(show_about_window)}
 };
 static guint n_entries = G_N_ELEMENTS(entries);
@@ -85,7 +86,7 @@ GtkWidget * make_menubar ( GjayApp *gjay ) {
 }
 
 
-void menuitem_currentsong (gpointer user_data) {
+void menuitem_currentsong (GtkAction *action, gpointer user_data) {
   GjaySong * s;
   gchar * msg; 
   GjayApp *gjay = (GjayApp*)user_data;
@@ -117,6 +118,13 @@ void menuitem_currentsong (gpointer user_data) {
   }
 }
 
-static void menuitem_quit (gpointer user_data) {
-    quit_app(NULL, NULL, NULL);
+void menuitem_quit (GtkAction *action, gpointer user_data) {
+  GjayApp *gjay=(GjayApp*)user_data;
+  quit_app(gjay->gui->main_window, NULL, gjay);
 }
+
+void menuitem_prefs( GtkAction *action, gpointer user_data) {
+  GjayApp *gjay = (GjayApp*)user_data;
+  gtk_window_present(GTK_WINDOW(gjay->gui->prefs_window));
+}
+

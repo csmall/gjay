@@ -30,6 +30,7 @@
 #include "ui_private.h"
 #include "ipc.h"
 #include "i18n.h"
+#include "play_common.h"
 
 extern char *music_player_names[];
 
@@ -53,7 +54,8 @@ static void file_chooser_cb  ( GtkWidget *button,
 static void set_base_dir (GjayApp *gjay, char *filename);
 /*static void toggle_no_filter ( GtkToggleButton *togglebutton,
                                gpointer user_data );*/
-static void parent_set_callback (GtkWidget *widget,
+void prefs_parent_set_callback (GtkWidget *widget,
+								GtkWidget *old_parent,
                                  gpointer user_data);
 static void click_daemon_quit( GtkToggleButton *togglebutton, gpointer user_data);
 static void click_daemon_detach( GtkToggleButton *togglebutton, gpointer user_data);
@@ -67,6 +69,7 @@ static void useratings_toggled ( GtkToggleButton *togglebutton,
 static void max_working_set_callback (GtkWidget *widget,
                                  gpointer user_data);
 static void prefs_update_song_dir ( GjayPrefs *prefs );
+void hide_prefs_window( GtkWidget *widget, gpointer user_data );
 
 GtkWidget * make_prefs_window ( GjayApp *gjay )
 {
@@ -207,9 +210,6 @@ GtkWidget * make_prefs_window ( GjayApp *gjay )
         GTK_SIGNAL_FUNC (file_chooser_cb), gjay);
     gtk_box_pack_start(GTK_BOX(vbox2), button, TRUE, TRUE, 2);
 
-    g_signal_connect (G_OBJECT (vbox1), "parent_set",
-                      G_CALLBACK (parent_set_callback), gjay->prefs);
-
     hseparator = gtk_hseparator_new();
     gtk_box_pack_start(GTK_BOX(vbox1), hseparator, TRUE, TRUE, 2);
 
@@ -267,12 +267,15 @@ GtkWidget * make_prefs_window ( GjayApp *gjay )
     g_signal_connect (G_OBJECT (button), 
                       "clicked",
                       G_CALLBACK (hide_prefs_window),
-                      NULL);
+                      window);
   gtk_widget_show_all(vbox1);
 
   gtk_signal_connect (GTK_OBJECT (window), "delete_event",
     GTK_SIGNAL_FUNC (gtk_widget_hide), NULL);
   gtk_container_add (GTK_CONTAINER (window), vbox1);
+  g_signal_connect (G_OBJECT (vbox1), "parent_set",
+    G_CALLBACK(prefs_parent_set_callback), gjay->prefs);
+
   return window;
 }
 
@@ -388,7 +391,8 @@ static void set_base_dir  ( GjayApp *gjay, char *path ) {
 }*/
 
 
-static void parent_set_callback (GtkWidget *widget,
+void prefs_parent_set_callback (GtkWidget *widget,
+								GtkWidget *old_parent,
                                  gpointer user_data) {
   prefs_update_song_dir((GjayPrefs*)user_data);
 }
@@ -485,3 +489,6 @@ static void max_working_set_callback ( GtkWidget *widget,
   save_prefs(prefs);
 }
 
+void hide_prefs_window( GtkWidget *widget, gpointer user_data ) {
+  gtk_widget_hide(GTK_WIDGET(user_data));
+}

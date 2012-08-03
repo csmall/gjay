@@ -67,7 +67,6 @@ gboolean skip_verify;
 //static void     kill_signal ( int sig );
 static gboolean create_gjay_app(GjayApp **app);
 static gint     ping_daemon ( gpointer data );
-static gboolean mode_attached ( const gjay_mode m );
 static void     fork_or_connect_to_daemon(gjay_mode *mode);
 #ifdef WITH_GUI
 static void     run_as_ui      (int argc, char * argv[], GjayApp *gjay);
@@ -292,19 +291,6 @@ static gint ping_daemon ( gpointer data ) {
 }
 
 
-/* Return true if the current mode attaches the daemon to the UI */
-static gboolean mode_attached ( const gjay_mode m )
-{
-    switch(m) {
-    case PLAYLIST:
-    case ANALYZE_DETACHED:
-        return FALSE;
-    default:
-        return TRUE;
-    }
-}
-
-
 static gboolean
 daemon_is_alive(void)
 {
@@ -376,7 +362,7 @@ static void run_as_ui(int argc, char *argv[], GjayApp *gjay )
                   gjay);
   	/* Ping the daemon ocassionally to let it know that the UI 
    	* process is still around */
-  	gtk_timeout_add( UI_PING, ping_daemon, &(gjay->ipc->daemon_fifo));
+  	gtk_timeout_add( UI_PING, ping_daemon, &(gjay->ipc->ui_fifo));
 
   create_player(&(gjay->player), gjay->prefs->music_player);
 
@@ -465,10 +451,11 @@ create_gjay_app(GjayApp **app) {
     g_warning( _("Unable to allocate memory for app.\n"));
 	return FALSE;
   }
-  (*app)->gui = NULL;
   (*app)->ipc = NULL;
+  (*app)->player = NULL;
+  (*app)->gui = NULL;
+  (*app)->songs = NULL;
   (*app)->verbosity = 0;
   (*app)->prefs = load_prefs();
-  (*app)->player = NULL;
   return TRUE;
 }
