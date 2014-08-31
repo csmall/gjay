@@ -2,6 +2,7 @@ Changes in 0.3.3
 ================
 	* Check to see wav file decodes proper Debian #664516
 	* Removed a lot of globals into structures
+	* configure.ac (AM_GNU_GETTEXT_VERSION): Bump to 0.19.2.
 
 Changes in 0.3.2
 ================

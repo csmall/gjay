@@ -1,3 +1,14 @@
+2014-08-31  gettextize  <bug-gnu-gettext@gnu.org>
+
+	* gettext.m4: Upgrade to gettext-0.19.2.
+	* iconv.m4: Upgrade to gettext-0.19.2.
+	* lib-ld.m4: Upgrade to gettext-0.19.2.
+	* lib-link.m4: Upgrade to gettext-0.19.2.
+	* lib-prefix.m4: Upgrade to gettext-0.19.2.
+	* nls.m4: Upgrade to gettext-0.19.2.
+	* po.m4: Upgrade to gettext-0.19.2.
+	* progtest.m4: Upgrade to gettext-0.19.2.
+
 2011-03-01  gettextize  <bug-gnu-gettext@gnu.org>
 
 	* gettext.m4: Upgrade to gettext-0.18.1.

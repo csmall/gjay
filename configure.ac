@@ -75,7 +75,7 @@ AC_SUBST([HARDEN_CFLAGS])
 
 dnl Check for language stuff
 AM_GNU_GETTEXT([external])
-AM_GNU_GETTEXT_VERSION([0.18.1])
+AM_GNU_GETTEXT_VERSION([0.19.2])
 
 # Checks for libraries.
 
