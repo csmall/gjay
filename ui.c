@@ -1,7 +1,7 @@
 /*
  * Gjay - Gtk+ DJ music playlist creator
  * Copyright (C) 2002 Chuck Groom
- * Copyright (C) 2010-2012 Craig Small 
+ * Copyright (C) 2010-2015 Craig Small 
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -589,7 +589,7 @@ void show_about_window( GtkAction *action, gpointer user_data ) {
   };
   static const gchar copyright[] = \
     "Copyright \xc2\xa9 2004 Chuck Groom\n"
-    "Copyright \xc2\xa9 2010-2011 Craig Small";
+    "Copyright \xc2\xa9 2010-2015 Craig Small";
 
   static const gchar comments[] = \
     "GTK+ playlist generator for a collection of music based upon "
@@ -602,7 +602,7 @@ void show_about_window( GtkAction *action, gpointer user_data ) {
       "copyright", copyright,
       "logo", load_gjay_pixbuf(PM_ABOUT),
       "version", VERSION,
-      "website", "http://gjay.sourceforge.net/",
+      "website", "https://github.com/csmall/gjay",
       "program-name", "GJay",
       NULL);
 }
