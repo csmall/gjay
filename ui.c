@@ -26,6 +26,8 @@
 #include <unistd.h>
 #include <math.h>
 #include <stdlib.h>
+#include <gtk/gtk.h>
+
 #include "gjay.h"
 #include "ui.h"
 #include "ui_private.h"
@@ -83,17 +85,17 @@ gboolean create_gjay_gui ( GjayApp *gjay) {
 
     GtkWidget * vbox1, * hbox1, * hbox2;
     GtkWidget * alignment, * menubar;
-    
 
-	if ((ui = g_malloc0(sizeof(GjayGUI))) == NULL) {
-	  g_warning( _("Unable to allocate memory for GUI.\n"));
-	  return FALSE;
-	}
-	gjay->gui = ui;
+
+    if ((ui = g_malloc0(sizeof(GjayGUI))) == NULL) {
+      g_warning( _("Unable to allocate memory for GUI.\n"));
+      return FALSE;
+    }
+    gjay->gui = ui;
     ui->destroy_window_flag = FALSE;
-	ui->show_root_dir = FALSE;
-	if (gjay->prefs && gjay->prefs->song_root_dir)
-	  ui->show_root_dir = TRUE;
+    ui->show_root_dir = FALSE;
+    if (gjay->prefs && gjay->prefs->song_root_dir)
+      ui->show_root_dir = TRUE;
 
     /* FIXME
     if (prefs.hide_tips) 
@@ -103,7 +105,7 @@ gboolean create_gjay_gui ( GjayApp *gjay) {
         */
 
     gdk_rgb_init();
-    
+
     ui->main_window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
     gtk_window_set_title (GTK_WINDOW (ui->main_window), "GJay");
     gtk_widget_set_size_request (ui->main_window, APP_WIDTH, APP_HEIGHT);
@@ -201,12 +203,22 @@ gboolean daemon_pipe_input (GIOChannel *source,
     gboolean update;
     GjaySong * s;
 
-	GjayApp *gjay = (GjayApp*)user_data;
+    GjayApp *gjay = (GjayApp*)user_data;
 
-    read(gjay->ipc->daemon_fifo, &len, sizeof(int));
-    assert(len < BUFFER_SIZE);
+    if ( read(gjay->ipc->daemon_fifo, &len, sizeof(int)) < 1) {
+        g_critical(_("Unable to read daemon pipe"));
+        return TRUE;
+    }
+    if (len >= BUFFER_SIZE) {
+        g_critical(_("Daemon sent message larger than buffer"));
+        return TRUE;
+    }
     for (k = 0, l = len; l; l -= k) {
         k = read(gjay->ipc->daemon_fifo, buffer + k, l);
+        if (k <= 0) {
+            g_critical(_("No bytes read from daemon pipe"));
+            return TRUE;
+        }
     }
 
     memcpy((void *) &ipc, buffer, sizeof(ipc_type));
@@ -214,8 +226,15 @@ gboolean daemon_pipe_input (GIOChannel *source,
     case REQ_ACK:
         send_ipc = ACK;
         k = sizeof(ipc_type);
-        write(gjay->ipc->ui_fifo, &k, sizeof(int));
-        write(gjay->ipc->ui_fifo, &send_ipc, sizeof(ipc_type));
+        if (write(gjay->ipc->ui_fifo, &k, sizeof(int)) != sizeof(int)) {
+            g_critical(_("Cannot write ack size to pipe"));
+            return TRUE;
+        }
+        if (write(gjay->ipc->ui_fifo, &send_ipc, sizeof(ipc_type)) !=
+            sizeof(ipc_type)) {
+            g_critical(_("Cannot write ACK to pipe"));
+            return TRUE;
+        }
         break;
     case ACK:
         // No need for action
@@ -239,7 +258,7 @@ gboolean daemon_pipe_input (GIOChannel *source,
             SONG(ll)->marked = FALSE;
         memcpy(&seek, buffer + sizeof(ipc_type), sizeof(int));
         if (add_from_daemon_file_at_seek(gjay, seek) == TRUE)
-		  gjay->songs->dirty = TRUE;
+          gjay->songs->dirty = TRUE;
         update = FALSE;
         /* Update visible marked songs */
         for (ll = g_list_first(gjay->songs->songs); ll; ll = g_list_next(ll)) { 
@@ -464,7 +483,7 @@ void load_pixbufs(GdkPixbuf **pixbufs) {
 
 GtkWidget * new_button_label_pixbuf ( char * label_text, 
                                       int type,
-									  GdkPixbuf **pixbufs) {
+                                      GdkPixbuf **pixbufs) {
     GtkWidget * button, * hbox, * label, * image;
 
     button = gtk_button_new();
@@ -486,7 +505,7 @@ gboolean quit_app (GtkWidget *widget,
                    gpointer user_data) {
     GtkWidget * dialog;
     
-	GjayApp *gjay = (GjayApp*)user_data;
+    GjayApp *gjay = (GjayApp*)user_data;
 
     if (gjay->prefs->daemon_action == PREF_DAEMON_ASK) {
         dialog = gtk_message_dialog_new(GTK_WINDOW(widget),

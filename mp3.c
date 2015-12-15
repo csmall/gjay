@@ -341,44 +341,69 @@ int sameConstant(mp3header *h1, mp3header *h2) {
     else return 0;
 }
 
+static int read_id3_field(mp3info *mp3, char *buf, const size_t size,
+                         const char *fieldname)
+{
+    if (fread(buf, 1, size, mp3->file) < 1) {
+        g_warning(_("Unable to read ID3 %s from mp3 file '%s'\n"),
+                  fieldname, mp3->filename);
+        return FALSE;
+    }
+    buf[size] = '\0';
+    return TRUE;
+}
 
 int get_id3(mp3info *mp3) {
-  char fbuf[4];
+    char fbuf[4];
 
-  if(mp3->datasize < 128) {
-    g_warning(_("mp3 file '%s' is smaller than 128 bytes.\n"),
-        mp3->filename);
-    return 4;
-  }
-	if(fseek(mp3->file, -128, SEEK_END )) {
-    g_warning(_("Couldn't read last 128 bytes of '%s'\n"),mp3->filename);
-    return 4;
-  } 
-  fread(fbuf,1,3,mp3->file); fbuf[3] = '\0';
-  mp3->id3.genre[0]=255;
+    if(mp3->datasize < 128) {
+        g_warning(_("mp3 file '%s' is smaller than 128 bytes.\n"),
+                mp3->filename);
+        return 4;
+    }
+    if(fseek(mp3->file, -128, SEEK_END )) {
+        g_warning(_("Couldn't read last 128 bytes of '%s'\n"),mp3->filename);
+        return 4;
+    }
+    if (fread(fbuf,1,3,mp3->file) < 1) {
+            g_warning(_("Unable to read mp3 TAG"));
+            return 4;
+    }
+    if (memcmp("TAG", fbuf, 3) != 0) {
+        return 4;
+    }
 
-  if (memcmp("TAG", fbuf, 3) != 0) {
-    return 4;
-  }
+    mp3->id3.genre[0]=255;
+    mp3->id3_isvalid=1;
+    mp3->datasize -= 128;
 
-  mp3->id3_isvalid=1;
-  mp3->datasize -= 128;
-  fseek(mp3->file, -125, SEEK_END);
-  fread(mp3->id3.title,1,30,mp3->file); mp3->id3.title[30] = '\0';
-  fread(mp3->id3.artist,1,30,mp3->file); mp3->id3.artist[30] = '\0';
-  fread(mp3->id3.album,1,30,mp3->file); mp3->id3.album[30] = '\0';
-  fread(mp3->id3.year,1,4,mp3->file); mp3->id3.year[4] = '\0';
-  fread(mp3->id3.comment,1,30,mp3->file); mp3->id3.comment[30] = '\0';
-  if (mp3->id3.comment[28] == '\0') {
-    mp3->id3.track[0] = mp3->id3.comment[29];
-  }
-  fread(mp3->id3.genre,1,1,mp3->file);
-  unpad(mp3->id3.title);
-  unpad(mp3->id3.artist);
-  unpad(mp3->id3.album);
-  unpad(mp3->id3.year);
-  unpad(mp3->id3.comment);
-  return 0;
+    if (fseek(mp3->file, -125, SEEK_END) < 0) {
+            g_warning(_("Could read last 125 byes of '%s'\n"), mp3->filename);
+            return 4;
+    }
+
+
+    if (!read_id3_field(mp3, mp3->id3.title, 30, _("title")))
+        return 4;
+    if (!read_id3_field(mp3, mp3->id3.artist, 30, _("artist")))
+        return 4;
+    if (!read_id3_field(mp3, mp3->id3.album, 30, _("album")))
+        return 4;
+    if (!read_id3_field(mp3, mp3->id3.year, 4, _("year")))
+        return 4;
+    if (!read_id3_field(mp3, mp3->id3.comment, 30, _("comment")))
+        return 4;
+    if (mp3->id3.comment[28] == '\0') {
+        mp3->id3.track[0] = mp3->id3.comment[29];
+    }
+    if (!read_id3_field(mp3, (char*)mp3->id3.genre, 1, _("genre")))
+        return 4;
+    unpad(mp3->id3.title);
+    unpad(mp3->id3.artist);
+    unpad(mp3->id3.album);
+    unpad(mp3->id3.year);
+    unpad(mp3->id3.comment);
+    return 0;
 }
 
 char *pad(char *string, int length) {
@@ -453,7 +478,7 @@ int get_id3_tags( FILE   * fp,
 
     rewind(fp);
 
-    if (fread(buffer, 1, BUFFER_SIZE, fp) == 0)
+    if (fread(buffer, 1, BUFFER_SIZE, fp) <= 0)
         return 1;
     if (memcmp(buffer, "ID3", 3) == 0) {
         result = 0; // success
@@ -495,7 +520,8 @@ int get_id3_tags( FILE   * fp,
         }
     } else {
         fseek(fp, -128, SEEK_END);
-        fread(buffer, 1, 128, fp);
+        if (fread(buffer, 1, 128, fp) < 1)
+            return 1;
         if (strncmp((char*)buffer, "TAG", 3) == 0) {
             result = 0; // success
 

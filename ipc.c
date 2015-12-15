@@ -24,6 +24,8 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <glib.h>
+#include <glib/gstdio.h>
 #include "gjay.h"
 #include "ipc.h"
 #include "i18n.h"
@@ -31,8 +33,28 @@
 #define DAEMON_PIPE_FILE "daemon"
 #define UI_PIPE_FILE     "ui"
 
-/* Function Definitons */
-static int gjay_fifo(const char *dirname, const char *filename);
+static int gjay_fifo(const char *dirname, const char *filename)
+{
+    gchar *pathname;
+    int fd;
+
+    pathname = g_strdup_printf("%s/%s", dirname, filename);
+    if (g_file_test(pathname, G_FILE_TEST_EXISTS) == FALSE) {
+        if (mknod(pathname, S_IFIFO | 0777, 0) != 0) {
+            g_warning(_("Couldn't create the pipe '%s'.\n"), pathname);
+            g_free(pathname);
+            return -1;
+        }
+    }
+
+    if ( (fd = g_open(pathname, O_RDWR)) < 0) {
+        g_warning(_("Couldn't open the pipe '%s'.\n"), pathname);
+        g_free(pathname);
+        return -1;
+    }
+    g_free(pathname);
+    return fd;
+}
 
 
 gboolean
@@ -128,27 +150,5 @@ void send_ipc (const int fd, const ipc_type type) {
      perror("send_ipc(): write length:"); 
     if (write(fd, &type, sizeof(ipc_type)) <= 0)
      perror("send_ipc(): write type:"); 
-}
-
-static int gjay_fifo(const char *dirname, const char *filename) {
-  gchar *pathname;
-  int fd;
-
-  pathname = g_strdup_printf("%s/%s", dirname, filename);
-  if (g_file_test(pathname, G_FILE_TEST_EXISTS) == FALSE) {
-	if (mknod(pathname, S_IFIFO | 0777, 0) != 0) {
-	  g_warning(_("Couldn't create the pipe '%s'.\n"), pathname);
-	  g_free(pathname);
-	  return -1;
-	}
-  }
-
-  if ( (fd = open(pathname, O_RDWR)) < 0) {
-	g_warning(_("Couldn't open the pipe '%s'.\n"), pathname);
-	g_free(pathname);
-	return -1;
-  }
-  g_free(pathname);
-  return fd;
 }
 

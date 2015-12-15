@@ -1,6 +1,6 @@
 /*
  * Gjay - Gtk+ DJ music playlist creator
- * Copyright (C) 2010-2011 Craig Small 
+ * Copyright (C) 2010-2015 Craig Small 
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -38,11 +38,11 @@ void
 set_player_name(GjayPlayer *player, const gushort selected_player)
 {
   if (player->name)
-	g_free(player->name);
+    g_free(player->name);
   if (selected_player < PLAYER_LAST)
-  	player->name = g_strdup(music_player_names[selected_player]);
+      player->name = g_strdup(music_player_names[selected_player]);
   else
-  	player->name = g_strdup(music_player_names[PLAYER_NONE]);
+      player->name = g_strdup(music_player_names[PLAYER_NONE]);
 }
 
 gboolean
@@ -81,6 +81,7 @@ create_player(GjayPlayer **player, const gushort music_player) {
   }
   if (player_configured == FALSE)
     noplayer_init(*player);
+  return player_configured;
 }
 
 void
@@ -151,12 +152,12 @@ void play_songs (GjayPlayer *player, gpointer dummy, GList *slist) {
     } else /* user clicked no */
       return;
 #else
-	/* with no GUI assume you want it started */
-	if (player->start(player) == FALSE)
+    /* with no GUI assume you want it started */
+    if (player->start(player) == FALSE)
     {
-	  g_warning(_("Unable to start %s"), player->name);
-	  return;
-	}
+      g_warning(_("Unable to start %s"), player->name);
+      return;
+    }
 #endif /* WITH_GUI */
   }
   player->play_files(player, list);

@@ -32,12 +32,6 @@
 #include "ipc.h"
 
 
-enum
-{
-    NAME_COLUMN = 0,
-    IMAGE_COLUMN,
-    N_COLUMNS
-};
 
 typedef struct {
     gchar    * fname;

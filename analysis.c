@@ -261,8 +261,14 @@ gboolean ui_pipe_input (GIOChannel *source,
     ipc_type ipc;
 	struct daemon_data *ddata = (struct daemon_data*)user_data;
 
-    read(ddata->ipc->ui_fifo, &len, sizeof(int));
-    assert(len < BUFFER_SIZE);
+    if (read(ddata->ipc->ui_fifo, &len, sizeof(int)) < 1) {
+        g_critical(_("Unable to read UI pipe"));
+        return TRUE;
+    }
+    if (len >= BUFFER_SIZE) {
+        g_critical(_("UI sent messae larger than buffer"));
+        return TRUE;
+    }
     for (k = 0, l = len; l; l -= k) {
         k = read(ddata->ipc->ui_fifo, buffer + k, l);
     }
@@ -416,7 +422,12 @@ analyze(struct daemon_data *ddata,
     }
     memset(&wsfile, 0x00, sizeof(wav_file));
     wsfile.f = f;
-    fread(&wsfile.header, sizeof(waveheaderstruct), 1, f);
+    if (fread(&wsfile.header, sizeof(waveheaderstruct), 1, f) < 1) {
+        g_warning(_("Unable to read WAV header '%s'.\n"), fname);
+        ddata->in_analysis = FALSE;
+        delete_song(ddata->analyze_song);
+        return;
+    }
 	/* Check to see if the decoder really decoded */
 	if (wsfile.header.main_chunk[0] == '\0') {
 	  if (ddata->verbosity)
@@ -632,13 +643,17 @@ run_analysis  (struct daemon_data *ddata,
     pos=0;
 
     /* Read the first chunk of the file into the shared buffer */
-    fread(wsfile->buffer, 1, SHARED_BUF_SIZE, wsfile->f);
+    if (fread(wsfile->buffer, 1, SHARED_BUF_SIZE, wsfile->f) < 1) {
+      if (ddata->verbosity > 2)
+        g_warning(_("Cannot load WAV file first chunk"));
+        return FALSE;
+    }
     wsfile->seek = SHARED_BUF_SIZE;
-    
+
     /* Copy the first bit of this into the freq. analysis buffer */
     memcpy(read_buffer, wsfile->buffer, read_buffer_size);
     wsfile->freq_seek = read_buffer_size;
-    
+
     /* In this main loop, we read the entire file. Most of this loop 
      * represents the spectrum algorithm; the marked tight loop is the bpm
      * algorithm. */

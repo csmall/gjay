@@ -1,7 +1,7 @@
 /*
  * Gjay - Gtk+ DJ music playlist creator
  * Copyright (C) 2002-2004 Chuck Groom
- * Copyright (C) 2010 Craig Small 
+ * Copyright (C) 2010-2015 Craig Small 
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -51,7 +51,7 @@ typedef enum {
     E_RATING,
     E_COLOR,
     E_FREQ,
-    E_BPM,    
+    E_BPM,
     /* Attributes */
     E_PATH,
     E_NOT_SONG,
@@ -917,7 +917,8 @@ static gboolean read_song_file_type ( char         * path,
         f = fopen(path, "r");
         if (!f) 
             return FALSE;
-        fread(&header, sizeof(waveheaderstruct), 1, f);
+        if (fread(&header, sizeof(waveheaderstruct), 1, f) < 1)
+            return FALSE;
         wav_header_swab(&header);
         fclose(f);
         if ((memcmp(header.chunk_type, "WAVE", 4) == 0) &&

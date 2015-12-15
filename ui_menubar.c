@@ -1,7 +1,7 @@
 /*
  * Gjay - Gtk+ DJ music playlist creator
  * Copyright (C) 2002 Chuck Groom
- * Copyright (C) 2010 Craig Small 
+ * Copyright (C) 2010-2015 Craig Small 
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -22,6 +22,7 @@
 #endif /* HAVE_CONFIG_H */
 
 #include <stdlib.h>
+#include <gtk/gtk.h>
 
 #include "gjay.h"
 #include "ui.h"

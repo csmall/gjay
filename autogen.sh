@@ -1,73 +1,66 @@
 #!/bin/sh
-# Run this to generate all the initial makefiles, etc.
-# This was lifted from the Gimp, and adapted slightly by
-# Raph Levien .
+#
+# Helps generate autoconf/automake stuff, when code is checked
+# out from SCM.
 
+SRCDIR=$(dirname ${0})
+test -z "${SRCDIR}" && SRCDIR=.
+
+THEDIR=$(pwd)
+cd ${SRCDIR}
 DIE=0
 
-PROJECT=gjay
-
-# Make it possible to specify path in the environment
-: ${AUTOCONF=autoconf}
-: ${AUTOHEADER=autoheader}
-: ${AUTOMAKE=automake}
-: ${ACLOCAL=aclocal}
-: ${AUTOPOINT=autopoint}
-
-($AUTOPOINT --version) < /dev/null > /dev/null 2>&1 || {
-	echo
-	echo "You must have gettext installed to compile $PROJECT."
-	echo "Get ftp://ftp.gnu.org/pub/gnu/gettext-0.14.1.tar.gz"
-	echo "(or a newer version if it is available)"
+test -f gjay.c || {
+	echo "You must run this script in the top-level gjay directory"
 	DIE=1
 }
 
-($AUTOCONF --version) < /dev/null > /dev/null 2>&1 || {
-	echo
-	echo "You must have autoconf installed to compile $PROJECT."
-	echo "Download the appropriate package for your distribution,"
-	echo "or get the source tarball at ftp://ftp.gnu.org/pub/gnu/"
+(autopoint --version) < /dev/null > /dev/null 2>&1 || {
+	echo "You must have autopoint installed to generate gjay build system."
+	echo "The autopoint command is part of the GNU gettext package."
 	DIE=1
 }
 
-($AUTOMAKE --version) < /dev/null > /dev/null 2>&1 || {
-	echo
-	echo "You must have automake installed to compile $PROJECT."
-	echo "Get ftp://ftp.gnu.org/pub/gnu/automake-1.6.tar.gz"
-	echo "(or a newer version if it is available)"
+(autoconf --version) < /dev/null > /dev/null || {
+	echo "You must have autoconf installed to generate gjay build system."
+	DIE=1
+}
+(autoheader --version) < /dev/null > /dev/null || {
+	echo "You must have autoheader installed to generate gjay build system."
+	echo "The autoheader command is part of the GNU autoconf package."
+	DIE=1
+}
+(automake --version) < /dev/null > /dev/null || {
+	echo "You must have automake installed to generate gjay build system."
 	DIE=1
 }
 
-if test "$DIE" -eq 1; then
+if test ${DIE} -ne 0; then
 	exit 1
 fi
 
-if test -z "$*"; then
-	echo "I am going to run ./configure with no arguments - if you wish "
-        echo "to pass any to it, please specify them on the $0 command line."
+echo "Generate build-system by:"
+echo "   autopoint:  $(autopoint --version | head -1)"
+echo "   aclocal:    $(aclocal --version | head -1)"
+echo "   autoconf:   $(autoconf --version | head -1)"
+echo "   autoheader: $(autoheader --version | head -1)"
+echo "   automake:   $(automake --version | head -1)"
+
+rm -rf autom4te.cache
+
+set -e
+po/update-potfiles
+autopoint --force $AP_OPTS
+if ! grep -q datarootdir po/Makefile.in.in; then
+	echo autopoint does not honor dataroot variable, patching.
+	sed -i -e 's/^datadir *=\(.*\)/datarootdir = @datarootdir@\
+datadir = @datadir@/g' po/Makefile.in.in
 fi
+aclocal -I m4 ${AL_OPTS}
+autoconf ${AC_OPTS}
+autoheader ${AH_OPTS}
 
-case $CC in
-*xlc | *xlc\ * | *lcc | *lcc\ *) am_opt=--include-deps;;
-esac
-
-for dir in .
-do
-  echo processing $dir
-  cd $dir
-  configdir="config"
-  test -d $configdir || mkdir $configdir
-  aclocalinclude="$ACLOCAL_FLAGS"
-  $AUTOPOINT
-  $ACLOCAL $aclocalinclude -I $configdir
-  $AUTOHEADER -Wall
-  $AUTOMAKE -Wall --add-missing --gnu $am_opt
-  $AUTOCONF -Wall
-  cd -
-done
-
-./configure "$@"
+automake --add-missing ${AM_OPTS}
 
 echo
-echo "Now type 'make' to compile $PROJECT."
-
+echo "Now type '${SRCDIR}/configure' and 'make' to compile."

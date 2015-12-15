@@ -1,12 +1,13 @@
-Makefile.in
+ABOUT-NLS
 aclocal.m4
 autom4te.cache/
 compile
-configure
 config.h.in
+config.rpath
+configure
 depcomp
 gjay-*.tar.gz
 install-sh
+m4/
+Makefile.in
 missing
-po/POTFILES
-po/Makevars.template

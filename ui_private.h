@@ -33,12 +33,6 @@
 
 #ifdef WITH_GUI
 
-typedef enum {
-  TAB_EXPLORE = 0,
-  TAB_PLAYLIST,
-  TAB_LAST
-} tab_val;
-
 
 GtkWidget * new_button_label_pixbuf      ( char * label_text, 
                                            int pm_type,

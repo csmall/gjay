@@ -28,6 +28,19 @@
 #define COLOR_IMAGE_WIDTH   FREQ_IMAGE_WIDTH
 #define COLOR_IMAGE_HEIGHT  FREQ_IMAGE_HEIGHT
 
+enum {
+  TAB_EXPLORE = 0,
+  TAB_PLAYLIST,
+  TAB_LAST
+};
+
+enum
+{
+    NAME_COLUMN = 0,
+    IMAGE_COLUMN,
+    N_COLUMNS
+};
+
 typedef enum {
     PM_FILE_PENDING = 0,
     PM_FILE_PENDING2,
@@ -110,6 +123,9 @@ void        gjay_error_dialog(GtkWidget *parent, const gchar *msg);
 void        explore_view_set_root        ( GjayApp *gjay);
 gint        explore_files_depth_distance ( char * file1, 
                                            char * file2 );
+
+/* menubar */
+GtkWidget *make_menubar(GjayApp *gjay);
 #endif /* WITH_GUI */
 #endif /* __UI_H__ */
 
