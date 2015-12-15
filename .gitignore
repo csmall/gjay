@@ -1,7 +1,9 @@
 Makefile.in
 aclocal.m4
 autom4te.cache/
+compile
 configure
+config.h.in
 depcomp
 gjay-*.tar.gz
 install-sh
