@@ -23,6 +23,7 @@
 #include <math.h>
 #include <string.h>
 #include <strings.h>
+#include <gtk/gtk.h>
 #include "gjay.h"
 #include "ui.h"
 #include "ui_private.h"
@@ -261,6 +262,7 @@ static gboolean drawing_expose_event_callback (GtkWidget *widget,
     GjaySong * s;
     gint xcenter, ycenter, width, height, num_colors;
     GdkPixbuf * colorwheel, * brightness;
+    GtkAllocation allocation;
     gboolean set;
 	GjayApp *gjay=(GjayApp*)data;
 
@@ -276,8 +278,8 @@ static gboolean drawing_expose_event_callback (GtkWidget *widget,
     colorwheel = g_object_get_data(G_OBJECT (widget), DATA_HS_PIXBUF);
     brightness = g_object_get_data(G_OBJECT (widget), DATA_V_PIXBUF);
 
-    gdk_draw_rectangle  (widget->window,
-                         widget->style->bg_gc[GTK_WIDGET_STATE (widget)],
+    gdk_draw_rectangle  (gtk_widget_get_window(widget),
+                         gtk_widget_get_style(widget)->bg_gc[gtk_widget_get_state(widget)],
                          TRUE,
                          event->area.x,
                          event->area.y,
@@ -286,11 +288,12 @@ static gboolean drawing_expose_event_callback (GtkWidget *widget,
     
     width = gdk_pixbuf_get_width(brightness);
     height = gdk_pixbuf_get_height(brightness);
+    gtk_widget_get_allocation(widget, &allocation);
     gdk_pixbuf_render_to_drawable_alpha(
         brightness, 
-        widget->window,
+        gtk_widget_get_window(widget),
         0, 0,
-        widget->allocation.width - width - COLORWHEEL_SELECT,
+        allocation.width - width - COLORWHEEL_SELECT,
         COLORWHEEL_SELECT,
         width,
         height,
@@ -301,11 +304,12 @@ static gboolean drawing_expose_event_callback (GtkWidget *widget,
 
     width = gdk_pixbuf_get_width(colorwheel);
     height = gdk_pixbuf_get_height(colorwheel);
-    xcenter = widget->allocation.height / 2.0; // Use height on purpose
-    ycenter = widget->allocation.height / 2.0;
+    gtk_widget_get_allocation(widget, &allocation);
+    xcenter = allocation.height / 2.0; // Use height on purpose
+    ycenter = allocation.height / 2.0;
     gdk_pixbuf_render_to_drawable_alpha(
         colorwheel, 
-        widget->window,
+        gtk_widget_get_window(widget),
         0, 0,
         xcenter - width/2,
         ycenter - height/2,
@@ -340,7 +344,7 @@ static gboolean drawing_expose_event_callback (GtkWidget *widget,
             height = gdk_pixbuf_get_height(gjay->gui->pixbufs[PM_NOT_SET]);
             gdk_pixbuf_render_to_drawable_alpha(
                 gjay->gui->pixbufs[PM_NOT_SET],
-                widget->window,
+                gtk_widget_get_window(widget),
                 0, 0,
                 xcenter - width/2, ycenter - height/2,
                 width, height,
@@ -366,8 +370,9 @@ void draw_selected_color (GtkWidget * widget,
     float angle, radius;
     GdkPixbuf * colorwheel, * brightness;
     gint xcenter, ycenter, x, y, width, height;
+    GtkAllocation allocation;
 
-    gc = gdk_gc_new(widget->window);
+    gc = gdk_gc_new(gtk_widget_get_window(widget));
     gdk_rgb_gc_set_foreground(gc, 0);
     
     colorwheel = g_object_get_data(G_OBJECT (widget), DATA_HS_PIXBUF);
@@ -375,14 +380,15 @@ void draw_selected_color (GtkWidget * widget,
 
     width = gdk_pixbuf_get_width(brightness);
     height = gdk_pixbuf_get_height(brightness);
-    x = widget->allocation.width - 
+    gtk_widget_get_allocation(widget, &allocation);
+    x = allocation.width - 
         gdk_pixbuf_get_width(brightness) -
         2*COLORWHEEL_SELECT;
     y = (1.0 - hsv.V) * (float) gdk_pixbuf_get_height(brightness);
     gdk_draw_line(
-        widget->window, gc,
+        gtk_widget_get_window(widget), gc,
         x, y + COLORWHEEL_SELECT,
-        widget->allocation.width, COLORWHEEL_SELECT + y);
+        allocation.width, COLORWHEEL_SELECT + y);
     
     /* Hue is 0..6 */
     angle = (hsv.H / 3) * (M_PI);
@@ -392,11 +398,11 @@ void draw_selected_color (GtkWidget * widget,
 
     width = gdk_pixbuf_get_width(pixbufs[PM_COLOR_SEL]);
     height = gdk_pixbuf_get_height(pixbufs[PM_COLOR_SEL]);
-    xcenter = widget->allocation.height / 2.0; // Use height on purpose
-    ycenter = widget->allocation.height / 2.0;    
+    xcenter = allocation.height / 2.0; // Use height on purpose
+    ycenter = allocation.height / 2.0;    
     gdk_pixbuf_render_to_drawable_alpha(
         pixbufs[PM_COLOR_SEL],
-        widget->window,
+        gtk_widget_get_window(widget),
         0, 0,
         (xcenter + x) - width/2, (ycenter + y) - height/2, 
         width,
@@ -416,6 +422,7 @@ void draw_swatch_color (GtkWidget * widget,
     guint32 rgb32 = 0;
     gint width, height, x, y;
     GdkPixbuf * brightness;
+    GtkAllocation allocation;
 
     brightness = g_object_get_data(G_OBJECT (widget), DATA_V_PIXBUF);
 
@@ -424,30 +431,31 @@ void draw_swatch_color (GtkWidget * widget,
         ((int) (rgb.R * 255.0)) << 16 |
         ((int) (rgb.G * 255.0)) << 8 |
         ((int) (rgb.B * 255.0));
-    black_gc = gdk_gc_new(widget->window);
-    color_gc = gdk_gc_new(widget->window);
+    black_gc = gdk_gc_new(gtk_widget_get_window(widget));
+    color_gc = gdk_gc_new(gtk_widget_get_window(widget));
     gdk_rgb_gc_set_foreground(black_gc, 0);
     gdk_rgb_gc_set_foreground(color_gc, rgb32);
     
     width = gdk_pixbuf_get_width(brightness);
-    height = (widget->allocation.height -                  
+    gtk_widget_get_allocation(widget, &allocation);
+    height = (allocation.height -
               2*COLORWHEEL_SELECT) * COLORWHEEL_SWATCH_HEIGHT;
-    x = widget->allocation.width - 
+    x = allocation.width - 
         width - 
-        COLORWHEEL_SELECT;            
-    y = widget->allocation.height - COLORWHEEL_SELECT - height;
-    gdk_draw_rectangle  (widget->window,
+        COLORWHEEL_SELECT;
+    y = allocation.height - COLORWHEEL_SELECT - height;
+    gdk_draw_rectangle  (gtk_widget_get_window(widget),
                          black_gc,
                          FALSE,
                          x, y,
                          width - 1, height - 1 );
-    gdk_draw_rectangle  (widget->window,
+    gdk_draw_rectangle  (gtk_widget_get_window(widget),
                          color_gc,
                          TRUE,
                          x + 1, y + 1,
                          width - 2, height - 2 );
     gdk_gc_unref(black_gc);
-    gdk_gc_unref(color_gc);            
+    gdk_gc_unref(color_gc);
 }
 
 
@@ -479,15 +487,17 @@ static void click_in_colorwheel (GtkWidget * widget,
     HSV * hsv;
     GFunc change_func;
     gpointer user_data;
+    GtkAllocation allocation;
 
     colorwheel = g_object_get_data(G_OBJECT (widget), DATA_HS_PIXBUF);
     brightness = g_object_get_data(G_OBJECT (widget), DATA_V_PIXBUF);
     hsv = g_object_get_data(G_OBJECT (widget), DATA_COLOR);
     assert (hsv);
+    gtk_widget_get_allocation(widget, &allocation);
 
     /* Check for v */
-    if ((x >= widget->allocation.width - gdk_pixbuf_get_width(brightness) - COLORWHEEL_SELECT) &&
-        (x <= widget->allocation.width - COLORWHEEL_SELECT)) {
+    if ((x >= allocation.width - gdk_pixbuf_get_width(brightness) - COLORWHEEL_SELECT) &&
+        (x <= allocation.width - COLORWHEEL_SELECT)) {
         hsv->V = MIN(1.0, 
                      MAX(0, 1.0 - 
                          (((float) (y - COLORWHEEL_SELECT)) / 
@@ -498,8 +508,8 @@ static void click_in_colorwheel (GtkWidget * widget,
 
     /* Check for h-s */
     diameter = gdk_pixbuf_get_width(colorwheel);
-    xcenter = widget->allocation.height / 2.0; // Use height on purpose
-    ycenter = widget->allocation.height / 2.0;
+    xcenter = allocation.height / 2.0; // Use height on purpose
+    ycenter = allocation.height / 2.0;
 
     x -= xcenter;
     y -= ycenter;

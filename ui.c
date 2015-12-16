@@ -326,13 +326,23 @@ static GtkWidget * make_message_window( void)
       "clicked",
       G_CALLBACK (gtk_widget_hide),
       G_OBJECT (window));
-  GTK_WIDGET_SET_FLAGS (button, GTK_CAN_DEFAULT);
+  gtk_widget_set_can_default(button, TRUE);
   gtk_widget_grab_default (button);
   gtk_widget_grab_focus (button);
 
   return window;
 }
 
+static void remove_parent(GtkWidget *w)
+{
+    GtkWidget *parent;
+
+    parent = gtk_widget_get_parent(w);
+    if (w) {
+        g_object_ref(G_OBJECT(w));
+        gtk_container_remove(GTK_CONTAINER(parent), w);
+    }
+}
 
 void switch_page (GtkNotebook *notebook,
                   GtkNotebookPage *page,
@@ -344,31 +354,12 @@ void switch_page (GtkNotebook *notebook,
     if (ui->destroy_window_flag)
         return;
     
-    if (ui->explore_view->parent) {
-        g_object_ref(G_OBJECT(ui->explore_view));
-        gtk_container_remove(GTK_CONTAINER(ui->explore_view->parent), 
-                             ui->explore_view);
-    }
-    if (ui->selection_view->parent) {
-        gtk_object_ref(GTK_OBJECT(ui->selection_view));
-        gtk_container_remove(GTK_CONTAINER(ui->selection_view->parent),
-                             ui->selection_view);
-    }
-    if (ui->playlist_view->parent) {
-        gtk_object_ref(GTK_OBJECT(ui->playlist_view));
-        gtk_container_remove(GTK_CONTAINER(ui->playlist_view->parent),
-                             ui->playlist_view);
-    }
-    if (ui->no_root_view->parent) {
-        gtk_object_ref(GTK_OBJECT(ui->no_root_view));
-        gtk_container_remove(GTK_CONTAINER(ui->no_root_view->parent),
-                             ui->no_root_view);
-    }
-    if (ui->paned->parent) {
-        gtk_object_ref(GTK_OBJECT(ui->paned));
-        gtk_container_remove(GTK_CONTAINER(ui->paned->parent),
-                             ui->paned);
-    }
+    remove_parent(ui->explore_view);
+    remove_parent(ui->selection_view);
+    remove_parent(ui->playlist_view);
+    remove_parent(ui->no_root_view);
+    remove_parent(ui->paned);
+
     switch (page_num) {
     case TAB_EXPLORE:
         if (ui->show_root_dir) {
