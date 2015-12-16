@@ -87,7 +87,6 @@ typedef struct _GjayGUI {
   gboolean show_root_dir;
 
   GdkPixbuf   * pixbufs[50]; //FIXME
-  GtkTooltips * tips;
 } GjayGUI;
 
 struct play_songs_data {

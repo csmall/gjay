@@ -1,7 +1,7 @@
 /*
  * Gjay - Gtk+ DJ music playlist creator
  * Copyright (C) 2002-2003 Chuck Groom
- * Copyright (C) 2010 Craig Small 
+ * Copyright (C) 2010-2015 Craig Small 
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -25,6 +25,7 @@
 #include <string.h>
 #include <errno.h>
 #include <sys/stat.h>
+#include <gtk/gtk.h>
 #include "gjay.h"
 #include "ui.h"
 #include "ui_private.h"
@@ -61,8 +62,8 @@ static void click_daemon_quit( GtkToggleButton *togglebutton, gpointer user_data
 static void click_daemon_detach( GtkToggleButton *togglebutton, gpointer user_data);
 static void click_daemon_ask( GtkToggleButton *togglebutton, gpointer user_data);
 static void set_daemon_action ( GtkToggleButton *togglebutton, pref_daemon_action action, gpointer user_data );
-/*static void tooltips_toggled ( GtkToggleButton *togglebutton,
-                               gpointer user_data );*/
+static void tooltips_toggled ( GtkToggleButton *togglebutton,
+                               gpointer user_data );
 static void player_combo_box_changed(GtkComboBox *combo, gpointer user_data);
 static void useratings_toggled ( GtkToggleButton *togglebutton,
                                  gpointer user_data );
@@ -134,6 +135,24 @@ GtkWidget * make_prefs_window ( GjayApp *gjay )
     g_signal_connect (G_OBJECT (player_cbox), "changed",
                       G_CALLBACK (player_combo_box_changed), gjay);
   }
+
+    label = gtk_label_new(_("Hide tool tips"));
+    button = gtk_check_button_new();
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(button),
+                                 gjay->prefs->hide_tips);
+    g_signal_connect(G_OBJECT(button), "toggled",
+                     G_CALLBACK(tooltips_toggled), gjay);
+    alignment = gtk_alignment_new(0, 0, 0, 0);
+    gtk_container_add(GTK_CONTAINER(alignment), label);
+    gtk_table_attach(GTK_TABLE(table), alignment,
+        0, 1, table_row, table_row+1,
+        (GTK_EXPAND|GTK_FILL),(GTK_EXPAND|GTK_FILL),6,0);
+    alignment = gtk_alignment_new(0, 0, 0, 0);
+    gtk_container_add(GTK_CONTAINER(alignment), button);
+    gtk_table_attach(GTK_TABLE(table), alignment,
+        1, 2, table_row, table_row+1,
+        (GTK_EXPAND|GTK_FILL),(GTK_EXPAND|GTK_FILL),6,0);
+    table_row++;
 
     /* Song Ratings checkbox */
     label = gtk_label_new(_("Use song ratings"));
@@ -446,18 +465,13 @@ static void player_combo_box_changed(GtkComboBox *combo, gpointer user_data)
   }
 }
 
-/* FIXME - the tooltips */
-#if 0
 static void tooltips_toggled ( GtkToggleButton *togglebutton,
                                gpointer user_data ) {
-    prefs.hide_tips = !gtk_toggle_button_get_active(togglebutton);
-    if (prefs.hide_tips) 
-         gtk_tooltips_disable(tips);  
-    else
-         gtk_tooltips_enable(tips);
-    save_prefs();
+    GjayApp *gjay = (GjayApp*)user_data;
+
+    gjay->prefs->hide_tips = !gtk_toggle_button_get_active(togglebutton);
+    save_prefs(gjay->prefs);
 }
-#endif
 
 
 static void useratings_toggled ( GtkToggleButton *togglebutton,

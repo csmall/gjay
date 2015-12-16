@@ -80,6 +80,52 @@ void gjay_message_log(const gchar *log_domain,
     const gchar *message,
     gpointer user_data);
 
+void switch_page (GtkNotebook *notebook,
+                  GtkWidget *page,
+                  gint page_num,
+                  gpointer user_data) {
+
+  GjayApp *gjay = (GjayApp*)user_data;
+  GjayGUI *ui = gjay->gui;
+    if (ui->destroy_window_flag)
+        return;
+    
+    remove_parent(ui->explore_view);
+    remove_parent(ui->selection_view);
+    remove_parent(ui->playlist_view);
+    remove_parent(ui->no_root_view);
+    remove_parent(ui->paned);
+
+    switch (page_num) {
+    case TAB_EXPLORE:
+        if (ui->show_root_dir) {
+            gtk_box_pack_start(GTK_BOX(ui->explore_hbox), ui->paned,
+                               TRUE, TRUE, 5);
+            gtk_paned_add1(GTK_PANED(ui->paned), ui->explore_view); 
+            gtk_paned_add2(GTK_PANED(ui->paned), ui->selection_view); 
+            set_selected_in_playlist_view(gjay, FALSE);
+            gtk_widget_show(ui->paned);
+        } else {
+             gtk_box_pack_start(GTK_BOX(ui->explore_hbox), ui->no_root_view,
+                               TRUE, TRUE, 5);
+        }
+        gtk_widget_show(ui->explore_hbox);
+        break;
+    case TAB_PLAYLIST:
+        gtk_box_pack_start(GTK_BOX(ui->playlist_hbox), ui->paned, TRUE, TRUE, 5);
+        gtk_paned_add1(GTK_PANED(ui->paned), ui->playlist_view);
+        gtk_paned_add2(GTK_PANED(ui->paned), ui->selection_view);
+        set_selected_in_playlist_view(gjay, TRUE);
+        gtk_widget_show(ui->paned);
+        gtk_widget_show(ui->playlist_hbox);
+        break;
+    default:
+        /* Plug-ins */
+        gtk_widget_show(plugin_pane[page_num - TAB_LAST]);
+        break;
+    }
+}
+
 gboolean create_gjay_gui ( GjayApp *gjay) {
     GjayGUI *ui;
 
@@ -138,22 +184,20 @@ gboolean create_gjay_gui ( GjayApp *gjay) {
     gtk_container_add(GTK_CONTAINER(alignment), hbox2);
 
     analysis_progress = gtk_progress_bar_new();
-    gtk_progress_bar_update (GTK_PROGRESS_BAR(analysis_progress),
-                             0.0);
+    gtk_progress_bar_set_fraction (GTK_PROGRESS_BAR(analysis_progress), 0.0);
     gtk_box_pack_start(GTK_BOX(hbox2), analysis_progress, FALSE, FALSE, 0);
 
     add_files_progress = gtk_progress_bar_new();
-    gtk_progress_bar_update (GTK_PROGRESS_BAR(add_files_progress),
-                             0.0);
+    gtk_progress_bar_set_fraction (GTK_PROGRESS_BAR(add_files_progress), 0.0);
     gtk_box_pack_start(GTK_BOX(hbox2), add_files_progress, FALSE, FALSE, 0);
 
     ui->explore_hbox = gtk_hbox_new(FALSE, 2);
-    gtk_notebook_append_page(GTK_NOTEBOOK(ui->notebook), 
+    gtk_notebook_append_page(GTK_NOTEBOOK(ui->notebook),
                              ui->explore_hbox,
                              gtk_label_new(tabs[TAB_EXPLORE]));
 
     ui->playlist_hbox = gtk_hbox_new(FALSE, 2);
-    gtk_notebook_append_page(GTK_NOTEBOOK(ui->notebook), 
+    gtk_notebook_append_page(GTK_NOTEBOOK(ui->notebook),
                              ui->playlist_hbox,
                              gtk_label_new(tabs[TAB_PLAYLIST]));
 
@@ -170,10 +214,8 @@ gboolean create_gjay_gui ( GjayApp *gjay) {
     gtk_widget_show_all(ui->selection_view);
     gtk_widget_show_all(ui->no_root_view);
     
-    gtk_signal_connect (GTK_OBJECT (ui->notebook),
-                        "switch-page",
-                        (GtkSignalFunc) switch_page,
-                        gjay);
+    g_signal_connect (G_OBJECT(ui->notebook), "switch-page",
+                      G_CALLBACK(switch_page), gjay);
   
   gtk_notebook_set_page(GTK_NOTEBOOK(ui->notebook), TAB_EXPLORE);
     
@@ -242,7 +284,7 @@ gboolean daemon_pipe_input (GIOChannel *source,
     case STATUS_PERCENT:
         memcpy(&p, buffer + sizeof(ipc_type), sizeof(int));
         if (analysis_progress && !gjay->gui->destroy_window_flag) 
-            gtk_progress_bar_update (GTK_PROGRESS_BAR(analysis_progress),
+            gtk_progress_bar_set_fraction (GTK_PROGRESS_BAR(analysis_progress),
                                      p/100.0);
         break;
     case STATUS_TEXT:
@@ -297,7 +339,7 @@ static GtkWidget * make_message_window( void)
 
   window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
   gtk_window_set_title (GTK_WINDOW (window), _("GJay: Messages"));
-  gtk_widget_set_usize(window, MSG_WIDTH, MSG_HEIGHT);
+  gtk_widget_set_size_request(window, MSG_WIDTH, MSG_HEIGHT);
   gtk_container_set_border_width (GTK_CONTAINER (window), 5);
 
   vbox = gtk_vbox_new (FALSE, 2);
@@ -341,52 +383,6 @@ static void remove_parent(GtkWidget *w)
     if (w) {
         g_object_ref(G_OBJECT(w));
         gtk_container_remove(GTK_CONTAINER(parent), w);
-    }
-}
-
-void switch_page (GtkNotebook *notebook,
-                  GtkNotebookPage *page,
-                  gint page_num,
-                  gpointer user_data) {
-
-  GjayApp *gjay = (GjayApp*)user_data;
-  GjayGUI *ui = gjay->gui;
-    if (ui->destroy_window_flag)
-        return;
-    
-    remove_parent(ui->explore_view);
-    remove_parent(ui->selection_view);
-    remove_parent(ui->playlist_view);
-    remove_parent(ui->no_root_view);
-    remove_parent(ui->paned);
-
-    switch (page_num) {
-    case TAB_EXPLORE:
-        if (ui->show_root_dir) {
-            gtk_box_pack_start(GTK_BOX(ui->explore_hbox), ui->paned,
-                               TRUE, TRUE, 5);
-            gtk_paned_add1(GTK_PANED(ui->paned), ui->explore_view); 
-            gtk_paned_add2(GTK_PANED(ui->paned), ui->selection_view); 
-            set_selected_in_playlist_view(gjay, FALSE);
-            gtk_widget_show(ui->paned);
-        } else {
-             gtk_box_pack_start(GTK_BOX(ui->explore_hbox), ui->no_root_view,
-                               TRUE, TRUE, 5);
-        }
-        gtk_widget_show(ui->explore_hbox);
-        break;
-    case TAB_PLAYLIST:
-        gtk_box_pack_start(GTK_BOX(ui->playlist_hbox), ui->paned, TRUE, TRUE, 5);
-        gtk_paned_add1(GTK_PANED(ui->paned), ui->playlist_view);
-        gtk_paned_add2(GTK_PANED(ui->paned), ui->selection_view);
-        set_selected_in_playlist_view(gjay, TRUE);
-        gtk_widget_show(ui->paned);
-        gtk_widget_show(ui->playlist_hbox);
-        break;
-    default:
-        /* Plug-ins */
-        gtk_widget_show(plugin_pane[page_num - TAB_LAST]);
-        break;
     }
 }
 

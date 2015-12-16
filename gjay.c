@@ -360,9 +360,9 @@ static void run_as_ui(int argc, char *argv[], GjayApp *gjay )
                   G_IO_IN,
                   daemon_pipe_input,
                   gjay);
-  	/* Ping the daemon ocassionally to let it know that the UI 
+    /* Ping the daemon ocassionally to let it know that the UI 
    	* process is still around */
-  	gtk_timeout_add( UI_PING, ping_daemon, &(gjay->ipc->ui_fifo));
+    g_timeout_add( UI_PING, ping_daemon, &(gjay->ipc->ui_fifo));
 
   create_player(&(gjay->player), gjay->prefs->music_player);
 
@@ -373,8 +373,8 @@ static void run_as_ui(int argc, char *argv[], GjayApp *gjay )
   gjay->player->main_window = gjay->gui->main_window;
   gjay->player->song_root_dir = gjay->prefs->song_root_dir;
 
-  gtk_signal_connect (GTK_OBJECT (gjay->gui->main_window), "delete_event",
-	  GTK_SIGNAL_FUNC (quit_app), gjay);
+    g_signal_connect (gjay->gui->main_window, "delete_event",
+                      G_CALLBACK(quit_app), gjay);
 
 
 
@@ -383,7 +383,7 @@ static void run_as_ui(int argc, char *argv[], GjayApp *gjay )
     set_add_files_progress_visible(FALSE);
     
     /* Periodically write song data to disk, if it has changed */
-    gtk_timeout_add( SONG_DIRTY_WRITE_TIMEOUT, 
+    g_timeout_add( SONG_DIRTY_WRITE_TIMEOUT, 
                      write_dirty_song_timeout, gjay);
     
     send_ipc(gjay->ipc->ui_fifo, ATTACH);
