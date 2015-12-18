@@ -1,7 +1,7 @@
 /*
  * Gjay - Gtk+ DJ music playlist creator
  * Copyright (C) 2002-2004 Chuck Groom
- * Copyright (C) 2010-2012 Craig Small 
+ * Copyright (C) 2010-2015 Craig Small 
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -28,9 +28,6 @@
 
 #include <stdio.h>
 #include <glib.h>
-#ifdef WITH_GUI
-#include <gtk/gtk.h>
-#endif /* WITH_GUI */
 #include <assert.h>
 #include <limits.h>
 #include <math.h>
@@ -45,7 +42,10 @@ typedef struct _GjayApp GjayApp;
 #include "rgbhsv.h"
 #include "songs.h"
 #include "prefs.h"
+#ifdef WITH_GUI
 #include "ui.h"
+typedef struct _GjayGUI GjayGUI;
+#endif
 
 /* Helper programs */
 #define OGG_DECODER_APP "ogg123"
@@ -53,6 +53,11 @@ typedef struct _GjayApp GjayApp;
 #define MP3_DECODER_APP2 "mpg321"
 #define FLAC_DECODER_APP "flac"
 
+#ifdef WITH_GUI
+#define gjay_error(X,Y) gjay_error_dialog((X),(Y))
+#else
+#define gjay_error(X,Y) g_error("%s", (Y))
+#endif
 
 typedef enum {
     UI = 0,

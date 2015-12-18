@@ -36,7 +36,9 @@
 #include "vorbis.h"
 #include "flac.h"
 #include "i18n.h"
+#ifdef WITH_GUI
 #include "ui.h"
+#endif
 
 
 typedef enum {

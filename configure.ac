@@ -25,7 +25,7 @@ if test "$enable_gui" = "yes"; then
   AC_DEFINE([WITH_GUI], [1], [Enable Gtk graphical interface])
   PKG_CHECK_MODULES([GTK], [gtk+-2.0])
 else
-  PKG_CHECK_MODULES([GLIB], [glib-2.0])
+  PKG_CHECK_MODULES([GIO], [gio-2.0])
 fi
 AM_CONDITIONAL([WITH_GUI], [test "$enable_gui" = "yes"])
 

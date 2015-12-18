@@ -30,8 +30,10 @@
 #include <mpd/client.h>
 #include "gjay.h"
 #include "i18n.h"
-#include "ui.h"
 #include "play_mpdclient.h"
+#ifdef WITH_GUI
+#include "ui.h"
+#endif /* WITH_GUI */
 
 /* dlsym-ed functions */
 const char *(*gjmpd_connection_get_error_message)(const struct mpd_connection *connection);
@@ -56,7 +58,8 @@ mpdclient_init(GjayPlayer *player)
 
   if ( (lib = dlopen("libmpdclient.so.2", RTLD_GLOBAL | RTLD_LAZY)) == NULL)
   {
-    gjay_error_dialog(player->main_window, _("Unable to open mpd client library"));
+      gjay_error(player->main_window,
+                 _("Unable to open mpd client library"));
     return FALSE;
   }
   
@@ -144,17 +147,13 @@ mpdclient_play_files ( GjayPlayer *player, GList *list) {
   if ( (*gjmpd_run_stop)(player->mpdclient_connection) == FALSE) {
     errmsg = g_strdup_printf(_("Cannot stop Music Player Daemon: %s"),
         (*gjmpd_connection_get_error_message)(player->mpdclient_connection));
-#ifdef WITH_GUI
-    gjay_error_dialog(player->main_window, errmsg);
-#else
-	g_error(errmsg);
-#endif /* WITH_GUI */
+    gjay_error(player->main_window, errmsg);
     g_free(errmsg);
   }
   if ( (*gjmpd_run_clear)(player->mpdclient_connection) == FALSE) {
     errmsg = g_strdup_printf(_("Cannot clear Music Player Daemon queue: %s"),
         (*gjmpd_connection_get_error_message)(player->mpdclient_connection));
-    gjay_error_dialog(player->main_window,errmsg);
+    gjay_error(player->main_window,errmsg);
     g_free(errmsg);
   }
   for (lptr=list; lptr; lptr= g_list_next(lptr)) {
@@ -169,7 +168,7 @@ mpdclient_play_files ( GjayPlayer *player, GList *list) {
         errmsg = g_strdup_printf(_("Cannot add song \"%s\" to Music Player Daemon Queue: %s"),
             song_fname, 
             (*gjmpd_connection_get_error_message)(player->mpdclient_connection));
-        gjay_error_dialog(player->main_window, errmsg);
+        gjay_error(player->main_window, errmsg);
         g_free(errmsg);
       }
     }
@@ -177,7 +176,7 @@ mpdclient_play_files ( GjayPlayer *player, GList *list) {
   if ( (*gjmpd_run_play)(player->mpdclient_connection) == FALSE) {
     errmsg = g_strdup_printf(_("Cannot play playlist: %s"),
         (*gjmpd_connection_get_error_message)(player->mpdclient_connection));
-    gjay_error_dialog(player->main_window, errmsg);
+    gjay_error(player->main_window, errmsg);
     g_free(errmsg);
   }
 }
@@ -192,7 +191,7 @@ mpdclient_connect(GjayPlayer *player)
     return TRUE;
   
   if ( (player->mpdclient_connection = (*gjmpd_connection_new)(NULL,0,0)) == NULL) {
-    gjay_error_dialog(player->main_window, _("Unable to connect of Music Player Daemon"));
+    gjay_error(player->main_window, _("Unable to connect of Music Player Daemon"));
     return FALSE;
   }
   return TRUE;

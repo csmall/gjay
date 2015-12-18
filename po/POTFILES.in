@@ -6,10 +6,9 @@ ipc.c
 mp3.c
 play_audacious.c
 play_common.c
-#play_exaile.c
+play_exaile.c
 playlist.c
 play_mpdclient.c
-#play_quodlibet.c
 prefs.c
 rgbhsv.c
 songs.c
@@ -22,3 +21,4 @@ ui_prefs_view.c
 ui_selection_view.c
 util.c
 vorbis.c
+include/c.h

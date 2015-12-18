@@ -36,8 +36,10 @@
 #include "songs.h" 
 #include "dbus.h"
 #include "i18n.h"
-#include "ui.h"
 #include "play_audacious.h"
+#ifdef WITH_GUI
+#include "ui.h"
+#endif /* WITH_GUI */
 
 static void audacious_connect(GjayPlayer *player);
 
@@ -58,8 +60,8 @@ audacious_init(GjayPlayer *player)
 
   if ( (lib = dlopen("libaudclient.so.2", RTLD_GLOBAL | RTLD_LAZY)) == NULL)
   {
-    gjay_error_dialog(player->main_window,
-		_("Unable to open audcious client library, defaulting to no play."));
+      gjay_error(player->main_window,
+                 _("Unable to open audcious client library, defaulting to no play."));
     return FALSE;
   }
   if ( (gjaud_get_playlist_pos = gjay_dlsym(lib, "audacious_remote_get_playlist_pos")) == NULL)

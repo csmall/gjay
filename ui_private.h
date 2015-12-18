@@ -1,7 +1,7 @@
 /*
  * Gjay - Gtk+ DJ music playlist creator
  * Copyright (C) 2002,2003 Chuck Groom
- * Copyright (C) 2010-2012 Craig Small 
+ * Copyright (C) 2010-2015 Craig Small 
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -19,7 +19,7 @@
 
 /* Only thr ui*.c files should include this */
 #ifndef __UI_PRIVATE_H__ 
-#define __UI_PRIVATE_H__ 
+#define __UI_PRIVATE_H__
 
 #define APP_WIDTH  620
 #define APP_HEIGHT 470
@@ -34,12 +34,12 @@
 #ifdef WITH_GUI
 
 
-GtkWidget * new_button_label_pixbuf      ( char * label_text, 
+GtkWidget * new_button_label_pixbuf      ( char * label_text,
                                            int pm_type,
-										   GdkPixbuf **pixbufs);
+                                           GdkPixbuf **pixbufs);
 
 void        switch_page (GtkNotebook *notebook,
-                         GtkNotebookPage *page,
+                         GtkWidget *page,
                          gint page_num,
                          gpointer user_data);
 GtkWidget * make_explore_view ( GjayApp *gjay );
@@ -55,25 +55,26 @@ void        set_add_files_progress         ( char * str,
 
 gint        explore_view_set_root_idle   ( gpointer data );
 gboolean    explore_update_path_pm       ( GdkPixbuf **pixbufs,
-										   const char * path,
+                                           const char * path,
                                            int type );
-GList *     explore_files_in_dir         ( const char * dir, 
+GList *     explore_files_in_dir         ( const char * dir,
                                            const gboolean recursive );
 GList *     explore_dirs_in_dir          ( const char * dir );
 void        explore_animate_pending      ( GjayGUI *gui, char * file );
 void        explore_animate_stop         ( void );
 gboolean    explore_dir_has_new_songs    ( GHashTable *name_hash,
-										const gchar * dir,
-   										const guint verbosity	);
+                                           const gchar * dir,
+                                           const guint verbosity	);
 void        explore_select_song          ( GjaySong * s);
 
 /* Select file pane */
 void        update_selection_area         ( GList *selected_songs);
-void        set_selected_in_playlist_view ( GjayApp *gjay, const gboolean in_view );
+void        set_selected_in_playlist_view ( GjayApp *gjay,
+                                            const gboolean in_view );
 
 /* Colorwheel widget (in select file pane) */
 GtkWidget * create_colorwheel             ( GjayApp *gjay,
-											const gint diameter,
+                                            const gint diameter,
                                             GList ** list,
                                             GFunc change_func,
                                             gpointer user_data);

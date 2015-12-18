@@ -67,7 +67,6 @@ typedef enum {
 } pm;
 
 
-#ifdef WITH_GUI
 typedef struct _GjayGUI {
   /* Various Windows */
   GtkWidget *main_window;
@@ -125,7 +124,6 @@ gint        explore_files_depth_distance ( char * file1,
 
 /* menubar */
 GtkWidget *make_menubar(GjayApp *gjay);
-#endif /* WITH_GUI */
 #endif /* __UI_H__ */
 
 
