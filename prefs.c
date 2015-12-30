@@ -187,7 +187,7 @@ load_prefs ( void ) {
     prefs->start_color.H = 0;
     prefs->start_color.S = 0.5;
     prefs->start_color.V = 1.0;
-    prefs->use_hsv = FALSE;
+    prefs->use_hsv = TRUE;
     prefs->daemon_action = PREF_DAEMON_QUIT;
     prefs->hide_tips = FALSE;
     snprintf(buffer, BUFFER_SIZE, "%s/%s/%s", getenv("HOME"), 
@@ -432,16 +432,9 @@ void data_text ( GMarkupParseContext *context,
         prefs->path_weight = strtof_gjay(buffer, NULL);  
         break;
     case PE_COLOR:
-        if (prefs->use_hsv) {
-            prefs->start_color.H = strtof_gjay(buffer, &buffer_str);
-            prefs->start_color.S = strtof_gjay(buffer_str, &buffer_str);
-            prefs->start_color.V = strtof_gjay(buffer_str, NULL);
-        } else {
-            HB hb;
-            hb.H = strtof_gjay(buffer, &buffer_str);
-            hb.B = strtof_gjay(buffer_str, NULL);
-            prefs->start_color = hb_to_hsv(hb);
-        }
+        prefs->start_color.H = strtof_gjay(buffer, &buffer_str);
+        prefs->start_color.S = strtof_gjay(buffer_str, &buffer_str);
+        prefs->start_color.V = strtof_gjay(buffer_str, NULL);
         break;
     case PE_TIME:
         prefs->playlist_time = atoi(buffer);

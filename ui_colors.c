@@ -34,34 +34,6 @@
 #define COLORWHEEL_V_HEIGHT       0.7
 #define COLORWHEEL_SWATCH_HEIGHT  0.2
 
-static GdkPixbuf * create_colorwheel_hs_pixbuf ( gint diameter );
-static GdkPixbuf * create_colorwheel_v_pixbuf  ( gint width,
-                                                 gint height );
-static void        colorwheel_plot_point   ( guchar * data,
-                                             HSV color,
-                                             gfloat radius,
-                                             gfloat angle,
-                                             gint rowstride,
-                                             gint x,
-                                             gint y );
-static gboolean drawing_expose_event_callback ( GtkWidget *widget,
-                                                GdkEventExpose *event, 
-                                                gpointer data);
-static gboolean drawing_button_event_callback ( GtkWidget *widget,
-                                                GdkEventButton *event,
-                                                gpointer user_data);
-static gboolean drawing_motion_event_callback ( GtkWidget *widget,
-                                                GdkEventMotion *event,
-                                                gpointer user_data);
-static void     click_in_colorwheel (GtkWidget * widget,
-                                     gdouble x, 
-                                     gdouble y);
-static void     draw_selected_color ( GtkWidget * widget, 
-                                       HSV hsv,
-   										GdkPixbuf **pixbufs	);
-static void     draw_swatch_color ( GtkWidget * widget, 
-                                    HSV hsv );
-
 #define DATA_HS_PIXBUF  "cw_hs_pb"
 #define DATA_V_PIXBUF   "cw_v_pb"
 #define DATA_LIST       "cw_list"
@@ -69,6 +41,143 @@ static void     draw_swatch_color ( GtkWidget * widget,
 #define DATA_FUNC       "cw_func"
 #define DATA_USER_DATA  "cw_user_data"
 
+
+GtkWidget *colorbutton_new(GjayApp *gjay)
+{
+    GtkWidget *widget;
+
+    widget = gtk_color_button_new();
+    return widget;
+}
+
+void colorbutton_set_color(GtkColorButton *button,
+                           HSV *color)
+{
+    GdkColor gdk_color;
+    hsv_to_gdkcolor(color, &gdk_color);
+    gtk_color_button_set_color(button, &gdk_color);
+}
+
+void colorbutton_get_color(GtkColorButton *button,
+                           HSV *color)
+{
+    GdkColor gdk_color;
+
+    gtk_color_button_get_color(button, &gdk_color);
+    printf("GDK: %d %d %d\n", gdk_color.red, gdk_color.green,
+           gdk_color.blue);
+    gdkcolor_to_hsv(&gdk_color, color);
+    printf("GDK: %d %d %d\n", gdk_color.red, gdk_color.green,
+           gdk_color.blue);
+    printf("get color");
+    printf("color: %f %f %f\n", color->H, color->S, color->V);
+}
+
+void colorbutton_set_callback(GtkColorButton *button,
+                              GCallback cb_func,
+                              gpointer user_data)
+{
+    g_signal_connect(G_OBJECT(button), "color-set",
+                     cb_func, user_data);
+}
+
+#if 0
+static void click_in_colorwheel (GtkWidget * widget,
+                                 gdouble x, 
+                                 gdouble y) {
+    gboolean updateHS = TRUE;
+    gboolean updateV  = TRUE;
+    gdouble radius, angle;
+    gint xcenter, ycenter, diameter;
+    GdkPixbuf * colorwheel, * brightness;
+    HSV * hsv;
+    GFunc change_func;
+    gpointer user_data;
+    GtkAllocation allocation;
+
+    colorwheel = g_object_get_data(G_OBJECT (widget), DATA_HS_PIXBUF);
+    brightness = g_object_get_data(G_OBJECT (widget), DATA_V_PIXBUF);
+    hsv = g_object_get_data(G_OBJECT (widget), DATA_COLOR);
+    assert (hsv);
+    gtk_widget_get_allocation(widget, &allocation);
+
+    /* Check for v */
+    if ((x >= allocation.width - gdk_pixbuf_get_width(brightness) - COLORWHEEL_SELECT) &&
+        (x <= allocation.width - COLORWHEEL_SELECT)) {
+        hsv->V = MIN(1.0, 
+                     MAX(0, 1.0 - 
+                         (((float) (y - COLORWHEEL_SELECT)) / 
+                          ((float) gdk_pixbuf_get_height(brightness)))));
+    } else {
+        updateV = FALSE;
+    }
+
+    /* Check for h-s */
+    diameter = gdk_pixbuf_get_width(colorwheel);
+    xcenter = allocation.height / 2.0; // Use height on purpose
+    ycenter = allocation.height / 2.0;
+
+    x -= xcenter;
+    y -= ycenter;
+
+    if ((x < - diameter / 2) || 
+        (x >   diameter / 2) || 
+        (y < - diameter / 2) || 
+        (y >   diameter / 2)) 
+        updateHS = FALSE;
+    
+    radius = (2.0 * sqrt(x*x + y*y)) / diameter;
+    if (radius > 1.0)
+        updateHS = FALSE;
+
+    if (updateHS) {
+        if (x == 0) {
+            if (y > 0)
+                angle = M_PI/2.0;
+            else 
+                angle = (3.0*M_PI)/2.0;
+        } else if (y == 0) {
+            if (x > 0)
+                angle = 0;
+            else
+                angle = M_PI;
+        } else {
+            angle = atan(y / x);
+            if (x < 0)
+                angle += M_PI;
+            else if (y < 0)
+                angle += 2*M_PI;
+        }
+        
+        hsv->H = (3.0 * angle) / M_PI;
+        hsv->S = radius;
+    } 
+
+    if (updateHS || updateV) {
+        change_func = g_object_get_data(G_OBJECT (widget), DATA_FUNC);
+        user_data = g_object_get_data(G_OBJECT (widget), DATA_USER_DATA);
+        if (change_func) {
+            change_func(widget, user_data);
+        }
+        gtk_widget_queue_draw(widget);
+    }
+}
+
+static gboolean drawing_button_event_callback (GtkWidget *widget,
+                                               GdkEventButton *event,
+                                               gpointer user_data) {
+    click_in_colorwheel(widget, event->x, event->y);
+    return TRUE;
+}
+
+
+static gboolean drawing_motion_event_callback  (GtkWidget *widget,
+                                                GdkEventMotion *event,
+                                                gpointer user_data) {
+    if (event->state & GDK_BUTTON1_MASK) 
+        click_in_colorwheel(widget, event->x, event->y);
+    return TRUE;
+}
 
 GtkWidget * create_colorwheel (GjayApp *gjay,
 								const gint diameter, 
@@ -80,18 +189,15 @@ GtkWidget * create_colorwheel (GjayApp *gjay,
     GtkWidget * widget;
     HSV * color;
 
+    widget = gtk_hsv_new();
+    gtk_hsv_set_metrics(GTK_HSV(widget), diameter, 4);
     widget = gtk_drawing_area_new();
-    brightness_width = diameter * COLORWHEEL_V_SWATCH_WIDTH;
-    width =  diameter + COLORWHEEL_SELECT*4 + COLORWHEEL_SPACING + 
-        brightness_width;
-    height = diameter + COLORWHEEL_SELECT*2;
 
     colorwheel = create_colorwheel_hs_pixbuf(diameter);
     brightness = create_colorwheel_v_pixbuf(brightness_width, 
                                             diameter * COLORWHEEL_V_HEIGHT);
 
-    gtk_drawing_area_size(GTK_DRAWING_AREA(widget), width, height);
-    gtk_widget_add_events(widget, 
+    gtk_widget_add_events(widget,
                           GDK_BUTTON_PRESS_MASK | GDK_POINTER_MOTION_MASK);
     g_object_set_data(G_OBJECT (widget), DATA_HS_PIXBUF, colorwheel);
     g_object_set_data(G_OBJECT (widget), DATA_V_PIXBUF, brightness);
@@ -121,9 +227,13 @@ HSV get_colorwheel_color ( GtkWidget * widget) {
 }
 
 
+/* FIXME */
 void set_colorwheel_color ( GtkWidget * widget,
                             HSV color) {
-    *((HSV *) g_object_get_data(G_OBJECT (widget), DATA_COLOR)) = color;
+    gtk_hsv_set_color(GTK_HSV(widget),
+                      color.H,
+                      color.S,
+                      color.V);
     gtk_widget_queue_draw(widget);
 }
 
@@ -363,6 +473,7 @@ static gboolean drawing_expose_event_callback (GtkWidget *widget,
     return TRUE;
 }
 
+#endif
 
 void draw_selected_color (GtkWidget * widget, 
                           HSV hsv, GdkPixbuf **pixbufs) {
@@ -426,7 +537,7 @@ void draw_swatch_color (GtkWidget * widget,
 
     brightness = g_object_get_data(G_OBJECT (widget), DATA_V_PIXBUF);
 
-    rgb = hsv_to_rgb(hsv);
+    hsv_to_rgb(&hsv, &rgb);
     rgb32 = 
         ((int) (rgb.R * 255.0)) << 16 |
         ((int) (rgb.G * 255.0)) << 8 |
@@ -459,101 +570,4 @@ void draw_swatch_color (GtkWidget * widget,
 }
 
 
-static gboolean drawing_button_event_callback (GtkWidget *widget,
-                                               GdkEventButton *event,
-                                               gpointer user_data) {
-    click_in_colorwheel(widget, event->x, event->y);
-    return TRUE;
-}
-
-
-static gboolean drawing_motion_event_callback  (GtkWidget *widget,
-                                                GdkEventMotion *event,
-                                                gpointer user_data) {
-    if (event->state & GDK_BUTTON1_MASK) 
-        click_in_colorwheel(widget, event->x, event->y);
-    return TRUE;
-}
-
-
-static void click_in_colorwheel (GtkWidget * widget,
-                                 gdouble x, 
-                                 gdouble y) {
-    gboolean updateHS = TRUE;
-    gboolean updateV  = TRUE;
-    gdouble radius, angle;
-    gint xcenter, ycenter, diameter;
-    GdkPixbuf * colorwheel, * brightness;
-    HSV * hsv;
-    GFunc change_func;
-    gpointer user_data;
-    GtkAllocation allocation;
-
-    colorwheel = g_object_get_data(G_OBJECT (widget), DATA_HS_PIXBUF);
-    brightness = g_object_get_data(G_OBJECT (widget), DATA_V_PIXBUF);
-    hsv = g_object_get_data(G_OBJECT (widget), DATA_COLOR);
-    assert (hsv);
-    gtk_widget_get_allocation(widget, &allocation);
-
-    /* Check for v */
-    if ((x >= allocation.width - gdk_pixbuf_get_width(brightness) - COLORWHEEL_SELECT) &&
-        (x <= allocation.width - COLORWHEEL_SELECT)) {
-        hsv->V = MIN(1.0, 
-                     MAX(0, 1.0 - 
-                         (((float) (y - COLORWHEEL_SELECT)) / 
-                          ((float) gdk_pixbuf_get_height(brightness)))));
-    } else {
-        updateV = FALSE;
-    }
-
-    /* Check for h-s */
-    diameter = gdk_pixbuf_get_width(colorwheel);
-    xcenter = allocation.height / 2.0; // Use height on purpose
-    ycenter = allocation.height / 2.0;
-
-    x -= xcenter;
-    y -= ycenter;
-
-    if ((x < - diameter / 2) || 
-        (x >   diameter / 2) || 
-        (y < - diameter / 2) || 
-        (y >   diameter / 2)) 
-        updateHS = FALSE;
-    
-    radius = (2.0 * sqrt(x*x + y*y)) / diameter;
-    if (radius > 1.0)
-        updateHS = FALSE;
-
-    if (updateHS) {
-        if (x == 0) {
-            if (y > 0)
-                angle = M_PI/2.0;
-            else 
-                angle = (3.0*M_PI)/2.0;
-        } else if (y == 0) {
-            if (x > 0)
-                angle = 0;
-            else
-                angle = M_PI;
-        } else {
-            angle = atan(y / x);
-            if (x < 0)
-                angle += M_PI;
-            else if (y < 0)
-                angle += 2*M_PI;
-        }
-        
-        hsv->H = (3.0 * angle) / M_PI;
-        hsv->S = radius;
-    } 
-
-    if (updateHS || updateV) {
-        change_func = g_object_get_data(G_OBJECT (widget), DATA_FUNC);
-        user_data = g_object_get_data(G_OBJECT (widget), DATA_USER_DATA);
-        if (change_func) {
-            change_func(widget, user_data);
-        }
-        gtk_widget_queue_draw(widget);
-    }
-}
 

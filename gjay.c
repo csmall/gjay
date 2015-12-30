@@ -46,6 +46,9 @@
 #include <ctype.h>
 #ifdef WITH_GUI
 #include "ui.h"
+#include "colors.h"
+#include "ui_explore.h"
+#include "ui_selection.h"
 #endif
 #include "gjay.h"
 
@@ -186,8 +189,9 @@ parse_commandline(int *argc_p,
 
   context = g_option_context_new(_("- Automatic DJ and playlist creator"));
   g_option_context_add_main_entries( context, entries, NULL);
-/*  if (gtk_init_check(&argc, &argv))
-  g_option_context_add_group (context, gtk_get_option_group (TRUE));*/
+#ifdef WITH_GUI
+  g_option_context_add_group (context, gtk_get_option_group (FALSE));
+#endif /* WITH_GUI */
   error = NULL;
   if (!g_option_context_parse (context, argc_p, argv_p, &error))
   {
@@ -201,6 +205,8 @@ parse_commandline(int *argc_p,
     *analyze_detached_fname = opt_standalone;
     *mode = ANALYZE_DETACHED;
   }
+#ifdef WITH_GUI
+#include "colors.h"
   if (opt_color != NULL)
   {
     RGB rgb;
@@ -211,13 +217,14 @@ parse_commandline(int *argc_p,
       rgb.G = ((hex & 0x00FF00) >> 8) / 255.0;
       rgb.B = (hex & 0x0000FF) / 255.0;
       gjay->prefs->use_color = TRUE;
-      gjay->prefs->start_color = rgb_to_hsv(rgb);
+      rgb_to_hsv(&rgb, &(gjay->prefs->start_color));
     } else if (get_named_color(opt_color, &rgb))
     {
       gjay->prefs->use_color = TRUE;
-      gjay->prefs->start_color = rgb_to_hsv(rgb);
+      rgb_to_hsv(&rgb, &(gjay->prefs->start_color));
     }
   }
+#endif /* WITH_GUI */
   if (opt_daemon)
   {
     *mode = DAEMON_DETACHED;
@@ -309,7 +316,8 @@ static void run_as_ui(int argc, char *argv[], GjayApp *gjay )
     g_signal_connect (gjay->gui->main_window, "delete_event",
                       G_CALLBACK(quit_app), gjay);
 
-    set_selected_rating_visible(gjay->prefs->use_ratings);
+    selection_set_rating_visible(gjay->gui->selection_view,
+                                 gjay->prefs->use_ratings);
     set_playlist_rating_visible(gjay->prefs->use_ratings);
     set_add_files_progress_visible(FALSE);
 
@@ -325,10 +333,10 @@ static void run_as_ui(int argc, char *argv[], GjayApp *gjay )
             SONG(llist)->access_ok = TRUE;
         }
     } else {
-        explore_view_set_root(gjay);
+        explore_set_root(gjay);
     }
 
-    set_selected_file(gjay, NULL, NULL, FALSE);
+    selection_set_none(gjay);
     /*gjay->player_is_running();*/
     gtk_main();
 

@@ -1,7 +1,7 @@
 /*
  * Gjay - Gtk+ DJ music playlist creator
  * Copyright (C) 2002-2004 Chuck Groom
- * Copyright (C) 2010-2015 Craig Small 
+ * Copyright (C) 2010-2015 Craig Small
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -27,11 +27,14 @@
 #include <string.h>
 #include <gtk/gtk.h>
 #include "gjay.h"
+#include "songs.h"
 #include "ipc.h"
 #include "ui.h"
 #include "ui_private.h"
 #include "ui_explore.h"
+#include "ui_selection.h"
 #include "i18n.h"
+#include "play_common.h"
 
 enum
 {
@@ -55,6 +58,7 @@ typedef struct {
     gchar    * fname;
     gboolean   is_file;  /* If FALSE, a directory */
 } file_to_add;
+
 
 
 static int file_iter_depth ( GjayExplore *explore, char * file ) {
@@ -121,7 +125,6 @@ static int tree_walk ( const char *file,
     g_queue_push_head(explore->files_to_add_queue, fta);
     return 0;
 }
-
 
 static gint compare_str ( gconstpointer a, gconstpointer b) {
     return g_ascii_strcasecmp((gchar *) a, (gchar *) b);
@@ -209,7 +212,7 @@ mark_new_dirs ( GjayApp *gjay, char * dir ) {
             gjay->new_song_dirs = g_list_append(gjay->new_song_dirs, str);
             g_hash_table_insert(gjay->new_song_dirs_hash, str, str);
             explore_path_set_icon(explore, dir,
-                                  gjay_get_pixbuf(gjay->gui, PM_DIR_CLOSED_NEW));
+                                  gjay_get_pixbuf(gjay, PM_DIR_CLOSED_NEW));
         }
     }
 
@@ -379,7 +382,7 @@ static int tree_add_idle (gpointer data) {
         gtk_tree_store_append (explore->store, current, parent);
         gtk_tree_store_set (explore->store, current,
                             NAME_COLUMN, display_name,
-                            IMAGE_COLUMN, gjay->gui->pixbufs[pm_type],
+                            IMAGE_COLUMN, gjay_get_pixbuf(gjay, pm_type),
                             -1);
 
         str = strdup(fta->fname);
@@ -406,7 +409,7 @@ static int tree_add_idle (gpointer data) {
         gtk_tree_store_set (explore->store, current,
                             NAME_COLUMN, display_name,
                             IMAGE_COLUMN,
-                            gjay_get_pixbuf(gjay->gui, PM_DIR_CLOSED),
+                            gjay_get_pixbuf(gjay, PM_DIR_CLOSED),
                             -1);
         str = strdup(fta->fname);
         explore->file_name_in_tree = g_list_append(explore->file_name_in_tree, str);
@@ -426,6 +429,7 @@ static int tree_add_idle (gpointer data) {
 
     return TRUE;
 }
+
 
 
 /**
@@ -456,33 +460,33 @@ select_row (GtkTreeSelection *selection, gpointer data)
         get_iter_path(model, &iter, buffer, TRUE);
         gtk_tree_model_get (model, &iter, NAME_COLUMN, &name, -1);
         has_child = gtk_tree_model_iter_has_child(model, &iter);
+        song_all_clear(gjay);
         if (has_child) {
-            set_selected_file(gjay, buffer, name, TRUE);
+            selection_set_dir(gjay, buffer, name);
         } else {
-//if (!has_child && g_hash_table_lookup(song_name_hash, buffer)) {
-            set_selected_file(gjay, buffer, name, FALSE);
+            selection_set_file(gjay, buffer, name);
         }
         g_free(name);
     }
 }
 
-static GtkWidget*
-create_dir_panel(GjayApp *gjay, struct GjayExplore *explore)
+
+struct GjayExplore
+*explore_new(GjayApp *gjay)
 {
+    struct GjayExplore *explore;
+    GtkWidget *swin;
     GtkCellRenderer *renderer;
     GtkTreeViewColumn *column;
     GtkTreeSelection *selection;
-    GtkWidget *frame, *swin;
 
-    frame = gtk_frame_new(NULL);
-    gtk_frame_set_shadow_type(GTK_FRAME(frame), GTK_SHADOW_IN);
+    explore = g_malloc0(sizeof(struct GjayExplore));
 
     swin = gtk_scrolled_window_new (NULL, NULL);
     gtk_widget_set_usize(swin, APP_WIDTH * 0.5, -1);
     gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (swin),
                                     GTK_POLICY_AUTOMATIC,
                                     GTK_POLICY_AUTOMATIC);
-    gtk_container_add(GTK_CONTAINER(frame), GTK_WIDGET(swin));
 
     explore->store = gtk_tree_store_new (N_COLUMNS, G_TYPE_STRING, GDK_TYPE_PIXBUF);
     gtk_tree_sortable_set_sort_func(GTK_TREE_SORTABLE(explore->store),
@@ -519,80 +523,9 @@ create_dir_panel(GjayApp *gjay, struct GjayExplore *explore)
 
     gtk_container_add(GTK_CONTAINER(swin), GTK_WIDGET(explore->tree_view));
 
-
-    return frame;
-}
-
-static GtkWidget *
-create_selection_none(GjayApp *gjay, struct GjayExplore *explore)
-{
-    GtkWidget *frame, *label;
-
-    frame = gtk_frame_new(NULL);
-    gtk_frame_set_shadow_type(GTK_FRAME(frame), GTK_SHADOW_IN);
-
-    label = gtk_label_new(_("Nothing Selected"));
-    gtk_container_add(GTK_CONTAINER(frame), label);
-    return frame;
-
-}
-
-static GtkWidget *
-create_selection_dir(GjayApp *gjay, struct GjayExplore *explore)
-{
-    GtkWidget *frame, *label;
-
-    frame = gtk_frame_new(NULL);
-    gtk_frame_set_shadow_type(GTK_FRAME(frame), GTK_SHADOW_IN);
-
-    label = gtk_label_new(_("directory Selected"));
-    gtk_container_add(GTK_CONTAINER(frame), label);
-    return frame;
-
-}
-
-static GtkWidget *
-create_selection_file(GjayApp *gjay, struct GjayExplore *explore)
-{
-    GtkWidget *frame, *label;
-
-    frame = gtk_frame_new(NULL);
-    gtk_frame_set_shadow_type(GTK_FRAME(frame), GTK_SHADOW_IN);
-
-    label = gtk_label_new(_("file Selected"));
-    gtk_container_add(GTK_CONTAINER(frame), label);
-    return frame;
-
-}
-
-struct GjayExplore
-*explore_new(GjayApp *gjay)
-{
-    struct GjayExplore *explore;
-    GtkWidget *dir_frame;
-
-    explore = g_malloc0(sizeof(struct GjayExplore));
-    explore->current_selection = EXPLORE_NOSEL;
-    explore->widget = gtk_hpaned_new();
-
-    dir_frame = create_dir_panel(gjay, explore);
-    gtk_paned_pack1(GTK_PANED(explore->widget), dir_frame, TRUE, TRUE);
-
-    explore->selections[EXPLORE_NOSEL] = create_selection_none(gjay, explore);
-    explore->selections[EXPLORE_DIR] = create_selection_dir(gjay, explore);
-    explore->selections[EXPLORE_FILE] = create_selection_file(gjay, explore);
-
+    explore->widget = swin;
     explore->files_to_add_queue = g_queue_new();
     return explore;
-}
-
-void
-explore_show(GjayApp *gjay)
-{
-    GjayExplore *explore = gjay->gui->explore_page;
-    gtk_paned_pack2(GTK_PANED(explore->widget),
-                    explore->selections[explore->current_selection], TRUE, TRUE);
-    printf("show explore page\n");
 }
 
 void
@@ -893,7 +826,7 @@ animate_path_icon(gpointer data)
     GjayExplore *explore = gjay->gui->explore_page;
 
     explore_path_set_icon(explore, explore->animate_file,
-                 gjay_get_pixbuf(gjay->gui, PM_FILE_PENDING+explore->animate_frame));
+                 gjay_get_pixbuf(gjay, PM_FILE_PENDING+explore->animate_frame));
 
     explore->animate_frame = (explore->animate_frame+ 1) % 4;
     return TRUE;

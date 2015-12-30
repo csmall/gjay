@@ -22,7 +22,7 @@
 
 enum explore_show
 {
-    EXPLORE_NOSEL= 0,
+    EXPLORE_NONE= 0,
     EXPLORE_DIR,
     EXPLORE_FILE,
     N_EXPLORE_SELECTIONS
@@ -30,9 +30,7 @@ enum explore_show
 
 
 typedef struct GjayExplore {
-    enum explore_show current_selection;
     GtkWidget *widget;
-    GtkWidget *selections[N_EXPLORE_SELECTIONS];
     GtkTreeStore *store;
     GtkWidget *tree_view;
     GQueue      *iter_stack;
@@ -47,12 +45,12 @@ typedef struct GjayExplore {
     gint        animate_timeout;
     gint        animate_frame;
     gchar      *animate_file;
+
 } GjayExplore;
 
 
 GjayExplore* explore_new(GjayApp *gjay);
 void explore_destroy(GjayExplore *explore);
-void explore_show(GjayApp *gjay);
 void explore_select_song(GjayExplore *explore, GjaySong * s);
 void        explore_animate_pending      ( GjayApp *gjay, char * file );
 void        explore_animate_stop         ( GjayExplore *explore );

@@ -21,6 +21,8 @@
 #ifndef __PREFS_H__
 #define __PREFS_H__
 
+#include "colors.h"
+
 typedef enum {
     PREF_DAEMON_QUIT,
     PREF_DAEMON_DETACH,

@@ -34,12 +34,6 @@ enum {
   TAB_LAST
 };
 
-enum
-{
-    NAME_COLUMN = 0,
-    IMAGE_COLUMN,
-    N_COLUMNS
-};
 
 typedef enum {
     PM_FILE_PENDING = 0,
@@ -67,20 +61,20 @@ typedef enum {
 } pm;
 
 
-typedef struct _GjayGUI {
+typedef struct GjayGUI {
   /* Various Windows */
   GtkWidget *main_window;
   GtkWidget *notebook;
   GtkWidget * prefs_window;
   GtkWidget * message_window;
 
-  GtkWidget *explore_view;
+  struct GjayExplore *explore_page;
+  struct SelectUI *selection_view;
   GtkWidget *explore_hbox;
-  GtkWidget *selection_view;
   GtkWidget *playlist_view;
   GtkWidget *playlist_hbox;
   GtkWidget *no_root_view;
-  GtkWidget * paned;
+  GtkWidget *paned;
 
   gboolean destroy_window_flag;
   gboolean show_root_dir;
@@ -99,7 +93,6 @@ struct play_songs_data {
 gboolean create_gjay_gui(GjayApp *gjay);
 void        set_analysis_progress_visible  ( gboolean visible );
 void        set_add_files_progress_visible ( gboolean visible );
-void        set_selected_rating_visible   ( gboolean is_visible );
 void        set_selected_file             ( GjayApp *gjay, 
 											const gchar * file, 
                                             char * short_name, 
@@ -117,13 +110,26 @@ gboolean    quit_app                      ( GtkWidget *widget,
                                             gpointer user_data );
 void        gjay_error_dialog(GtkWidget *parent, const gchar *msg);
 
-/* Explore files pane  */
-void        explore_view_set_root        ( GjayApp *gjay);
-gint        explore_files_depth_distance ( char * file1, 
-                                           char * file2 );
 
 /* menubar */
 GtkWidget *make_menubar(GjayApp *gjay);
+
+/* colorwheel */
+GtkWidget *colorbutton_new(GjayApp *gjay);
+void colorbutton_set_color(GtkColorButton *button, HSV *color);
+void colorbutton_get_color(GtkColorButton *button, HSV *color);
+void colorbutton_set_callback(GtkColorButton *button,
+                              GCallback cb_func,
+                              gpointer user_data);
+
+GtkWidget *gjay_button_new_with_label_pixbuf(
+                GjayApp *gjay,
+                const gchar *text,
+                const int item);
+
+GdkPixbuf* gjay_get_pixbuf(GjayApp *gjay, const int item);
+GjayGUI *gjay_get_gui(GjayApp *gjay);
+
 #endif /* __UI_H__ */
 
 

@@ -1,4 +1,5 @@
 analysis.c
+colors.c
 dbus.c
 flac.c
 gjay.c
@@ -10,10 +11,10 @@ play_exaile.c
 playlist.c
 play_mpdclient.c
 prefs.c
-rgbhsv.c
 songs.c
 ui.c
-ui_colorwheel.c
+ui_colors.c
+ui_explore.c
 ui_explore_view.c
 ui_menubar.c
 ui_playlist_view.c

@@ -42,7 +42,6 @@ void        switch_page (GtkNotebook *notebook,
                          GtkWidget *page,
                          gint page_num,
                          gpointer user_data);
-GtkWidget * make_explore_view ( GjayApp *gjay );
 GtkWidget * make_playlist_view ( GjayApp *gjay );
 GtkWidget * make_no_root_view ( GjayApp *gjay );
 GtkWidget * make_selection_view ( GjayApp *gjay );
@@ -53,22 +52,7 @@ void        hide_about_window ( void );
 void        set_add_files_progress         ( char * str,
                                              gint percent );
 
-gint        explore_view_set_root_idle   ( gpointer data );
-gboolean    explore_update_path_pm       ( GdkPixbuf **pixbufs,
-                                           const char * path,
-                                           int type );
-GList *     explore_files_in_dir         ( const char * dir,
-                                           const gboolean recursive );
-GList *     explore_dirs_in_dir          ( const char * dir );
-void        explore_animate_pending      ( GjayGUI *gui, char * file );
-void        explore_animate_stop         ( void );
-gboolean    explore_dir_has_new_songs    ( GHashTable *name_hash,
-                                           const gchar * dir,
-                                           const guint verbosity	);
-void        explore_select_song          ( GjaySong * s);
-
 /* Select file pane */
-void        update_selection_area         ( GList *selected_songs);
 void        set_selected_in_playlist_view ( GjayApp *gjay,
                                             const gboolean in_view );
 

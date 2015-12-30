@@ -22,7 +22,8 @@
 
 #include <math.h>
 #include <stdio.h>
-#include "rgbhsv.h"
+#include <gtk/gtk.h>
+#include "colors.h"
 #include "string.h"
 
 #define TO_HSV(h, s, v) {hsv.H = h; hsv.S = s; hsv.V = v; return hsv;} 
@@ -51,6 +52,44 @@ RGB known_color_rgb[NUM_KNOWN_COLORS] = {
     { 1.0, 1.0, 0.0 },
     { 0.0, 1.0, 1.0 }
 };
+
+void hsv_to_rgb(HSV *hsv, RGB *rgb)
+{
+    gtk_hsv_to_rgb(hsv->H, hsv->S, hsv->V,
+                   &(rgb->R),
+                   &(rgb->G),
+                   &(rgb->B));
+}
+
+void hsv_to_gdkcolor(HSV *hsv, GdkColor *gdk_color)
+{
+    RGB rgb;
+
+    hsv_to_rgb(hsv, &rgb);
+    gdk_color->red   = rgb.R * 65535;
+    gdk_color->green = rgb.G * 65535;
+    gdk_color->blue  = rgb.B * 65535;
+}
+
+void rgb_to_hsv(RGB *rgb, HSV *hsv)
+{
+    gtk_rgb_to_hsv(rgb->R, rgb->G, rgb->B,
+                   &(hsv->H),
+                   &(hsv->S),
+                   &(hsv->V)
+                  );
+}
+
+void gdkcolor_to_hsv(GdkColor *gdk_color, HSV *hsv)
+{
+    RGB rgb;
+
+    rgb.R = (gdouble)(gdk_color->red) / 65535L;
+    rgb.G = (gdouble)(gdk_color->green) / 65535L;
+    rgb.B = (gdouble)(gdk_color->blue) / 65535L;
+
+    rgb_to_hsv(&rgb, hsv);
+}
 
 
 float min(float a, float b, float c) {
@@ -83,44 +122,6 @@ float max(float a, float b, float c) {
 
 
 
-HSV rgb_to_hsv( RGB rgb ) 
-{ 
-    float R = rgb.R, G = rgb.G, B = rgb.B, v, x, f; 
-    int i; 
-    HSV hsv; 
-    x = min(R, G, B); 
-    v = max(R, G, B); 
-    if(v == x) TO_HSV(UNDEFINED, 0, v); 
-    f = (R == x) ? G - B : ((G == x) ? B - R : R - G); 
-    i = (R == x) ? 3 : ((G == x) ? 5 : 1); 
-    TO_HSV(i - f /(v - x), (v - x)/v, v); 
-    return hsv;
-} 
-
-
-
-RGB hsv_to_rgb( HSV hsv ) 
-{ 
-    float h = hsv.H, s = hsv.S, v = hsv.V, m, n, f; 
-    int i; 
-    RGB rgb = { 0.0, 0.0, 0.0}; 
-    if (h == UNDEFINED) TO_RGB(v, v, v); 
-    i = floor(h); 
-    f = h - i; 
-    if ( !(i&1) ) f = 1 - f; // if i is even 
-    m = v * (1 - s); 
-    n = v * (1 - s * f); 
-    switch (i) { 
-    case 6: 
-    case 0: TO_RGB(v, n, m); 
-    case 1: TO_RGB(n, v, m); 
-    case 2: TO_RGB(m, v, n); 
-    case 3: TO_RGB(m, n, v); 
-    case 4: TO_RGB(n, m, v); 
-    case 5: TO_RGB(v, m, n); 
-    } 
-    return rgb;
-} 
 
 
 /* Convert a value of 0..1 to a (s,v) pair */

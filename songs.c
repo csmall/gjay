@@ -37,7 +37,8 @@
 #include "flac.h"
 #include "i18n.h"
 #ifdef WITH_GUI
-#include "ui.h"
+//#include "ui.h"
+#include "ui_explore.h"
 #endif
 
 
@@ -95,22 +96,23 @@ typedef struct {
     gboolean has_dev;
     element_type element;
     GjaySong * s;
-	GjayApp *gjay;
+    GjayApp *gjay;
 } song_parse_state;
 
 
-static gdouble song_mass   ( const GjayPrefs *prefs,  GjaySong * s );
-static gdouble song_attraction (const GjayPrefs *prefs, GjaySong * a, GjaySong  * b,
-   const int tree_depth	);
+static gdouble song_attraction (const GjayApp *gjay,
+                                GjaySong *a,
+                                GjaySong *b,
+                                const int tree_depth);
 static void     write_not_song_data ( FILE * f, gchar * path );
-static gboolean read_song_file_type ( char * path, 
+static gboolean read_song_file_type ( char * path,
                                       song_file_type type,
                                       gint   * length,
                                       gchar ** title,
                                       gchar ** artist,
                                       gchar ** album );
 static gboolean read_data           ( GjayApp *gjay,
-	                                  FILE * f );
+                                      FILE * f );
 static void     data_start_element  ( GMarkupParseContext *context,
                                       const gchar         *element_name,
                                       const gchar        **attribute_names,
@@ -123,33 +125,33 @@ static void     data_end_element    ( GMarkupParseContext *context,
                                       GError             **error );
 static void     data_text           ( GMarkupParseContext *context,
                                       const gchar         *text,
-                                      gsize                text_len,  
+                                      gsize                text_len,
                                       gpointer             user_data,
                                       GError             **error );
 static int      get_element         ( gchar * element_name );
-static void     song_copy_attrs     ( GjaySong * dest, 
+static void     song_copy_attrs     ( GjaySong * dest,
                                       GjaySong * original );
 
 gboolean
-create_song_lists(GjaySongLists **sl) {
+create_song_lists(GjaySongLists **sl)
+{
+    if ( (*sl = g_malloc0(sizeof(GjaySongLists))) == NULL)
+        return FALSE;
 
-  if ( (*sl = g_malloc0(sizeof(GjaySongLists))) == NULL)
-	return FALSE;
-
-  (*sl)->songs = NULL;
-  (*sl)->not_songs = NULL;
-  (*sl)->dirty = FALSE;
-  (*sl)->name_hash    = g_hash_table_new(g_str_hash, g_str_equal);
-  (*sl)->inode_dev_hash = g_hash_table_new(g_int_hash, g_int_equal);
-  (*sl)->not_hash     = g_hash_table_new(g_str_hash, g_str_equal);
-
-  return TRUE;
+    (*sl)->songs = NULL;
+    (*sl)->not_songs = NULL;
+    (*sl)->dirty = FALSE;
+    (*sl)->name_hash = g_hash_table_new(g_str_hash, g_str_equal);
+    (*sl)->inode_dev_hash = g_hash_table_new(g_int_hash, g_int_equal);
+    (*sl)->not_hash = g_hash_table_new(g_str_hash, g_str_equal);
+    return TRUE;
 }
 
 /* Create a new song with the given filename */
-GjaySong * create_song ( void ) {
+GjaySong * create_song ( void )
+{
     GjaySong * s;
-    
+
     s = g_malloc0(sizeof(GjaySong));
     s->no_color = TRUE;
     s->no_rating = TRUE;
@@ -174,8 +176,9 @@ void delete_song (GjaySong * s) {
 }
 
 
-GjaySong * song_set_path ( GjaySong * s, 
-                       char * path ) {
+GjaySong * song_set_path ( GjaySong * s,
+                           char * path )
+{
     int i;
     free(s->path);
     s->path = g_strdup(path);
@@ -205,7 +208,7 @@ void song_set_freq_pixbuf ( GjaySong * s) {
         return;
     if (s->no_data)
         return;
-    
+
     s->freq_pixbuf = gdk_pixbuf_new(GDK_COLORSPACE_RGB,
                                     FALSE,
                                     8,
@@ -213,7 +216,7 @@ void song_set_freq_pixbuf ( GjaySong * s) {
                                     FREQ_IMAGE_HEIGHT);
     rowstride = gdk_pixbuf_get_rowstride(s->freq_pixbuf);
     data = gdk_pixbuf_get_pixels (s->freq_pixbuf);
-    
+
     for (x = 0; x < NUM_FREQ_SAMPLES; x++) {
         g = b = MIN(255, 255.0 * 1.8 * (float) sqrt((double) s->freq[x]));
         r = MIN(255, 255.0 * 2.0 * s->freq[x]);
@@ -242,7 +245,7 @@ void song_set_color_pixbuf ( GjaySong * s) {
         return;
     if (s->no_color)
         return;
-    
+
     s->color_pixbuf = gdk_pixbuf_new(GDK_COLORSPACE_RGB,
                                      FALSE,
                                      8,
@@ -250,7 +253,7 @@ void song_set_color_pixbuf ( GjaySong * s) {
                                      COLOR_IMAGE_HEIGHT);
     rowstride = gdk_pixbuf_get_rowstride(s->color_pixbuf);
     data = gdk_pixbuf_get_pixels (s->color_pixbuf);
-    rgb = hsv_to_rgb(s->color);    
+    hsv_to_rgb(&(s->color), &rgb);
     r = rgb.R * 255;
     g = rgb.G * 255;
     b = rgb.B * 255;
@@ -280,7 +283,7 @@ void song_set_repeats ( GjaySong * s, GjaySong * original ) {
     g_free(s->artist);
     g_free(s->title);
     g_free(s->album);
-    
+
     memcpy(s, original, sizeof(GjaySong));
     if (original->title)
         s->title = g_strdup(original->title);
@@ -351,7 +354,7 @@ void file_info ( const guint verbosity,
                  song_file_type * type ) {
     gchar * latin1_path;
     struct stat buf;
-    
+
     *is_song = FALSE;
     *inode = 0;
     *dev = 0;
@@ -368,13 +371,14 @@ void file_info ( const guint verbosity,
     if (stat(latin1_path, &buf)) {
         g_free(latin1_path);
         return;
-    } 
-    
+    }
+
     *dev = buf.st_dev;
     *inode = buf.st_ino;
 
 #ifdef HAVE_VORBIS_VORBISFILE_H
-    if (ogg_supported && read_ogg_file_type(latin1_path, length, title, artist, album) == TRUE)
+    if (ogg_supported &&
+        read_ogg_file_type(latin1_path, length, title, artist, album) == TRUE)
     {
       *is_song = TRUE;
       *type = OGG;
@@ -399,7 +403,8 @@ void file_info ( const guint verbosity,
     }
 
 #ifdef HAVE_FLAC_METADATA_H
-    if (flac_supported && read_flac_file_type(latin1_path, length, title, artist, album) == TRUE)
+    if (flac_supported &&
+        read_flac_file_type(latin1_path, length, title, artist, album) == TRUE)
     {
       *is_song = TRUE;
       *type = FLAC;
@@ -954,12 +959,41 @@ int write_dirty_song_timeout ( gpointer data ) {
     return TRUE;
 }
 
+/* Every song has a mass 0...1.0 */
+static gdouble
+song_mass (const GjayPrefs *prefs, GjaySong * s ) {
+  gdouble max_mass = 0, song_mass = 0;
+    max_mass = 
+        prefs->hue + 
+        prefs->brightness +
+        prefs->freq + 
+        prefs->bpm +
+        prefs->path_weight;
 
-gdouble song_force ( const GjayPrefs *prefs, GjaySong * a, GjaySong  * b, const gint tree_depth ) {
+    assert(max_mass != 0);
+
+    song_mass += prefs->path_weight;
+    if (!s->no_data) {
+        song_mass += prefs->freq;
+    }
+    if (!s->no_color) {
+        song_mass += prefs->hue;
+        song_mass += prefs->brightness;
+        song_mass += prefs->saturation;
+    }
+    if (!s->bpm_undef) {
+        song_mass += prefs->bpm;
+    }
+    
+    return (song_mass / max_mass);
+}
+
+
+gdouble song_force ( const GjayApp *gjay, GjaySong * a, GjaySong  * b, const gint tree_depth ) {
     gdouble ma, mb, attr, sign = 1;
-    ma = song_mass(prefs, a);
-    mb = song_mass(prefs, b);
-    attr = song_attraction(prefs, a, b, tree_depth) * 10;
+    ma = song_mass(gjay->prefs, a);
+    mb = song_mass(gjay->prefs, b);
+    attr = song_attraction(gjay, a, b, tree_depth) * 10;
     if (attr < 0)
         sign = -1;
     return (ma * mb * attr * attr * sign);
@@ -968,11 +1002,12 @@ gdouble song_force ( const GjayPrefs *prefs, GjaySong * a, GjaySong  * b, const 
 
 /* Attraction is a value -1...1 for the affinity between A and B,
    with criteria weighed by prefs */
-static gdouble song_attraction (const GjayPrefs *prefs, GjaySong * a, GjaySong  * b,
+static gdouble song_attraction (const GjayApp *gjay, GjaySong * a, GjaySong  * b,
    const int tree_depth	) {
     gdouble a_hue, a_saturation, a_brightness, a_freq, a_bpm;
     gdouble d, ba, bb, v_diff, a_max, attraction = 0;
     gint i;
+    GjayPrefs *prefs = gjay->prefs;
 
     a_max = 
         (prefs->hue + 
@@ -1048,7 +1083,7 @@ static gdouble song_attraction (const GjayPrefs *prefs, GjaySong * a, GjaySong  
 	/* FIXME - This is not really a GUI thing but a function using Gtk */
     if (tree_depth && a->path && b->path) {
         gdouble a_path = prefs->path_weight / a_max;
-        d = explore_files_depth_distance(a->path, b->path);
+        d = explore_files_depth_distance(gjay->gui->explore_page, a->path, b->path);
         if (d >= 0) {
             d = 1.0 - 2.0 * (d / tree_depth);
             /* d = -1 ... 1, where 1 is more similiar */
@@ -1061,35 +1096,6 @@ static gdouble song_attraction (const GjayPrefs *prefs, GjaySong * a, GjaySong  
 
 
 
-/* Every song has a mass 0...1.0 */
-static gdouble
-song_mass (const GjayPrefs *prefs, GjaySong * s ) {
-  gdouble max_mass = 0, song_mass = 0;
-    max_mass = 
-        prefs->hue + 
-        prefs->brightness +
-        prefs->freq + 
-        prefs->bpm +
-        prefs->path_weight;
-
-    assert(max_mass != 0);
-
-    song_mass += prefs->path_weight;
-    if (!s->no_data) {
-        song_mass += prefs->freq;
-    }
-    if (!s->no_color) {
-        song_mass += prefs->hue;
-        song_mass += prefs->brightness;
-        song_mass += prefs->saturation;
-    }
-    if (!s->bpm_undef) {
-        song_mass += prefs->bpm;
-    }
-    
-    return (song_mass / max_mass);
-}
-
 
 void hash_inode_dev( GjaySong * s, gboolean has_dev) {
     if ((has_dev == FALSE) && (skip_verify == 0)) {
@@ -1100,3 +1106,53 @@ void hash_inode_dev( GjaySong * s, gboolean has_dev) {
     }
     s->inode_dev_hash = s->inode ^ ( (s->dev << 16) | (s->dev >> 16) );
 }
+
+/*
+ * song_by_filename - Find the song using the filename
+ *
+ * Returns:
+ *   GjaySong details if found
+ *   NULL if not found
+ */
+GjaySong *
+song_by_filename(GjayApp *gjay, const gchar *filename)
+{
+    return g_hash_table_lookup(gjay->songs->name_hash, filename);
+}
+
+/*
+ * song_bpm - string representation of songs bpm
+ *
+ * Returns
+ *   allocated string use g_free() to free of BPM field
+ */
+gchar *
+song_bpm(GjaySong *song)
+{
+    if (song->no_data)
+        return g_strdup(_("?"));
+    if (song->bpm_undef)
+        return g_strdup(_("Unsure"));
+    return g_strdup_printf("%3.2f", song->bpm);
+}
+
+/*
+ * song_all_clear - Remove all selected files and songs
+ *
+ */
+void
+song_all_clear(GjayApp *gjay)
+{
+    GList *llist;
+
+    for(llist = g_list_first(gjay->selected_files);
+        llist;
+        llist = g_list_next(llist))
+        g_free(llist->data);
+
+    g_list_free(gjay->selected_files);
+    g_list_free(gjay->selected_songs);
+    gjay->selected_files = NULL;
+    gjay->selected_songs = NULL;
+}
+

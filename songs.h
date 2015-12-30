@@ -129,7 +129,10 @@ void        file_info              ( const guint verbosity,
  * importance of each song's attributes and "d" is the attraction
  * or repulsion (note that the attraction of a -> b = b-> a)
  */
-gdouble song_force ( const GjayPrefs *prefs, GjaySong * a, GjaySong  * b, const gint tree_depth );
+gdouble song_force (const GjayApp *gjay,
+                    GjaySong *a,
+                    GjaySong  *b,
+                    const gint tree_depth );
 
 
 void        write_data_file        ( GjayApp *gjay );
@@ -142,6 +145,11 @@ void        read_data_file         ( GjayApp *gjay );
 gboolean    add_from_daemon_file_at_seek ( GjayApp *gjay, const gint seek );
 void        hash_inode_dev         ( GjaySong * s,
                                      gboolean has_dev );
+GjaySong * song_by_filename(GjayApp *gjay, const gchar *filename);
+gchar *song_bpm(GjaySong *song);
+
+void song_all_clear(
+        GjayApp *gjay);
 
 
 #endif /* __SONGS_H__ */

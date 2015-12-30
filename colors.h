@@ -24,12 +24,15 @@
 #include <gtk/gtk.h>
 #endif /* WITH_GUI */
 
-typedef struct {float R, G, B;} RGB; 
-typedef struct {float H, S, V;} HSV; 
+typedef struct {gdouble R, G, B;} RGB; 
+typedef struct {gdouble H, S, V;} HSV; 
 typedef struct {float H, B;}    HB;
 
-HSV     rgb_to_hsv ( RGB rgb );
-RGB     hsv_to_rgb ( HSV hsv );
+void    hsv_to_rgb(HSV *hsv, RGB *rgb);
+void    hsv_to_gdkcolor(HSV *hsv, GdkColor *gdk_color);
+void    rgb_to_hsv(RGB *rgb, HSV *hsv);
+void    gdkcolor_to_hsv(GdkColor *gdk_color, HSV *hsv);
+
 guint32 rgb_to_hex ( RGB rgb );
 HSV     hb_to_hsv  ( HB hb );
 HB      hsv_to_hb  ( HSV hsv );

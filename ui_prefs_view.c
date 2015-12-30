@@ -29,6 +29,7 @@
 #include "gjay.h"
 #include "ui.h"
 #include "ui_private.h"
+#include "ui_selection.h"
 #include "ipc.h"
 #include "i18n.h"
 #include "play_common.h"
@@ -111,12 +112,13 @@ GtkWidget * make_prefs_window ( GjayApp *gjay )
 
     /* Player selection combo box */
     label = gtk_label_new(_("Music Player:"));
-  
-    player_cbox = gtk_combo_box_new_text();
+
+    player_cbox = gtk_combo_box_text_new();
     i=0;
     while (music_player_names[i] != NULL)
     {
-      gtk_combo_box_append_text(GTK_COMBO_BOX(player_cbox), music_player_names[i]);
+      gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(player_cbox),
+                                     music_player_names[i]);
       i++;
     }
     gtk_combo_box_set_active(GTK_COMBO_BOX(player_cbox), gjay->prefs->music_player);
@@ -178,7 +180,8 @@ GtkWidget * make_prefs_window ( GjayApp *gjay )
     /* Maximum working set box */
     label = gtk_label_new(_("Max working set"));
 
-    max_working_set_entry = gtk_entry_new_with_max_length (6);
+    max_working_set_entry = gtk_entry_new();
+    gtk_entry_set_max_length (GTK_ENTRY(max_working_set_entry), 6);
     snprintf(buffer, BUFFER_SIZE, "%d", gjay->prefs->max_working_set);
     gtk_entry_set_text(GTK_ENTRY(max_working_set_entry), buffer);
     gtk_widget_set_tooltip_text (max_working_set_entry,
@@ -225,8 +228,8 @@ GtkWidget * make_prefs_window ( GjayApp *gjay )
         GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER);
     gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER(button),
         (gjay->prefs->song_root_dir?gjay->prefs->song_root_dir:g_get_home_dir()));
-    gtk_signal_connect(GTK_OBJECT(button), "file-set",
-        GTK_SIGNAL_FUNC (file_chooser_cb), gjay);
+    g_signal_connect(G_OBJECT(button), "file-set",
+                     G_CALLBACK(file_chooser_cb), gjay);
     gtk_box_pack_start(GTK_BOX(vbox2), button, TRUE, TRUE, 2);
 
     hseparator = gtk_hseparator_new();
@@ -289,11 +292,11 @@ GtkWidget * make_prefs_window ( GjayApp *gjay )
                       window);
   gtk_widget_show_all(vbox1);
 
-  gtk_signal_connect (GTK_OBJECT (window), "delete_event",
-    GTK_SIGNAL_FUNC (gtk_widget_hide), NULL);
-  gtk_container_add (GTK_CONTAINER (window), vbox1);
-  g_signal_connect (G_OBJECT (vbox1), "parent_set",
-    G_CALLBACK(prefs_parent_set_callback), gjay->prefs);
+    g_signal_connect (G_OBJECT (window), "delete_event",
+                      G_CALLBACK (gtk_widget_hide), NULL);
+    gtk_container_add (GTK_CONTAINER (window), vbox1);
+    g_signal_connect (G_OBJECT (vbox1), "parent_set",
+                      G_CALLBACK(prefs_parent_set_callback), gjay->prefs);
 
   return window;
 }
@@ -328,8 +331,8 @@ GtkWidget * make_no_root_view ( GjayApp *gjay ) {
     gtk_container_add(GTK_CONTAINER(alignment), vbox2);
     button = new_button_label_pixbuf(_("Choose base music directory"),
         PM_BUTTON_DIR, gjay->gui->pixbufs);
-    gtk_signal_connect(GTK_OBJECT(button), "clicked",
-        G_CALLBACK (choose_base_dir), gjay);
+    g_signal_connect(G_OBJECT(button), "clicked",
+                     G_CALLBACK (choose_base_dir), gjay);
     gtk_box_pack_start(GTK_BOX(vbox2), button, FALSE, FALSE, 5);
     return vbox1;
 }
@@ -393,10 +396,10 @@ static void set_base_dir  ( GjayApp *gjay, char *path ) {
          * doing */
         send_ipc(gjay->ipc->ui_fifo, CLEAR_ANALYSIS_QUEUE);
     }
-    gjay->prefs->song_root_dir = g_strdup(path);     
-	gjay->player->song_root_dir = gjay->prefs->song_root_dir;
+    gjay->prefs->song_root_dir = g_strdup(path);
+    gjay->player->song_root_dir = gjay->prefs->song_root_dir;
     prefs_update_song_dir(gjay->prefs);
-    gtk_idle_add(explore_view_set_root_idle, gjay);
+    //g_idle_add(explore_view_set_root_idle, gjay);
 
     set_add_files_progress(_("Scanning tree..."), 0);
     set_analysis_progress_visible(FALSE);
@@ -479,7 +482,8 @@ static void useratings_toggled ( GtkToggleButton *togglebutton,
   GjayApp *gjay = (GjayApp*)user_data;
 
   gjay->prefs->use_ratings = gtk_toggle_button_get_active(togglebutton);
-  set_selected_rating_visible ( gjay->prefs->use_ratings );
+  selection_set_rating_visible(gjay->gui->selection_view,
+                               gjay->prefs->use_ratings);
   set_playlist_rating_visible ( gjay->prefs->use_ratings );
   save_prefs(gjay->prefs);
 }

@@ -1,7 +1,7 @@
 /*
  * Gjay - Gtk+ DJ music playlist creator
  * Copyright 2002,2003 Chuck Groom
- * Copyright 2010-2012 Craig Small 
+ * Copyright 2010-2015 Craig Small 
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -24,11 +24,13 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <string.h>
+#include <gtk/gtk.h>
 #include "gjay.h"
 #include "ui.h"
 #include "ui_private.h"
 #include "playlist.h"
 #include "play_common.h"
+#include "i18n.h"
 
 enum {
    ARTIST_COLUMN,
@@ -75,27 +77,20 @@ static gboolean playlist_window_delete (GtkWidget *widget,
 static void  populate_playlist_list (GtkListStore * list_store,
                                      GList * list);
 
-/* Playlist save-as window */
-static void save_fsel_clicked ( GtkButton *button,
-                                gpointer user_data );
-static void confirm_save_response (GtkDialog *dialog,
-                                   gint arg1,
-                                   gpointer user_data);
-static void save_playlist_selector (GtkWidget * file_selector);
-
-static void set_prefs_color ( gpointer data,
-                              gpointer user_data);
-
-
+static void color_button_color_set(GtkColorButton *button,
+                                   gpointer user_data)
+{
+    colorbutton_get_color(button,(HSV*)user_data);
+}
 
 GtkWidget * make_playlist_view ( GjayApp *gjay ) {
     GtkWidget * hbox1, * vbox1, * vbox2, * vbox3;
     char buffer[BUFFER_SIZE];
     GtkWidget * button, * label, * frame, * range, * event_box;
-    GtkWidget * colorwheel;
+    GtkWidget * color_button;
 
     vbox1 = gtk_vbox_new(FALSE, 2);
-    
+
     button_sel_songs = gtk_check_button_new_with_label(
         "Only from selected songs");
     gtk_widget_set_tooltip_text (button_sel_songs,
@@ -138,12 +133,12 @@ GtkWidget * make_playlist_view ( GjayApp *gjay ) {
                       G_CALLBACK (toggled_start_color), gjay->prefs);
     gtk_box_pack_start(GTK_BOX(hbox1), button_start_color, FALSE, FALSE, 2);
 
-    colorwheel = create_colorwheel(gjay, PLAYLIST_CW_DIAMETER, 
-                                   NULL, 
-                                   set_prefs_color, 
-                                   &(gjay->prefs->start_color));
-    set_colorwheel_color(colorwheel, gjay->prefs->start_color);
-    gtk_box_pack_start(GTK_BOX(hbox1), colorwheel, FALSE, FALSE, 2);
+    color_button = colorbutton_new(gjay);
+    colorbutton_set_color(GTK_COLOR_BUTTON(color_button), &(gjay->prefs->start_color));
+    colorbutton_set_callback(GTK_COLOR_BUTTON(color_button),
+                             G_CALLBACK(color_button_color_set),
+                             &(gjay->prefs->start_color));
+    gtk_box_pack_start(GTK_BOX(hbox1), color_button, FALSE, FALSE, 2);
 
     frame = gtk_frame_new("Criteria");
     gtk_box_pack_start(GTK_BOX(vbox1), frame, TRUE, TRUE, 2);
@@ -238,7 +233,8 @@ GtkWidget * make_playlist_view ( GjayApp *gjay ) {
     hbox1 = gtk_hbox_new(FALSE, 2);
     gtk_box_pack_start(GTK_BOX(vbox1), hbox1, FALSE, FALSE, 2);
     label = gtk_label_new("Time (minutes)");
-    time_entry = gtk_entry_new_with_max_length (4);
+    time_entry = gtk_entry_new();
+    gtk_entry_set_max_length(GTK_ENTRY(time_entry), 4);
     snprintf(buffer, BUFFER_SIZE, "%d", gjay->prefs->playlist_time);
     gtk_entry_set_text(GTK_ENTRY(time_entry), buffer);
     gtk_widget_set_tooltip_text (time_entry,
@@ -501,63 +497,29 @@ static void playlist_window_play ( GtkButton *button,
 
 static void playlist_window_save ( GtkButton *button,
                                    gpointer user_data ) {
-    GtkWidget * file_selector;
+    GtkWidget * dialog;
     GList * list;
 
     list = (GList *) user_data;
-    file_selector = gtk_file_selection_new("Save playlist as...");
-    g_object_set_data (G_OBJECT (file_selector),
-                       PLAYLIST_STR,
-                       list);
-    g_signal_connect (GTK_OBJECT(GTK_FILE_SELECTION(file_selector)->ok_button),
-                      "clicked",
-                      G_CALLBACK (save_fsel_clicked),
-                      NULL);
-    
-    g_signal_connect_swapped (GTK_OBJECT (GTK_FILE_SELECTION (file_selector)->cancel_button),
-                              "clicked",
-                              G_CALLBACK (gtk_widget_destroy),
-                              (gpointer) file_selector); 
-    gtk_widget_show(file_selector);
-}
+    dialog = gtk_file_chooser_dialog_new(
+                                _("Save playlist"),
+                                NULL,
+                                GTK_FILE_CHOOSER_ACTION_SAVE,
+                                GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
+                                GTK_STOCK_SAVE, GTK_RESPONSE_ACCEPT,
+                                NULL);
+    gtk_file_chooser_set_do_overwrite_confirmation(GTK_FILE_CHOOSER(dialog),
+                                                   TRUE);
+    gtk_file_chooser_set_current_name(GTK_FILE_CHOOSER(dialog), PLAYLIST_STR);
 
-
-static void save_fsel_clicked ( GtkButton *button,
-                                gpointer user_data ) {
-    const gchar *selected_filename;
-    GtkWidget * file_selector, * dialog;
-
-    file_selector = gtk_widget_get_toplevel(GTK_WIDGET(button));
-    selected_filename = gtk_file_selection_get_filename (GTK_FILE_SELECTION (file_selector));
-    
-    if (access(selected_filename, W_OK) == 0) {
-        dialog = gtk_message_dialog_new(GTK_WINDOW(file_selector),
-                                              GTK_DIALOG_DESTROY_WITH_PARENT,
-                                              GTK_MESSAGE_QUESTION,
-                                              GTK_BUTTONS_YES_NO,
-                                              "Overwrite '%s'?",
-                                              selected_filename);
-        g_signal_connect (GTK_OBJECT (dialog), 
-                          "response",
-                          G_CALLBACK (confirm_save_response),
-                          file_selector);
-        gtk_widget_show(dialog);
-    } else {
-        save_playlist_selector(file_selector);
+    if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
+        char *filename;
+        filename = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(dialog));
+        save_playlist(list, filename);
+        g_free(filename);
     }
+    gtk_widget_destroy(dialog);
 }
-
-
-static void confirm_save_response (GtkDialog *dialog,
-                                   gint arg1,
-                                   gpointer user_data) {
-    if (arg1 == GTK_RESPONSE_YES) {
-        save_playlist_selector(GTK_WIDGET(user_data));
-    } else {
-        gtk_widget_destroy(GTK_WIDGET(dialog));
-    }
-}
-
 
 
 static gboolean playlist_window_delete ( GtkWidget *widget,
@@ -612,19 +574,6 @@ static void  populate_playlist_list(GtkListStore * list_store,
 }
 
 
-static void save_playlist_selector(GtkWidget * file_selector) {
-    GList * list;
-    const gchar *selected_filename;
-    
-    selected_filename = gtk_file_selection_get_filename (
-        GTK_FILE_SELECTION (file_selector));
-    list = (GList *) g_object_get_data(G_OBJECT(file_selector), PLAYLIST_STR);
-    
-    save_playlist(list, (char *) selected_filename);
-    gtk_widget_destroy(file_selector);
-}
-
-
 void set_playlist_rating_visible ( gboolean is_visible ) {
     if (is_visible) {
         gtk_widget_show(rating_hbox);
@@ -650,15 +599,7 @@ GtkWidget * create_float_slider_widget (gchar * name,
     gtk_range_set_inverted(GTK_RANGE(range), TRUE);
     gtk_box_pack_start(GTK_BOX(vbox), event_box, FALSE, FALSE, 2);
     gtk_box_pack_start(GTK_BOX(vbox), range, TRUE, TRUE, 2);
-    if (description) 
+    if (description)
       gtk_widget_set_tooltip_text(event_box,description);
     return vbox;
 }
-
-
-static void set_prefs_color ( gpointer data,
-                              gpointer user_data) {
-    assert(data && user_data);
-    *((HSV *) user_data) = get_colorwheel_color(GTK_WIDGET(data));
-}
-

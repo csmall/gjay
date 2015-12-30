@@ -27,6 +27,7 @@
 #include "gjay.h"
 #include "ui.h"
 #include "ui_private.h"
+#include "ui_explore.h"
 #include "i18n.h"
 
 void menuitem_currentsong ( GtkAction *action, gpointer user_data);
@@ -106,7 +107,7 @@ void menuitem_currentsong (GtkAction *action, gpointer user_data) {
   }
   s = gjay->player->get_current_song(gjay->player,gjay->songs->name_hash);
   if (s) {
-    explore_select_song(s);
+    explore_select_song(gjay->gui->explore_page, s);
   } else {
     if (gjay->player->is_running(gjay->player)) {
       gjay_error_dialog(gjay->gui->main_window, _("Sorry, GJay doesn't appear to know that song"));

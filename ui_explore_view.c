@@ -1,7 +1,7 @@
 /*
  * Gjay - Gtk+ DJ music playlist creator
  * Copyright (C) 2002-2004 Chuck Groom
- * Copyright (C) 2010 Craig Small 
+ * Copyright (C) 2010-2015 Craig Small 
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -26,12 +26,20 @@
 #include <ftw.h> 
 #include <string.h>
 #include <time.h>
+#include <gtk/gtk.h>
 #include "gjay.h"
 #include "ui.h"
 #include "ui_private.h"
 #include "ipc.h"
+#include "ui_explore_view.h"
+#include "i18n.h"
 
-
+enum
+{
+    NAME_COLUMN = 0,
+    IMAGE_COLUMN,
+    N_COLUMNS
+};
 
 typedef struct {
     gchar    * fname;
@@ -40,13 +48,12 @@ typedef struct {
 
 typedef struct {
   int (*fn)( const char *file, 
-	  const struct stat *sb, int flag, gboolean a, gboolean b, gboolean c);
+  const struct stat *sb, int flag, gboolean a, gboolean b, gboolean c);
   gboolean extension_filter;
   gboolean flac_supported;
   gboolean ogg_supported;
 } ftw_data;
 
-GtkTreeStore * store = NULL;
 GtkWidget    * tree_view = NULL;
 GQueue       * iter_stack = NULL;
 GQueue       * parent_name_stack = NULL; /* Stack of file name (one level
@@ -80,7 +87,6 @@ static int    get_iter_path   ( GtkTreeModel *tree_model,
                                 GtkTreeIter *child,
                                 char * buffer,
                                 gboolean is_start );
-static int    file_iter_depth ( char * file );
 static int    file_depth      ( char * file );
 static gint   explore_animate ( gpointer data );
 static void   explore_mark_new_dirs ( GjayApp *gjay, char * dir );
@@ -91,24 +97,66 @@ static gint   iter_sort_strcmp ( GtkTreeModel *model,
 static gint   compare_str     ( gconstpointer a,
                                 gconstpointer b );
 
+static int file_iter_depth ( GtkTreeStore *store, char * file ) {
+    GtkTreeIter *iter;
+    GtkTreeIter child, parent;
+    int depth;
 
-GtkWidget * make_explore_view ( GjayApp *gjay ) {
-    GtkWidget * swin;
+    iter = g_hash_table_lookup(name_iter_hash, file);
+    if (!iter) 
+        return -1;
+    memcpy(&child, iter, sizeof(GtkTreeIter));
+    for (depth = 0; 
+         gtk_tree_model_iter_parent(GTK_TREE_MODEL (store), &parent, &child); 
+         depth++) {
+        memcpy(&child, &parent, sizeof(GtkTreeIter));
+    }
+    return depth;
+}
+
+static GtkWidget*
+create_details_none(GjayApp *gjay)
+{
+    GtkWidget *w;
+
+    w = gtk_frame_new(_("Select Song/Album"));
+    return w;
+}
+
+ExplorePage *explore_page_new(GjayApp *gjay)
+{
     GtkCellRenderer *renderer;
     GtkTreeViewColumn *column;
     GtkTreeSelection *select;
+    GtkWidget *tree_frame, *tree_swin;
+       GtkWidget *frame2;
+    ExplorePage *page;
+
+    page = g_malloc0(sizeof(ExplorePage));
+    page->widget = gtk_hpaned_new();
     
-    store = gtk_tree_store_new (N_COLUMNS, G_TYPE_STRING, GDK_TYPE_PIXBUF);
-    gtk_tree_sortable_set_sort_func(GTK_TREE_SORTABLE(store),
+    tree_frame = gtk_frame_new(NULL);
+    gtk_frame_set_shadow_type(GTK_FRAME(tree_frame), GTK_SHADOW_IN);
+    gtk_paned_pack1(GTK_PANED(page->widget), tree_frame, TRUE, TRUE);
+
+    tree_swin = gtk_scrolled_window_new (NULL, NULL);
+    gtk_widget_set_usize(tree_swin, APP_WIDTH * 0.5, -1);
+    gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (page->widget),
+                                    GTK_POLICY_AUTOMATIC,
+                                    GTK_POLICY_AUTOMATIC);
+    gtk_container_add(GTK_CONTAINER(tree_frame), GTK_WIDGET(tree_swin));
+
+    page->store = gtk_tree_store_new (N_COLUMNS, G_TYPE_STRING, GDK_TYPE_PIXBUF);
+    gtk_tree_sortable_set_sort_func(GTK_TREE_SORTABLE(page->store),
                                     NAME_COLUMN,
                                     iter_sort_strcmp,
                                     NULL,
                                     NULL);
-    gtk_tree_sortable_set_sort_column_id (GTK_TREE_SORTABLE(store), 
+    gtk_tree_sortable_set_sort_column_id (GTK_TREE_SORTABLE(page->store), 
                                           NAME_COLUMN,
                                           GTK_SORT_ASCENDING);
-    
-    tree_view = gtk_tree_view_new_with_model (GTK_TREE_MODEL(store));
+
+    tree_view = gtk_tree_view_new_with_model (GTK_TREE_MODEL(page->store));
     select = gtk_tree_view_get_selection (GTK_TREE_VIEW (tree_view));
     gtk_tree_selection_set_mode (select, GTK_SELECTION_SINGLE);
     g_signal_connect (G_OBJECT (select), 
@@ -130,13 +178,13 @@ NULL);
     gtk_tree_view_append_column (GTK_TREE_VIEW (tree_view), column);
     gtk_tree_view_set_headers_visible(GTK_TREE_VIEW (tree_view), FALSE);
 
-    swin = gtk_scrolled_window_new (NULL, NULL);
-    gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (swin),
-                                    GTK_POLICY_AUTOMATIC,
-                                    GTK_POLICY_AUTOMATIC);
-    gtk_container_add(GTK_CONTAINER(swin), GTK_WIDGET(tree_view));
-    gtk_widget_set_usize(swin, APP_WIDTH * 0.5, -1);
-    return swin;
+    gtk_container_add(GTK_CONTAINER(tree_swin), GTK_WIDGET(tree_view));
+
+    frame2 = gtk_frame_new(NULL);
+    gtk_frame_set_shadow_type(GTK_FRAME(frame2), GTK_SHADOW_IN);
+    gtk_paned_pack2(GTK_PANED(page->widget), frame2, TRUE, FALSE);
+
+    return page;
 }
 
 
@@ -155,7 +203,7 @@ void explore_view_set_root (GjayApp *gjay) {
     if (!gjay->prefs->song_root_dir)
         return;
 
-    gtk_tree_store_clear(store);
+    gtk_tree_store_clear(gjay->gui->explore_page->store);
     gjay->tree_depth = 0;
     
     /* Unmark current songs */
@@ -423,8 +471,8 @@ static int tree_add_idle (gpointer data) {
         }
         display_name = fta->fname + 1 + strlen(parent_name_stack->tail->data);
 
-        gtk_tree_store_append (store, current, parent);
-        gtk_tree_store_set (store, current,
+        gtk_tree_store_append (gjay->gui->explore_page->store, current, parent);
+        gtk_tree_store_set (gjay->gui->explore_page->store, current,
                             NAME_COLUMN, display_name,
                             IMAGE_COLUMN, gjay->gui->pixbufs[pm_type],
                             -1);
@@ -449,8 +497,8 @@ static int tree_add_idle (gpointer data) {
             display_name = fta->fname + 1 + strlen(parent_name_stack->tail->data);
         }
         
-        gtk_tree_store_append (store, current, parent);
-        gtk_tree_store_set (store, current,
+        gtk_tree_store_append (gjay->gui->explore_page->store, current, parent);
+        gtk_tree_store_set (gjay->gui->explore_page->store, current,
                             NAME_COLUMN, display_name,
                             IMAGE_COLUMN, gjay->gui->pixbufs[PM_DIR_CLOSED],
                             -1);
@@ -513,7 +561,7 @@ static void select_row (GtkTreeSelection *selection, gpointer data) {
            tree is setup and the root directory gets called as if it were
            a normal file because it doesn't have any children. */
         if (!g_queue_is_empty(files_to_add_queue) && 
-            (gtk_tree_store_iter_depth(store, &iter) == 0)) {
+            (gtk_tree_store_iter_depth(gjay->gui->explore_page->store, &iter) == 0)) {
             return;
         }
 
@@ -536,21 +584,25 @@ static void select_row (GtkTreeSelection *selection, gpointer data) {
  * Redraw the icon next to the corresponding file in the tree. Return TRUE
  * if file was found in tree, FALSE if not.
  */
-gboolean explore_update_path_pm ( GdkPixbuf **pixbufs, const char * path, int type ) {
+gboolean explore_update_path_pm (ExplorePage *page,
+                                 GdkPixbuf **pixbufs,
+                                 const char * path,
+                                 int type )
+{
     GtkTreeIter  * iter;
 
     if (!name_iter_hash)
         return FALSE;
-    
+
     iter = g_hash_table_lookup(name_iter_hash, path);
     if (iter) {
-        gtk_tree_store_set (store, 
+        gtk_tree_store_set (page->store,
                             iter,
                             IMAGE_COLUMN,
-                            pixbufs[type], 
+                            pixbufs[type],
                             -1);
         return TRUE;
-    } 
+    }
     return FALSE;
 }
 
@@ -559,7 +611,10 @@ gboolean explore_update_path_pm ( GdkPixbuf **pixbufs, const char * path, int ty
 /**
  * Get a glist of files in a directory
  */
-GList * explore_files_in_dir ( const gchar * dir, const gboolean recursive) {
+GList * explore_files_in_dir ( const ExplorePage *page,
+                               const gchar * dir,
+                               const gboolean recursive)
+{
     GtkTreeIter *iter, child;
     char buffer[BUFFER_SIZE];
     gboolean has_child;
@@ -568,35 +623,131 @@ GList * explore_files_in_dir ( const gchar * dir, const gboolean recursive) {
     iter = g_hash_table_lookup(name_iter_hash, dir);
     if (!iter)
         return NULL;
-    has_child = gtk_tree_model_iter_children (GTK_TREE_MODEL (store), 
+    has_child = gtk_tree_model_iter_children (GTK_TREE_MODEL (page->store),
                                               &child, iter);
-    
+
     if (has_child) {
         do {
-            if (!gtk_tree_model_iter_has_child(GTK_TREE_MODEL (store), 
+            if (!gtk_tree_model_iter_has_child(GTK_TREE_MODEL (page->store), 
                                                &child)) {
-                get_iter_path ( GTK_TREE_MODEL (store),
+                get_iter_path ( GTK_TREE_MODEL (page->store),
                                 &child,
                                 buffer, 
                                 TRUE);        
                 list = g_list_append(list, g_strdup(buffer));
             } else if (recursive) {
-                get_iter_path ( GTK_TREE_MODEL (store),
+                get_iter_path ( GTK_TREE_MODEL (page->store),
                                 &child,
                                 buffer, 
                                 TRUE); 
-                list = g_list_concat(list, explore_files_in_dir(buffer, TRUE));
+                list = g_list_concat(list, explore_files_in_dir(page, buffer, TRUE));
             }
-        } while (gtk_tree_model_iter_next(GTK_TREE_MODEL (store), &child));
+        } while (gtk_tree_model_iter_next(GTK_TREE_MODEL (page->store), &child));
     }
     return list;
 }
 
 
+
+/* Get the depth by counting the number of non-terminal '/' in the path */
+static int file_depth ( char * file ) {
+    int len, kk, depth;
+    
+    len = strlen(file);
+    if (len)
+        len--; // Avoid ending '/'
+    for (kk = 0, depth = 0; kk < len; kk++) {
+        if (file[kk] == '/')
+            depth++;
+    }
+    return depth;
+}
+
+
+
+
+void explore_animate_pending (GjayApp *gjay, char * file) {
+    explore_animate_stop();
+    animate_file = g_strdup(file);
+    animate_timeout = gtk_timeout_add( 250,
+                                       explore_animate,
+                                       gjay->gui);
+}
+
+void explore_animate_stop ( void ) {
+    g_free(animate_file);
+    animate_file = NULL;
+    animate_frame = 0;
+    if (animate_timeout)
+        gtk_timeout_remove(animate_timeout);
+    animate_timeout = 0;
+}
+
+
+static gint explore_animate ( gpointer data ) {
+  GjayGUI *gui=(GjayGUI*)data;
+    explore_update_path_pm( gui->explore_page,
+                            gui->pixbufs,
+							animate_file,
+                            PM_FILE_PENDING + animate_frame);
+    animate_frame = (animate_frame + 1) % 4;
+    return TRUE;
+}
+
+
+gint iter_sort_strcmp  (GtkTreeModel *model,
+                        GtkTreeIter *a,
+                        GtkTreeIter *b,
+                        gpointer user_data) {
+    char * a_str, * b_str;
+    int result;
+    gtk_tree_model_get (model, a, NAME_COLUMN, &a_str, -1);
+    gtk_tree_model_get (model, b, NAME_COLUMN, &b_str, -1);
+    result = strcmp(a_str, b_str);
+    g_free(a_str);
+    g_free(b_str);
+    return result;
+}
+
+
+/**
+ * Return TRUE if the directory contains at least one song which
+ * has not been rated or color-categorized
+ */
+gboolean explore_dir_has_new_songs ( ExplorePage *page,
+                                     GHashTable *name_hash,
+                                     const gchar * dir,
+                                     const guint verbosity )
+{
+    gboolean result = FALSE;
+    GList * list;
+    GjaySong * s;
+    
+    list = explore_files_in_dir(page, dir, TRUE);
+    for (; list; list = g_list_next(list)) {
+        if (result == FALSE) {
+            s = g_hash_table_lookup(name_hash, list->data);
+            if (s) {
+                if (s->no_rating && s->no_color) {
+                    result = TRUE;
+                }
+            } else if (verbosity) {
+                fprintf(stderr, "Explore_dir_has_new_songs: missing dir %s\n",
+                        dir);
+            }
+        }
+        g_free(list->data);
+    }
+    g_list_free(list);
+    return result;
+}
+
 /**
  * Get a glist of directories in a directory
  */
-GList * explore_dirs_in_dir ( const gchar * dir) {
+static GList*
+explore_dirs_in_dir ( GtkTreeStore *store, const gchar * dir)
+{
     GtkTreeIter *iter, child;
     char buffer[BUFFER_SIZE];
     GList * list = NULL;
@@ -625,112 +776,6 @@ GList * explore_dirs_in_dir ( const gchar * dir) {
 }
 
 
-static int file_iter_depth ( char * file ) {
-    GtkTreeIter *iter;
-    GtkTreeIter child, parent;
-    int depth;
-
-    iter = g_hash_table_lookup(name_iter_hash, file);
-    if (!iter) 
-        return -1;
-    memcpy(&child, iter, sizeof(GtkTreeIter));
-    for (depth = 0; 
-         gtk_tree_model_iter_parent(GTK_TREE_MODEL (store), &parent, &child); 
-         depth++) {
-        memcpy(&child, &parent, sizeof(GtkTreeIter));
-    }
-    return depth;
-}
-
-/* Get the depth by counting the number of non-terminal '/' in the path */
-static int file_depth ( char * file ) {
-    int len, kk, depth;
-    
-    len = strlen(file);
-    if (len)
-        len--; // Avoid ending '/'
-    for (kk = 0, depth = 0; kk < len; kk++) {
-        if (file[kk] == '/')
-            depth++;
-    }
-    return depth;
-}
-
-
-
-
-void explore_animate_pending (GjayGUI *gui, char * file) {
-    explore_animate_stop();
-    animate_file = g_strdup(file);
-    animate_timeout = gtk_timeout_add( 250,
-                                       explore_animate,
-                                       gui);
-}
-
-void explore_animate_stop ( void ) {
-    g_free(animate_file);
-    animate_file = NULL;
-    animate_frame = 0;
-    if (animate_timeout)
-        gtk_timeout_remove(animate_timeout);
-    animate_timeout = 0;
-}
-
-
-static gint explore_animate ( gpointer data ) {
-  GjayGUI *gui=(GjayGUI*)data;
-    explore_update_path_pm( gui->pixbufs,
-							animate_file,
-                            PM_FILE_PENDING + animate_frame);
-    animate_frame = (animate_frame + 1) % 4;
-    return TRUE;
-}
-
-
-gint iter_sort_strcmp  (GtkTreeModel *model,
-                        GtkTreeIter *a,
-                        GtkTreeIter *b,
-                        gpointer user_data) {
-    char * a_str, * b_str;
-    int result;
-    gtk_tree_model_get (model, a, NAME_COLUMN, &a_str, -1);
-    gtk_tree_model_get (model, b, NAME_COLUMN, &b_str, -1);
-    result = strcmp(a_str, b_str);
-    g_free(a_str);
-    g_free(b_str);
-    return result;
-}
-
-
-/**
- * Return TRUE if the directory contains at least one song which
- * has not been rated or color-categorized
- */
-gboolean explore_dir_has_new_songs ( GHashTable *name_hash, const gchar * dir, const guint verbosity ) {
-    gboolean result = FALSE;
-    GList * list;
-    GjaySong * s;
-    
-    list = explore_files_in_dir(dir, TRUE);
-    for (; list; list = g_list_next(list)) {
-        if (result == FALSE) {
-            s = g_hash_table_lookup(name_hash, list->data);
-            if (s) {
-                if (s->no_rating && s->no_color) {
-                    result = TRUE;
-                }
-            } else if (verbosity) {
-                fprintf(stderr, "Explore_dir_has_new_songs: missing dir %s\n",
-                        dir);
-            }
-        }
-        g_free(list->data);
-    }
-    g_list_free(list);
-    return result;
-}
-
-
 /**
  * Mark all directories containing at least one file which requires
  * rating/color classification
@@ -740,6 +785,7 @@ static void explore_mark_new_dirs ( GjayApp *gjay, char * dir ) {
     gchar * str;
     char buffer[BUFFER_SIZE];
     int len;
+    GtkTreeStore *store = gjay->gui->explore_page->store;
 
     strncpy(buffer, dir, BUFFER_SIZE);
     len = strlen(buffer);
@@ -747,16 +793,18 @@ static void explore_mark_new_dirs ( GjayApp *gjay, char * dir ) {
         buffer[len - 1] = '\0';
     
     if (strcmp(dir, gjay->prefs->song_root_dir) != 0) {
-        if (explore_dir_has_new_songs(gjay->songs->name_hash, dir,
-			  gjay->verbosity)) {
-            str = g_strdup(dir); 
+        if (explore_dir_has_new_songs(gjay->gui->explore_page,
+                                      gjay->songs->name_hash, dir,
+                                      gjay->verbosity)) {
+            str = g_strdup(dir);
             gjay->new_song_dirs = g_list_append(gjay->new_song_dirs, str);
             g_hash_table_insert(gjay->new_song_dirs_hash, str, str);
-            explore_update_path_pm(gjay->gui->pixbufs, dir, PM_DIR_CLOSED_NEW);
+            explore_update_path_pm(gjay->gui->explore_page,
+                                   gjay->gui->pixbufs, dir, PM_DIR_CLOSED_NEW);
         }
     }
     
-    for (list = explore_dirs_in_dir(buffer); list; list = g_list_next(list)) {
+    for (list = explore_dirs_in_dir(store, buffer); list; list = g_list_next(list)) {
         explore_mark_new_dirs(gjay, list->data);
         g_free(list->data);
     }
@@ -764,14 +812,14 @@ static void explore_mark_new_dirs ( GjayApp *gjay, char * dir ) {
 }
 
 
-void explore_select_song ( GjaySong * s) {
+void explore_select_song ( ExplorePage *page, GjaySong * s) {
     GtkTreeIter  * iter;
     GtkTreePath * path;
     if (s == NULL) 
         return;
     iter = g_hash_table_lookup(name_iter_hash, s->path);
     if (iter) {
-        path = gtk_tree_model_get_path(GTK_TREE_MODEL(store), iter);
+        path = gtk_tree_model_get_path(GTK_TREE_MODEL(page->store), iter);
         gtk_tree_view_expand_to_path(GTK_TREE_VIEW(tree_view), path);
         gtk_tree_selection_select_path(
             gtk_tree_view_get_selection(GTK_TREE_VIEW(tree_view)),
@@ -847,7 +895,8 @@ static int gjay_ftw(const gchar *dir, const guint depth, ftw_data *fdata) {
 }
 
 /* How many directory steps separate files 1 and 2? */
-gint explore_files_depth_distance ( char * file1, 
+gint explore_files_depth_distance ( ExplorePage *page,
+                                    char * file1, 
                                     char * file2 ) {
     char buffer[BUFFER_SIZE];
     int f1, f2, shared, k, len;
@@ -860,9 +909,9 @@ gint explore_files_depth_distance ( char * file1,
         k--;
     /* Replace slash with null termination */
     buffer[k] = '\0';
-    f1 = file_iter_depth(file1);
-    f2 = file_iter_depth(file2);
-    shared = file_iter_depth(buffer) + 1;
+    f1 = file_iter_depth(page->store, file1);
+    f2 = file_iter_depth(page->store, file2);
+    shared = file_iter_depth(page->store, buffer) + 1;
 
     if (f1 && f2 && shared) 
         return ((f1 - shared) + (f2 - shared));
@@ -870,4 +919,6 @@ gint explore_files_depth_distance ( char * file1,
         return -1;
 }
 
-
+void explore_page_switch(GjayApp *gjay)
+{
+}

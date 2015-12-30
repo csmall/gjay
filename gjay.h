@@ -39,12 +39,10 @@
 typedef struct _GjayApp GjayApp;
 
 #include "constants.h"
-#include "rgbhsv.h"
 #include "songs.h"
 #include "prefs.h"
 #ifdef WITH_GUI
 #include "ui.h"
-typedef struct _GjayGUI GjayGUI;
 #endif
 
 /* Helper programs */
@@ -105,7 +103,7 @@ struct _GjayApp {
   GjayPlayer *player;
   struct _GjaySongLists *songs;
 #ifdef WITH_GUI
-  GjayGUI      * gui;
+  struct GjayGUI      * gui;
 #else
   gpointer		*gui;
 #endif /* WITH_GUI */
